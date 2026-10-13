@@ -2,6 +2,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
+import { createConnection } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
@@ -25,6 +26,23 @@ const cleanup = () => {
   }
 };
 process.on("exit", cleanup);
+
+const portIsOccupied = await new Promise((resolve) => {
+  const socket = createConnection({ host, port: Number(port) });
+  const finish = (occupied) => {
+    socket.removeAllListeners();
+    socket.destroy();
+    resolve(occupied);
+  };
+  socket.once("connect", () => finish(true));
+  socket.once("error", () => finish(false));
+  socket.setTimeout(500, () => finish(false));
+});
+if (portIsOccupied) {
+  console.error(`E2E backend port ${host}:${port} is already occupied.`);
+  cleanup();
+  process.exit(2);
+}
 
 const migration = spawnSync(uv, ["run", "alembic", "upgrade", "head"], {
   cwd: projectRoot,
