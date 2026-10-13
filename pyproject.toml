@@ -28,7 +28,7 @@ src = ["backend"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
-pythonpath = ["backend"]
+pythonpath = [".", "backend"]
 testpaths = ["backend/tests"]
 
 [tool.mypy]

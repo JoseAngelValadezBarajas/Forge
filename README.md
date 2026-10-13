@@ -6,6 +6,14 @@ Forge is a local-first workspace for connecting product intent, local repositori
 
 FND-00 is intentionally limited. There are no connected repositories, features, agent runs, CI claims or release records in the UI. Those capabilities belong to later milestones.
 
+## Licensing
+
+Forge is source-available. Forge code and materials for which the project rights holder owns the relevant rights are offered under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). Forge is not presented as Open Source Initiative-approved software.
+
+The Community terms do not automatically authorize commercial exploitation outside PolyForm's permitted purposes. A commercial business must obtain a separate written [Forge Commercial](COMMERCIAL-LICENSING.md) agreement before internal use for a commercial purpose or other commercial exploitation, unless the specific use is independently permitted by PolyForm. PolyForm's stated exceptions and rights recognized by law remain applicable.
+
+Copyright and attribution details are in [NOTICE](NOTICE). Project identity guidance is in [TRADEMARKS.md](TRADEMARKS.md), contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md), and responsible disclosure guidance is in [SECURITY.md](SECURITY.md).
+
 ## Stack
 
 - Backend: Python 3.12+, FastAPI, Pydantic Settings, SQLAlchemy 2, SQLite, Alembic, uv, pytest, ruff and mypy.
