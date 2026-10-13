@@ -19,6 +19,11 @@ if ($Install) {
   Pop-Location
 }
 
+Push-Location $ForgeRoot
+uv run alembic upgrade head
+uv run --directory backend python -m app.initialization | Out-Null
+Pop-Location
+
 $existingListener = Get-NetTCPConnection -LocalAddress $ForgeConfig.host -LocalPort $BackendPort -State Listen -ErrorAction SilentlyContinue
 if ($existingListener) {
   try {

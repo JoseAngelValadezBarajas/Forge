@@ -1,7 +1,7 @@
 # Roadmap
 
 - **FND-00** — Bootstrap, local runtime, app shell, empty states and health endpoint.
-- **FND-01** — Projects and local repository connection, with explicit observed state.
+- **FND-01** — Workspaces and projects, with persistent selection, real CRUD and explicit not-yet integration states.
 - **FND-02** — Product hierarchy: epics, features and tasks.
 - **FND-03** — Readiness workflow, decisions and invariants.
 - **FND-04** — Git observer and deterministic context packages.

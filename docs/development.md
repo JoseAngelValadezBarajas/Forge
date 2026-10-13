@@ -4,7 +4,9 @@
 
 Run the backend on `127.0.0.1:8000` and the Vite frontend on `127.0.0.1:5173`. These values come from the tracked `forge.config.json`; Vite, Playwright and the Windows launcher read the same file. Vite proxies `/api` to the backend and E2E verifies health through that proxy. The backend defaults to the absolute repository path `.forge/data/forge.db`, independent of the current working directory, and reads `FORGE_` environment variables from the root or `backend/.env` when present.
 
-The first migration infrastructure is in `backend/migrations` and `alembic.ini`. There are no domain tables in FND-00 yet.
+The migration infrastructure is in `backend/migrations` and `alembic.ini`. Run `uv run alembic upgrade head` followed by `uv run --directory backend python -m app.initialization` after a fresh checkout. The initializer is explicit and idempotent: it creates `Local Workspace` once, and does not run on module import.
+
+The FND-01 API contract is summarized in [`api-contracts.md`](api-contracts.md). Workspace and project IDs are opaque UUID strings; project names are unique case-insensitively within a workspace, archive is reversible, and there is no destructive project delete route.
 
 ## Checks
 
@@ -18,5 +20,5 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans every 
 
 Licensing documents live at the repository root: `LICENSE.md`, `NOTICE`, `COMMERCIAL-LICENSING.md`, `TRADEMARKS.md`, `CONTRIBUTING.md` and `SECURITY.md`. The third-party dependency inventory is in `docs/dependency-licenses.md`.
 
-Do not add provider credentials, cloud integrations or repository access to FND-00. Keep claims in the UI tied to observed backend data once those features are implemented.
+Do not add provider credentials, cloud integrations or repository access to FND-01. Keep claims in the UI tied to observed backend data; future repository, agent and delivery areas must remain explicit not-yet states until implemented.
 

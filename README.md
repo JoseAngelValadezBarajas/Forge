@@ -1,10 +1,10 @@
 # Forge
 
-Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-00 is the executable bootstrap: a FastAPI health endpoint, local SQLite infrastructure and a real React app shell with useful empty states.
+Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-01 adds persistent workspaces and projects to the executable FND-00 foundation. Projects remain useful before any repository or integration is connected.
 
 ## Status
 
-FND-00 is intentionally limited. There are no connected repositories, features, agent runs, CI claims or release records in the UI. Those capabilities belong to later milestones.
+FND-01 is intentionally limited. There are no connected repositories, features, agent runs, CI claims or release records in the UI. Those capabilities belong to later milestones.
 
 ## Licensing
 
@@ -25,6 +25,8 @@ Prerequisites: Python 3.12+, Node.js `24.13.0`, npm `11.6.2`, uv and Git. The No
 
 ```powershell
 uv sync --locked --dev
+uv run alembic upgrade head
+uv run --directory backend python -m app.initialization
 Push-Location frontend
 npm ci
 Pop-Location
@@ -87,7 +89,7 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans the cu
 
 ## Design reference
 
-The implementation uses the supplied Forge Figma file as the visual reference. The accessible Core canvas is `04 — Desktop / Core` (`node-id=1:5`), with the Workspace Home at `4:32`. The shell follows the inspected graphite/copper palette, 232px sidebar, compact workspace header, rounded graphite surfaces, Geist-style type hierarchy and IBM Plex Mono labels. FND-00 replaces Figma's sample content with honest empty states; no sample projects, commits, CI results or verification claims are rendered.
+The implementation uses the supplied Forge Figma file as the visual reference. The accessible Core canvas is `04 — Desktop / Core` (`node-id=1:5`), with Workspace Home at `4:32` and Project Overview at `4:158`. The shell follows the inspected graphite/copper palette, 232px sidebar, compact workspace header, rounded graphite surfaces, Geist-style type hierarchy and IBM Plex Mono labels. Figma sample content is replaced with records from SQLite or honest empty states; no sample projects, commits, CI results or verification claims are rendered.
 
 ## Repository layout
 

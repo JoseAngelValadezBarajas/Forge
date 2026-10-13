@@ -23,7 +23,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --host ${forgeConfig.host} --port ${backendPort}`,
+      command: `node ../frontend/e2e/start-backend.mjs ${forgeConfig.host} ${backendPort}`,
       cwd: "../backend",
       url: `http://${forgeConfig.host}:${backendPort}/api/health`,
       reuseExistingServer: !process.env.CI,
