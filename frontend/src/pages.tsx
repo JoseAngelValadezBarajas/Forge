@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 
@@ -15,16 +15,41 @@ function useProjects(workspaceId: string | null, search = "", status: "active" |
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(Boolean(workspaceId));
   const [error, setError] = useState<string | null>(null);
-  const reload = async () => {
-    if (!workspaceId) { setProjects([]); setLoading(false); return; }
+  const requestIdRef = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
+  const reload = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    if (!workspaceId) {
+      setProjects([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    try { setProjects(await forgeApi.listProjects(workspaceId, search, status)); setError(null); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load projects."); }
-    finally { setLoading(false); }
-  };
+    try {
+      const result = await forgeApi.listProjects(workspaceId, search, status, controller.signal);
+      if (requestId !== requestIdRef.current) return;
+      setProjects(result);
+      setError(null);
+    } catch (cause) {
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      setError(cause instanceof Error ? cause.message : "Could not load projects.");
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
+  }, [search, status, workspaceId]);
   // The request synchronizes this view with the selected workspace and filters.
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { void reload(); }, [workspaceId, search, status]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reload();
+    return () => {
+      requestIdRef.current += 1;
+      controllerRef.current?.abort();
+    };
+  }, [reload]);
   return { projects, loading, error, reload };
 }
 
@@ -78,20 +103,66 @@ export function ProjectOverviewPage({ workspace, onOpenPalette }: { workspace: W
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const load = async () => {
-    if (!workspace || !projectId) return;
+  const [statusAction, setStatusAction] = useState<"archiving" | "restoring" | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
+  const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    if (!workspace || !projectId) {
+      setProject(null);
+      setLoading(false);
+      return;
+    }
+    setProject(null);
     setLoading(true);
-    try { setProject(await forgeApi.getProject(workspace.id, projectId)); setError(null); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load project."); }
-    finally { setLoading(false); }
-  };
+    try {
+      const result = await forgeApi.getProject(workspace.id, projectId, controller.signal);
+      if (requestId !== requestIdRef.current) return;
+      setProject(result);
+      setError(null);
+    } catch (cause) {
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      setError(cause instanceof Error ? cause.message : "Could not load project.");
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
+  }, [projectId, workspace]);
   // The request synchronizes this view with the selected project.
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { void load(); }, [workspace?.id, projectId]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+    return () => {
+      requestIdRef.current += 1;
+      controllerRef.current?.abort();
+    };
+  }, [load]);
   const update = async (name: string, description: string) => { if (!workspace || !project) return; setProject(await forgeApi.updateProject(workspace.id, project.id, { name, description })); setEditing(false); };
-  const changeStatus = async () => { if (!workspace || !project) return; const next = project.status === "active" ? await forgeApi.archiveProject(workspace.id, project.id) : await forgeApi.restoreProject(workspace.id, project.id); setProject(next); };
+  const changeStatus = async () => {
+    if (!workspace || !project || statusAction) return;
+    const archiving = project.status === "active";
+    if (archiving && !window.confirm(`Archive ${project.name}? You can restore it later.`)) return;
+    setStatusAction(archiving ? "archiving" : "restoring");
+    setStatusMessage(null);
+    setStatusError(null);
+    try {
+      const next = archiving
+        ? await forgeApi.archiveProject(workspace.id, project.id)
+        : await forgeApi.restoreProject(workspace.id, project.id);
+      setProject(next);
+      setStatusMessage(archiving ? "Project archived." : "Project restored.");
+    } catch (cause) {
+      setStatusError(cause instanceof Error ? cause.message : "Could not update project status.");
+    } finally {
+      setStatusAction(null);
+    }
+  };
   return <PageFrame onOpenPalette={onOpenPalette} subtitle="A real project record, without simulated repository or delivery state." title={project?.name ?? "Project overview"}>
-    {loading ? <LoadingPanel label="Loading project" /> : error ? <ErrorPanel message={error} onRetry={() => void load()} /> : project ? <><div className="detail-tabs"><span className="detail-tab active">Overview</span><span className="detail-tab">Roadmap · not yet</span><span className="detail-tab">Integrations · not yet</span></div><section className="project-overview-card"><div className="project-overview-header"><div><span className="eyebrow">PROJECT</span><h2>{project.name}</h2><p>{project.description || "No description yet."}</p></div><span className={`status-chip ${project.status}`}>{project.status}</span></div><dl className="project-facts"><div><dt>Workspace</dt><dd>{workspace?.name}</dd></div><div><dt>Created</dt><dd>{formatDate(project.created_at)}</dd></div><div><dt>Updated</dt><dd>{formatDate(project.updated_at)}</dd></div>{project.archived_at && <div><dt>Archived</dt><dd>{formatDate(project.archived_at)}</dd></div>}</dl><div className="detail-actions"><button className="button secondary" onClick={() => setEditing(true)} type="button">Edit project</button><button className="button secondary" onClick={() => void changeStatus()} type="button">{project.status === "active" ? "Archive" : "Restore"}</button><button className="button ghost" onClick={() => navigate("/projects")} type="button">Back to projects</button></div></section>{editing && <section className="form-panel"><div className="section-heading"><h2>Edit project</h2><button aria-label="Close edit project" className="icon-button" onClick={() => setEditing(false)} type="button">×</button></div><ProjectForm initial={{ name: project.name, description: project.description ?? "" }} onCancel={() => setEditing(false)} onSubmit={update} submitLabel="Save changes" /></section>}<section className="future-grid"><div><span className="eyebrow">REPOSITORY</span><h3>Not connected</h3><p>Repository observation belongs to a later milestone.</p></div><div><span className="eyebrow">DELIVERY</span><h3>Not available</h3><p>Commits, CI and evidence are not fabricated here.</p></div></section></> : null}
+    {loading ? <LoadingPanel label="Loading project" /> : error ? <ErrorPanel message={error} onRetry={() => void load()} /> : project ? <><div className="detail-tabs"><span className="detail-tab active">Overview</span><span className="detail-tab">Roadmap · not yet</span><span className="detail-tab">Integrations · not yet</span></div><section className="project-overview-card"><div className="project-overview-header"><div><span className="eyebrow">PROJECT</span><h2>{project.name}</h2><p>{project.description || "No description yet."}</p></div><span className={`status-chip ${project.status}`}>{project.status}</span></div><dl className="project-facts"><div><dt>Workspace</dt><dd>{workspace?.name}</dd></div><div><dt>Created</dt><dd>{formatDate(project.created_at)}</dd></div><div><dt>Updated</dt><dd>{formatDate(project.updated_at)}</dd></div>{project.archived_at && <div><dt>Archived</dt><dd>{formatDate(project.archived_at)}</dd></div>}</dl><div className="detail-actions"><button className="button secondary" onClick={() => setEditing(true)} type="button">Edit project</button><button className="button secondary" disabled={Boolean(statusAction)} onClick={() => void changeStatus()} type="button">{statusAction === "archiving" ? "Archiving…" : statusAction === "restoring" ? "Restoring…" : project.status === "active" ? "Archive" : "Restore"}</button><button className="button ghost" onClick={() => navigate("/projects")} type="button">Back to projects</button></div>{statusMessage && <p aria-live="polite" className="status-message" role="status">{statusMessage}</p>}{statusError && <p aria-live="assertive" className="status-error" role="alert">{statusError}</p>}</section>{editing && <section className="form-panel"><div className="section-heading"><h2>Edit project</h2><button aria-label="Close edit project" className="icon-button" onClick={() => setEditing(false)} type="button">×</button></div><ProjectForm initial={{ name: project.name, description: project.description ?? "" }} onCancel={() => setEditing(false)} onSubmit={update} submitLabel="Save changes" /></section>}<section className="future-grid"><div><span className="eyebrow">REPOSITORY</span><h3>Not connected</h3><p>Repository observation belongs to a later milestone.</p></div><div><span className="eyebrow">DELIVERY</span><h3>Not available</h3><p>Commits, CI and evidence are not fabricated here.</p></div></section></> : null}
   </PageFrame>;
 }
 

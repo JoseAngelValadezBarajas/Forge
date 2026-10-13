@@ -67,6 +67,9 @@ test("manages workspaces and projects with persisted isolation", async ({ page }
   await page.getByRole("menuitem", { name: /E2E Workspace/ }).click();
   await expect(page.getByRole("heading", { name: "Browser Project Updated", level: 3 })).toBeVisible();
   await page.getByRole("heading", { name: "Browser Project Updated", level: 3 }).click();
+  page.once("dialog", async (dialog) => {
+    await dialog.accept();
+  });
   await page.getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByText("archived", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Projects", exact: true }).click();

@@ -1,5 +1,7 @@
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from alembic import command
@@ -7,13 +9,21 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.application.services import ensure_local_workspace
+from app.application.services import DuplicateName, WorkspaceService, ensure_local_workspace
 from app.config import get_settings, sqlite_url
 from app.db import Base, get_db
 from app.main import app
+from app.persistence.models import WorkspaceModel
+
+
+def sqlite_index_names(engine: Engine) -> set[str]:
+    with engine.connect() as connection:
+        rows = connection.exec_driver_sql("PRAGMA index_list('workspaces')").fetchall()
+    return {str(row[1]) for row in rows}
 
 
 @pytest.fixture
@@ -126,6 +136,47 @@ def test_migration_creates_schema_on_empty_sqlite(
     get_settings.cache_clear()
     config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
     command.upgrade(config, "head")
-    inspector = inspect(create_engine(sqlite_url(database_path)))
+    engine = create_engine(sqlite_url(database_path))
+    inspector = inspect(engine)
     assert {"workspaces", "projects"}.issubset(set(inspector.get_table_names()))
+    assert "uq_workspaces_name_ci" in sqlite_index_names(engine)
+    engine.dispose()
     get_settings.cache_clear()
+
+
+def test_workspace_index_rejects_case_only_duplicate(database: tuple[Engine, Session]) -> None:
+    engine, session = database
+    session.add(WorkspaceModel(name="Case Space"))
+    session.commit()
+    session.add(WorkspaceModel(name="case space"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+    assert "uq_workspaces_name_ci" in sqlite_index_names(engine)
+
+
+def test_concurrent_workspace_creates_allow_only_one_name(tmp_path: Path) -> None:
+    engine = create_engine(
+        sqlite_url(tmp_path / "concurrent.db"),
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    barrier = Barrier(2)
+
+    def create_workspace() -> str:
+        with sessions() as session:
+            barrier.wait()
+            try:
+                WorkspaceService(session).create("Concurrent Space", None)
+            except DuplicateName:
+                return "duplicate"
+            return "created"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: create_workspace(), range(2)))
+
+    assert sorted(results) == ["created", "duplicate"]
+    with Session(engine) as session:
+        assert session.query(WorkspaceModel).count() == 1
+    engine.dispose()

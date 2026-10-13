@@ -52,13 +52,18 @@ export const forgeApi = {
     request<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(payload) }),
   updateWorkspace: (id: string, payload: { name?: string; description?: string }) =>
     request<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  listProjects: (workspaceId: string, search = "", status: "active" | "archived" | "all" = "all") => {
+  listProjects: (
+    workspaceId: string,
+    search = "",
+    status: "active" | "archived" | "all" = "all",
+    signal?: AbortSignal,
+  ) => {
     const query = new URLSearchParams({ status });
     if (search.trim()) query.set("search", search.trim());
-    return request<Project[]>(`/workspaces/${workspaceId}/projects?${query.toString()}`);
+    return request<Project[]>(`/workspaces/${workspaceId}/projects?${query.toString()}`, { signal });
   },
-  getProject: (workspaceId: string, projectId: string) =>
-    request<Project>(`/workspaces/${workspaceId}/projects/${projectId}`),
+  getProject: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<Project>(`/workspaces/${workspaceId}/projects/${projectId}`, { signal }),
   createProject: (workspaceId: string, payload: { name: string; description?: string }) =>
     request<Project>(`/workspaces/${workspaceId}/projects`, {
       method: "POST",

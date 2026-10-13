@@ -15,6 +15,7 @@ export default defineConfig({
   server: {
     host: forgeConfig.host,
     port: frontendPort,
+    strictPort: true,
     proxy: {
       "/api": `http://${forgeConfig.host}:${backendPort}`,
     },

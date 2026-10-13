@@ -28,8 +28,8 @@ class WorkspaceModel(Base):
 
 
 Index(
-    "uq_workspaces_name",
-    WorkspaceModel.name,
+    "uq_workspaces_name_ci",
+    func.lower(WorkspaceModel.name),
     unique=True,
 )
 
