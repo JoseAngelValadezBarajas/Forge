@@ -1,0 +1,2 @@
+"""Local Git observation adapters."""
+

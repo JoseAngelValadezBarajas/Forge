@@ -1,0 +1,39 @@
+[project]
+name = "forge-backend"
+version = "0.1.0"
+description = "Local-first backend for Forge"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.14,<2",
+  "fastapi>=0.115,<1",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn[standard]>=0.32,<1",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.27,<1",
+  "mypy>=1.13,<2",
+  "pytest>=8.3,<9",
+  "ruff>=0.8,<1",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["backend/app"]
+exclude = "backend/migrations"
+
