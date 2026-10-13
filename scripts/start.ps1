@@ -4,24 +4,56 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ForgeRoot = Split-Path -Parent $PSScriptRoot
+$ForgeConfig = Get-Content (Join-Path $ForgeRoot "forge.config.json") -Raw | ConvertFrom-Json
+$BackendPort = if ($env:FORGE_BACKEND_PORT) { [int]$env:FORGE_BACKEND_PORT } else { [int]$ForgeConfig.backendPort }
+$FrontendPort = if ($env:FORGE_FRONTEND_PORT) { [int]$env:FORGE_FRONTEND_PORT } else { [int]$ForgeConfig.frontendPort }
+$BackendBaseUrl = "http://$($ForgeConfig.host):$BackendPort"
+$FrontendBaseUrl = "http://$($ForgeConfig.host):$FrontendPort"
 
 if ($Install) {
   Push-Location $ForgeRoot
-  uv sync --dev
+  uv sync --locked --dev
   Pop-Location
   Push-Location (Join-Path $ForgeRoot "frontend")
-  npm install
+  npm ci
   Pop-Location
 }
 
-Write-Host "Starting Forge backend on http://127.0.0.1:8000"
-Start-Process powershell -ArgumentList @(
-  "-NoExit",
-  "-Command",
-  "Set-Location '$ForgeRoot\backend'; uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
-) -WindowStyle Normal
+$existingListener = Get-NetTCPConnection -LocalAddress $ForgeConfig.host -LocalPort $BackendPort -State Listen -ErrorAction SilentlyContinue
+if ($existingListener) {
+  try {
+    $health = Invoke-RestMethod "$BackendBaseUrl/api/health" -TimeoutSec 2
+    if ($health.service -ne "Forge" -or $health.status -ne "ok") {
+      throw "Unexpected health payload"
+    }
+    Write-Host "Reusing healthy Forge backend on $BackendBaseUrl"
+  } catch {
+    throw "Backend port $BackendPort is occupied, but the listener is not Forge. Stop the unrelated service, set FORGE_BACKEND_PORT, or change forge.config.json. No process was terminated."
+  }
+} else {
+  Write-Host "Starting Forge backend on $BackendBaseUrl"
+  $backendCommand = "Set-Location '$ForgeRoot\backend'; uv run uvicorn app.main:app --reload --host $($ForgeConfig.host) --port $BackendPort"
+  Start-Process powershell -ArgumentList @("-NoExit", "-Command", $backendCommand) -WindowStyle Normal | Out-Null
 
-Write-Host "Starting Forge frontend on http://127.0.0.1:5173"
+  $backendReady = $false
+  for ($attempt = 0; $attempt -lt 40; $attempt++) {
+    Start-Sleep -Milliseconds 250
+    try {
+      $health = Invoke-RestMethod "$BackendBaseUrl/api/health" -TimeoutSec 2
+      if ($health.service -eq "Forge" -and $health.status -eq "ok") {
+        $backendReady = $true
+        break
+      }
+    } catch {
+      # The child process is still starting.
+    }
+  }
+  if (-not $backendReady) {
+    throw "Forge backend did not become healthy at $BackendBaseUrl/api/health within 10 seconds."
+  }
+}
+
+Write-Host "Starting Forge frontend on $FrontendBaseUrl"
 Set-Location (Join-Path $ForgeRoot "frontend")
-npm run dev -- --host 127.0.0.1
+npm run dev -- --host $ForgeConfig.host
 

@@ -13,12 +13,12 @@ FND-00 is intentionally limited. There are no connected repositories, features, 
 
 ## Run locally on Windows
 
-Prerequisites: Python 3.12+, Node.js 20+, npm, uv and Git.
+Prerequisites: Python 3.12+, Node.js `24.13.0`, npm `11.6.2`, uv and Git. The Node version is recorded in `.node-version` and `.nvmrc`; the frontend package enforces the compatible Node/npm range.
 
 ```powershell
-uv sync --dev
+uv sync --locked --dev
 Push-Location frontend
-npm install
+npm ci
 Pop-Location
 ```
 
@@ -42,13 +42,20 @@ Or use the Windows helper, which starts both processes:
 .\scripts\start.ps1 -Install
 ```
 
+If the configured backend port is already used by another service, the launcher stops safely. For a local alternate port, keep the processes aligned with the same override:
+
+```powershell
+$env:FORGE_BACKEND_PORT = "8001"
+.\scripts\start.ps1
+```
+
 ## Verify
 
 Backend checks:
 
 ```powershell
 uv run ruff check backend
-uv run mypy backend/app
+uv run mypy backend
 uv run pytest
 ```
 
@@ -64,7 +71,11 @@ npm run e2e
 Pop-Location
 ```
 
-The complete sequence is also available as `.\scripts\test.ps1`.
+The complete sequence is also available as `.\scripts\test.ps1`. Use `npm ci` and `uv sync --locked --dev` for clean reproducible installs.
+
+The configured ports are kept in `forge.config.json` and are consumed by Vite, Playwright and the Windows launcher. The backend startup guard rejects an occupied port unless it responds as Forge; it never terminates an unrelated listener. Local SQLite data lives under `.forge/data/` and is independent of the current working directory.
+
+Run `uv run python scripts/audit_secrets.py` before publication. It scans the current worktree, index and every reachable Git commit for private keys and common credential literals.
 
 ## Design reference
 

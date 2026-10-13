@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
+
 import { defineConfig, devices } from "@playwright/test";
+
+type ForgeConfig = { host: string; backendPort: number; frontendPort: number };
+const forgeConfig = JSON.parse(
+  readFileSync(new URL("../forge.config.json", import.meta.url), "utf-8"),
+) as ForgeConfig;
+const backendPort = Number(process.env.FORGE_BACKEND_PORT ?? forgeConfig.backendPort);
+const frontendPort = Number(process.env.FORGE_FRONTEND_PORT ?? forgeConfig.frontendPort);
+const localBaseUrl = `http://${forgeConfig.host}:${frontendPort}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -7,22 +17,22 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: localBaseUrl,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "uv run uvicorn app.main:app --host 127.0.0.1 --port 8001",
+      command: `uv run uvicorn app.main:app --host ${forgeConfig.host} --port ${backendPort}`,
       cwd: "../backend",
-      url: "http://127.0.0.1:8001/api/health",
+      url: `http://${forgeConfig.host}:${backendPort}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: "npm run dev -- --host 127.0.0.1",
+      command: `npm run dev -- --host ${forgeConfig.host}`,
       cwd: ".",
-      url: "http://127.0.0.1:5173",
+      url: localBaseUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

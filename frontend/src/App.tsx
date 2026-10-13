@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 
 type Theme = "dark" | "light";
 
@@ -38,18 +39,30 @@ function useTheme(): [Theme, () => void] {
 function App() {
   const [theme, toggleTheme] = useTheme();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteInvokerRef = useRef<HTMLButtonElement | null>(null);
+
+  const openPalette = useCallback((button?: HTMLButtonElement) => {
+    const activeElement = document.activeElement;
+    paletteInvokerRef.current = button ?? (activeElement instanceof HTMLButtonElement ? activeElement : null);
+    setPaletteOpen(true);
+  }, []);
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    requestAnimationFrame(() => paletteInvokerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setPaletteOpen((open) => !open);
+        if (paletteOpen) closePalette();
+        else openPalette();
       }
-      if (event.key === "Escape") setPaletteOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [closePalette, openPalette, paletteOpen]);
 
   return (
     <div className="app-shell">
@@ -58,11 +71,11 @@ function App() {
         <Routes>
           <Route
             path="*"
-            element={<WorkspaceRoutes onOpenPalette={() => setPaletteOpen(true)} />}
+            element={<WorkspaceRoutes onOpenPalette={openPalette} />}
           />
         </Routes>
       </main>
-      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+      {paletteOpen && <CommandPalette onClose={closePalette} />}
     </div>
   );
 }
@@ -104,7 +117,7 @@ function Sidebar({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => 
   );
 }
 
-function WorkspaceRoutes({ onOpenPalette }: { onOpenPalette: () => void }) {
+function WorkspaceRoutes({ onOpenPalette }: { onOpenPalette: (button: HTMLButtonElement) => void }) {
   return (
     <Routes>
       <Route element={<HomePage onOpenPalette={onOpenPalette} />} path="/" />
@@ -123,8 +136,8 @@ function PageFrame({
 }: {
   title: string;
   subtitle: string;
-  onOpenPalette: () => void;
-  children: React.ReactNode;
+  onOpenPalette: (button: HTMLButtonElement) => void;
+  children: ReactNode;
 }) {
   return (
     <div className="page-frame">
@@ -133,7 +146,7 @@ function PageFrame({
           <h1>{title}</h1>
           <p>{subtitle}</p>
         </div>
-        <button className="command-trigger" onClick={onOpenPalette} type="button">
+        <button className="command-trigger" onClick={(event) => onOpenPalette(event.currentTarget)} type="button">
           <span className="command-key">⌘K</span>
           <span>Search or command</span>
         </button>
@@ -143,7 +156,7 @@ function PageFrame({
   );
 }
 
-function HomePage({ onOpenPalette }: { onOpenPalette: () => void }) {
+function HomePage({ onOpenPalette }: { onOpenPalette: (button: HTMLButtonElement) => void }) {
   return (
     <PageFrame
       onOpenPalette={onOpenPalette}
@@ -189,7 +202,7 @@ function HomePage({ onOpenPalette }: { onOpenPalette: () => void }) {
   );
 }
 
-function ProjectsPage({ onOpenPalette }: { onOpenPalette: () => void }) {
+function ProjectsPage({ onOpenPalette }: { onOpenPalette: (button: HTMLButtonElement) => void }) {
   return (
     <PageFrame
       onOpenPalette={onOpenPalette}
@@ -215,7 +228,7 @@ function ProjectsPage({ onOpenPalette }: { onOpenPalette: () => void }) {
   );
 }
 
-function WorkbenchPage({ onOpenPalette }: { onOpenPalette: () => void }) {
+function WorkbenchPage({ onOpenPalette }: { onOpenPalette: (button: HTMLButtonElement) => void }) {
   return (
     <PageFrame
       onOpenPalette={onOpenPalette}
@@ -279,16 +292,59 @@ function EmptyPanel({
 
 function CommandPalette({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const location = useLocation();
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const dialogRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const filtered = commands.filter((command) => `${command.label} ${command.hint}`.toLowerCase().includes(query.toLowerCase()));
+  const filtered = commands.filter((command) =>
+    `${command.label} ${command.hint}`.toLowerCase().includes(query.toLowerCase()),
+  );
 
   useEffect(() => inputRef.current?.focus(), []);
+
+  const safeActiveIndex = Math.min(activeIndex, Math.max(filtered.length - 1, 0));
 
   const go = (path: string) => {
     navigate(path);
     onClose();
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key === "ArrowDown" && filtered.length > 0) {
+      event.preventDefault();
+      setActiveIndex((current) => (current + 1) % filtered.length);
+      return;
+    }
+    if (event.key === "ArrowUp" && filtered.length > 0) {
+      event.preventDefault();
+      setActiveIndex((current) => (current - 1 + filtered.length) % filtered.length);
+      return;
+    }
+    if (event.key === "Enter" && filtered[safeActiveIndex]) {
+      event.preventDefault();
+      go(filtered[safeActiveIndex].path);
+      return;
+    }
+    if (event.key === "Tab") {
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>("input, button") ?? [],
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
   };
 
   return (
@@ -297,29 +353,43 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         aria-label="Command palette"
         aria-modal="true"
         className="command-palette"
+        onKeyDown={handleKeyDown}
         onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
       >
         <div className="palette-search">
           <span aria-hidden="true">⌕</span>
           <input
+            aria-activedescendant={filtered[safeActiveIndex] ? `command-option-${safeActiveIndex}` : undefined}
+            aria-autocomplete="list"
+            aria-controls="command-options"
+            aria-expanded="true"
             aria-label="Search commands"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
             placeholder="Search workspace"
             ref={inputRef}
+            role="combobox"
             value={query}
           />
           <kbd>ESC</kbd>
         </div>
-        <div className="palette-results">
+        <div className="palette-results" id="command-options" role="listbox" aria-label="Commands">
           {filtered.length === 0 ? (
-            <p className="palette-empty">No commands match “{query}”.</p>
+            <p className="palette-empty" role="status">No commands match “{query}”.</p>
           ) : (
-            filtered.map((command) => (
+            filtered.map((command, index) => (
               <button
-                className={`command-option${location.pathname === command.path ? " current" : ""}`}
+                aria-selected={index === safeActiveIndex}
+                className={`command-option${index === safeActiveIndex ? " current" : ""}`}
+                id={`command-option-${index}`}
                 key={command.path}
                 onClick={() => go(command.path)}
+                onMouseEnter={() => setActiveIndex(index)}
+                role="option"
                 type="button"
               >
                 <span>{command.label}</span>

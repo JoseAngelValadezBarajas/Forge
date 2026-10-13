@@ -5,8 +5,23 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 backend/.env
-backend/forge.db
-backend/forge.db-*
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+.forge/data/*.db
+.forge/data/*.db-*
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 
 node_modules/
 frontend/dist/

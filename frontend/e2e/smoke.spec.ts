@@ -19,7 +19,7 @@ test("Forge opens, navigates, toggles theme, and has no console errors", async (
 });
 
 test("health endpoint is available through the local backend", async ({ request }) => {
-  const response = await request.get("http://127.0.0.1:8001/api/health");
+  const response = await request.get("/api/health");
   expect(response.ok()).toBeTruthy();
   expect(await response.json()).toMatchObject({ status: "ok", service: "Forge" });
 });

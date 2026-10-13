@@ -2,8 +2,9 @@ $ErrorActionPreference = "Stop"
 $ForgeRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location $ForgeRoot
+uv run alembic upgrade head
 uv run ruff check backend
-uv run mypy backend/app
+uv run mypy backend
 uv run pytest
 Pop-Location
 
