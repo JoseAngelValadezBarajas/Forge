@@ -14,7 +14,9 @@ Use `scripts/test.ps1` for the full quality sequence. It validates migrations, s
 
 For an occupied local port, set `FORGE_BACKEND_PORT` before starting; Vite and Playwright consume the same override so the proxy and E2E health check stay aligned.
 
-Run `uv run python scripts/audit_secrets.py` before publication. It scans the current worktree, index and every reachable Git commit for private keys and common credential literals.
+Run `uv run python scripts/audit_secrets.py` before publication. It scans every commit reachable by the local Git references, the index and tracked or non-ignored untracked working-tree files using Python's regular-expression engine. It redacts matched values, skips binary files and does not follow symlinks, reporting both counts. Ignored generated files are outside its coverage by design. Git, file-read and pattern errors return an explicit error status; they are never treated as a clean scan.
+
+Licensing documents live at the repository root: `LICENSE.md`, `NOTICE`, `COMMERCIAL-LICENSING.md`, `TRADEMARKS.md`, `CONTRIBUTING.md` and `SECURITY.md`. The third-party dependency inventory is in `docs/dependency-licenses.md`.
 
 Do not add provider credentials, cloud integrations or repository access to FND-00. Keep claims in the UI tied to observed backend data once those features are implemented.
 

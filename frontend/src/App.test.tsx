@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BrowserRouter } from "react-router-dom";
 
@@ -59,8 +59,7 @@ describe("Forge app shell", () => {
     fireEvent.change(input, { target: { value: "does-not-exist" } });
     expect(screen.getByRole("status")).toHaveTextContent("No commands match");
     fireEvent.keyDown(input, { key: "Escape" });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it("toggles light mode", () => {

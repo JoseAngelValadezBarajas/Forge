@@ -6,6 +6,7 @@ uv run alembic upgrade head
 uv run ruff check backend
 uv run mypy backend
 uv run pytest
+uv run python scripts/audit_secrets.py
 Pop-Location
 
 Push-Location (Join-Path $ForgeRoot "frontend")
