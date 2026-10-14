@@ -151,6 +151,9 @@ class GitObserver:
 
     def _run(self, root: Path, args: list[str]) -> _GitCommandResult:
         command = ["git", "-c", "core.fsmonitor=false", "-c", "pager.status=false", *args]
+        process_group_flag = (
+            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+        )
         try:
             process = subprocess.Popen(
                 command,
@@ -161,9 +164,7 @@ class GitObserver:
                 stderr=subprocess.PIPE,
                 shell=False,
                 start_new_session=os.name != "nt",
-                creationflags=(
-                    subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-                ),
+                creationflags=process_group_flag,
             )
         except FileNotFoundError as exc:
             raise _GitCommandError("GIT_UNAVAILABLE") from exc
