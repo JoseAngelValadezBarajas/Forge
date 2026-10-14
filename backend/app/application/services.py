@@ -415,6 +415,7 @@ class PlanningService:
         priority: FeaturePriority | None,
         status: FeatureStatus | None,
         epic_id: str | None,
+        clear_epic: bool = False,
     ) -> FeatureModel:
         self.writable_project(workspace_id, project_id)
         feature = self._feature(project_id, feature_id)
@@ -428,7 +429,9 @@ class PlanningService:
             feature.priority = priority.value
         if status is not None:
             feature.status = status.value
-        if epic_id is not None:
+        if clear_epic:
+            feature.epic_id = None
+        elif epic_id is not None:
             self._epic(project_id, epic_id)
             feature.epic_id = epic_id
         feature.updated_at = now()
@@ -467,7 +470,12 @@ class PlanningService:
             title=clean_title(title),
             description=clean_text(description),
             status=status.value,
-            position=max(0, position if position is not None else (next_position or -1) + 1),
+            position=max(
+                0,
+                position
+                if position is not None
+                else (next_position if next_position is not None else -1) + 1,
+            ),
         )
         self.session.add(task)
         self.session.commit()
@@ -560,7 +568,12 @@ class PlanningService:
             feature_id=feature_id,
             description=description_clean,
             satisfied=satisfied,
-            position=max(0, position if position is not None else (next_position or -1) + 1),
+            position=max(
+                0,
+                position
+                if position is not None
+                else (next_position if next_position is not None else -1) + 1,
+            ),
         )
         self.session.add(criterion)
         self.session.commit()

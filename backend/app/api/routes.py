@@ -358,12 +358,9 @@ def update_feature(
             payload.goal,
             payload.priority,
             payload.status,
-            None if payload.clear_epic else payload.epic_id,
+            payload.epic_id,
+            payload.clear_epic,
         )
-        if payload.clear_epic:
-            feature.epic_id = None
-            db.commit()
-            db.refresh(feature)
     except (EntityNotFound, InvalidInput) as exc:
         raise _service_error(exc) from exc
     return FeatureResponse.model_validate(feature)

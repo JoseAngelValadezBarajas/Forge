@@ -72,6 +72,33 @@ def test_feature_id_hierarchy_and_isolation(
     )
     assert attached.status_code == 200
     assert attached.json()["epic_id"] == epic.json()["id"]
+    edited = client.patch(
+        f"{root}/features/{first.json()['id']}",
+        json={
+            "title": "Edited feature",
+            "description": "Updated description",
+            "goal": "Updated goal",
+            "priority": "critical",
+            "status": "ready",
+        },
+    )
+    assert edited.status_code == 200
+    assert edited.json()["title"] == "Edited feature"
+    assert edited.json()["priority"] == "critical"
+    assert edited.json()["status"] == "ready"
+    cleared = client.patch(
+        f"{root}/features/{first.json()['id']}",
+        json={"clear_epic": True},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["epic_id"] is None
+    epic_edit = client.patch(
+        f"{root}/epics/{epic.json()['id']}",
+        json={"title": "Edited epic", "description": "Updated epic", "status": "archived"},
+    )
+    assert epic_edit.status_code == 200
+    assert epic_edit.json()["title"] == "Edited epic"
+    assert epic_edit.json()["status"] == "archived"
     assert client.get(f"{other_root}/features/{first.json()['id']}").status_code == 404
     assert client.get("/api/workspaces/invalid/projects/nope/features").status_code == 404
 
@@ -83,25 +110,58 @@ def test_tasks_criteria_overview_and_archived_read_only(
     workspace_id = client.get("/api/workspaces").json()[0]["id"]
     root = f"/api/workspaces/{workspace_id}/projects/{project_id}"
     feature = client.post(f"{root}/features", json={"title": "Ship planning"}).json()
-    task = client.post(
-        f"{root}/features/{feature['id']}/tasks", json={"title": "Write API"}
+    tasks = [
+        client.post(f"{root}/features/{feature['id']}/tasks", json={"title": title})
+        for title in ("Write API", "Write UI", "Write E2E")
+    ]
+    criteria = [
+        client.post(
+            f"{root}/features/{feature['id']}/acceptance-criteria",
+            json={"description": description},
+        )
+        for description in ("The API is persisted", "The UI is editable", "The flow is tested")
+    ]
+    assert [task.json()["position"] for task in tasks] == [0, 1, 2]
+    assert [criterion.json()["position"] for criterion in criteria] == [0, 1, 2]
+    task_ids = [task.json()["id"] for task in tasks]
+    criterion_ids = [criterion.json()["id"] for criterion in criteria]
+    reordered_tasks = client.post(
+        f"{root}/features/{feature['id']}/tasks/reorder", json={"ids": task_ids[::-1]}
     )
-    criterion = client.post(
+    reordered_criteria = client.post(
+        f"{root}/features/{feature['id']}/acceptance-criteria/reorder",
+        json={"ids": criterion_ids[::-1]},
+    )
+    assert [task["id"] for task in reordered_tasks.json()] == task_ids[::-1]
+    assert [criterion["id"] for criterion in reordered_criteria.json()] == criterion_ids[::-1]
+    next_task = client.post(
+        f"{root}/features/{feature['id']}/tasks", json={"title": "Write docs"}
+    )
+    next_criterion = client.post(
         f"{root}/features/{feature['id']}/acceptance-criteria",
-        json={"description": "The plan is persisted"},
+        json={"description": "The docs are clear"},
     )
-    assert task.status_code == 201 and task.json()["position"] == 0
-    assert criterion.status_code == 201
-    assert client.patch(
+    assert next_task.json()["position"] == 3
+    assert next_criterion.json()["position"] == 3
+    task = tasks[0]
+    criterion = criteria[0]
+    assert task.status_code == 201 and criterion.status_code == 201
+    task_edit = client.patch(
+        f"{root}/features/{feature['id']}/tasks/{task.json()['id']}",
+        json={"title": "Edited task", "description": "Task details", "status": "done"},
+    )
+    criterion_edit = client.patch(
         f"{root}/features/{feature['id']}/acceptance-criteria/{criterion.json()['id']}",
-        json={"satisfied": True},
-    ).json()["satisfied"] is True
+        json={"description": "Edited criterion", "satisfied": True},
+    )
+    assert task_edit.status_code == 200 and task_edit.json()["status"] == "done"
+    assert criterion_edit.status_code == 200 and criterion_edit.json()["satisfied"] is True
     overview = client.get(f"{root}/planning/overview").json()
     assert overview == {
         "epics": 0,
         "features": 1,
-        "tasks": 1,
-        "acceptance_criteria": 1,
+        "tasks": 4,
+        "acceptance_criteria": 4,
         "satisfied_criteria": 1,
         "dependencies": 0,
     }

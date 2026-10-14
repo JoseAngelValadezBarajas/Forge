@@ -6,6 +6,7 @@ import {
   forgeApi,
   type AcceptanceCriterion,
   type Epic,
+  type EpicStatus,
   type Feature,
   type FeatureDependency,
   type FeaturePriority,
@@ -19,9 +20,14 @@ import { ErrorPanel, LoadingPanel, PageFrame } from "./pages";
 
 const statuses: FeatureStatus[] = ["backlog", "refining", "ready", "in_progress", "verify", "done"];
 const priorities: FeaturePriority[] = ["low", "medium", "high", "critical"];
+const epicStatuses: EpicStatus[] = ["planning", "archived"];
 
 function label(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function errorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback;
 }
 
 type PlanningData = {
@@ -31,7 +37,12 @@ type PlanningData = {
   dependencies: FeatureDependency[];
 };
 
-function usePlanningData(workspace: Workspace | null, projectId: string | undefined, search = "", priority?: FeaturePriority) {
+function usePlanningData(
+  workspace: Workspace | null,
+  projectId: string | undefined,
+  search = "",
+  priority?: FeaturePriority,
+) {
   const [data, setData] = useState<PlanningData | null>(null);
   const [loading, setLoading] = useState(Boolean(workspace && projectId));
   const [error, setError] = useState<string | null>(null);
@@ -61,12 +72,12 @@ function usePlanningData(workspace: Workspace | null, projectId: string | undefi
       setError(null);
     } catch (cause) {
       if (controller.signal.aborted || currentRequest !== requestId.current) return;
-      setError(cause instanceof Error ? cause.message : "Could not load planning data.");
+      setError(errorMessage(cause, "Could not load planning data."));
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
   }, [priority, projectId, search, workspace]);
-  // The request synchronizes this page with the selected project and filters.
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
@@ -75,125 +86,255 @@ function usePlanningData(workspace: Workspace | null, projectId: string | undefi
       controllerRef.current?.abort();
     };
   }, [reload]);
+
   return { data, loading, error, reload };
 }
 
-export function ProjectBoardPage({ workspace, onOpenPalette }: { workspace: Workspace | null; onOpenPalette: (button: HTMLButtonElement) => void }) {
+export function ProjectBoardPage({
+  workspace,
+  onOpenPalette,
+}: {
+  workspace: Workspace | null;
+  onOpenPalette: (button: HTMLButtonElement) => void;
+}) {
   return <PlanningPage mode="board" onOpenPalette={onOpenPalette} workspace={workspace} />;
 }
 
-export function FeaturesPage({ workspace, onOpenPalette }: { workspace: Workspace | null; onOpenPalette: (button: HTMLButtonElement) => void }) {
+export function FeaturesPage({
+  workspace,
+  onOpenPalette,
+}: {
+  workspace: Workspace | null;
+  onOpenPalette: (button: HTMLButtonElement) => void;
+}) {
   return <PlanningPage mode="features" onOpenPalette={onOpenPalette} workspace={workspace} />;
 }
 
-function PlanningPage({ workspace, onOpenPalette, mode }: { workspace: Workspace | null; onOpenPalette: (button: HTMLButtonElement) => void; mode: "board" | "features" }) {
+function PlanningPage({
+  workspace,
+  onOpenPalette,
+  mode,
+}: {
+  workspace: Workspace | null;
+  onOpenPalette: (button: HTMLButtonElement) => void;
+  mode: "board" | "features";
+}) {
   const { projectId } = useParams<{ projectId: string }>();
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<FeaturePriority | undefined>();
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
   const [createEpicOpen, setCreateEpicOpen] = useState(false);
+  const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
   const { data, loading, error, reload } = usePlanningData(workspace, projectId, search, priority);
   const navigate = useNavigate();
-  const [actionError, setActionError] = useState<string | null>(null);
 
-  const createFeature = async (payload: { title: string; description: string; goal: string; priority: FeaturePriority; status: FeatureStatus; epic_id?: string }) => {
-    if (!workspace || !projectId) return;
+  const runMutation = async (action: () => Promise<void>, fallback: string): Promise<boolean> => {
+    if (actionPending) return false;
+    setActionPending(true);
+    setActionError(null);
+    try {
+      await action();
+      await reload();
+      return true;
+    } catch (cause) {
+      setActionError(errorMessage(cause, fallback));
+      return false;
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const createFeature = async (payload: {
+    title: string;
+    description: string;
+    goal: string;
+    priority: FeaturePriority;
+    status: FeatureStatus;
+    epic_id?: string;
+  }): Promise<boolean> => {
+    if (!workspace || !projectId || actionPending) return false;
+    setActionPending(true);
+    setActionError(null);
     try {
       const feature = await forgeApi.createFeature(workspace.id, projectId, payload);
+      await reload();
       setCreateFeatureOpen(false);
-      await reload();
       navigate(`/projects/${projectId}/features/${feature.id}`);
+      return true;
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Could not create feature.");
-    }
-  };
-  const createEpic = async (title: string, description: string) => {
-    if (!workspace || !projectId) return;
-    try {
-      await forgeApi.createEpic(workspace.id, projectId, { title, description });
-      setCreateEpicOpen(false);
-      await reload();
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Could not create epic.");
-    }
-  };
-  const updateStatus = async (feature: Feature, nextStatus: FeatureStatus) => {
-    if (!workspace || !projectId || feature.status === nextStatus) return;
-    try {
-      await forgeApi.updateFeature(workspace.id, projectId, feature.id, { status: nextStatus });
-      await reload();
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Could not update feature.");
+      setActionError(errorMessage(cause, "Could not create feature."));
+      return false;
+    } finally {
+      setActionPending(false);
     }
   };
 
-  return <PageFrame onOpenPalette={onOpenPalette} subtitle="Manual planning state only. Verification and delivery evidence are separate milestones." title={mode === "board" ? "Project Board" : "Features & Epics"}>
-    <div className="planning-toolbar">
-      <div className="planning-tabs" role="tablist" aria-label="Project planning views">
-        <Link className={mode === "board" ? "detail-tab active" : "detail-tab"} to={`/projects/${projectId}/board`}>Board</Link>
-        <Link className={mode === "features" ? "detail-tab active" : "detail-tab"} to={`/projects/${projectId}/features`}>Features</Link>
-        <Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link>
+  const createEpic = (title: string, description: string): Promise<boolean> => {
+    if (!workspace || !projectId) return Promise.resolve(false);
+    return runMutation(
+      async () => {
+        await forgeApi.createEpic(workspace.id, projectId, { title, description });
+        setCreateEpicOpen(false);
+      },
+      "Could not create epic.",
+    );
+  };
+
+  const updateEpic = (epic: Epic, payload: { title: string; description: string; status: EpicStatus }): Promise<boolean> => {
+    if (!workspace || !projectId) return Promise.resolve(false);
+    return runMutation(
+      async () => {
+        await forgeApi.updateEpic(workspace.id, projectId, epic.id, payload);
+        setEditingEpic(null);
+      },
+      "Could not update epic.",
+    );
+  };
+
+  const updateStatus = (feature: Feature, nextStatus: FeatureStatus): Promise<boolean> => {
+    if (!workspace || !projectId || feature.status === nextStatus) return Promise.resolve(false);
+    return runMutation(
+      () => forgeApi.updateFeature(workspace.id, projectId, feature.id, { status: nextStatus }).then(() => undefined),
+      "Could not update feature.",
+    );
+  };
+
+  return (
+    <PageFrame
+      onOpenPalette={onOpenPalette}
+      subtitle="Manual planning state only. Verification and delivery evidence are separate milestones."
+      title={mode === "board" ? "Project Board" : "Features & Epics"}
+    >
+      <div className="planning-toolbar">
+        <div className="planning-tabs" role="tablist" aria-label="Project planning views">
+          <Link className={mode === "board" ? "detail-tab active" : "detail-tab"} to={`/projects/${projectId}/board`}>Board</Link>
+          <Link className={mode === "features" ? "detail-tab active" : "detail-tab"} to={`/projects/${projectId}/features`}>Features</Link>
+          <Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link>
+        </div>
+        <div className="planning-actions">
+          <button className="button secondary" disabled={actionPending} onClick={() => setCreateEpicOpen(true)} type="button">+ Epic</button>
+          <button className="button primary" disabled={actionPending} onClick={() => setCreateFeatureOpen(true)} type="button">+ Feature</button>
+        </div>
       </div>
-      <div className="planning-actions"><button className="button secondary" onClick={() => setCreateEpicOpen(true)} type="button">+ Epic</button><button className="button primary" onClick={() => setCreateFeatureOpen(true)} type="button">+ Feature</button></div>
-    </div>
-    <section className="planning-filters" aria-label="Feature filters">
-      <label className="search-field">Search features<input aria-label="Search features" onChange={(event) => setSearch(event.target.value)} placeholder="Search title, goal or description" value={search} /></label>
-      <label className="filter-field">Priority<select aria-label="Feature priority" onChange={(event) => setPriority(event.target.value ? event.target.value as FeaturePriority : undefined)} value={priority ?? ""}><option value="">All priorities</option>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label>
-    </section>
-    {actionError && <div className="feedback-panel error-panel" role="alert"><span>{actionError}</span><button className="button ghost" onClick={() => setActionError(null)} type="button">Dismiss</button></div>}
-    {createFeatureOpen && <FeatureCreateForm epics={data?.epics ?? []} onCancel={() => setCreateFeatureOpen(false)} onSubmit={createFeature} />}
-    {createEpicOpen && <EpicCreateForm onCancel={() => setCreateEpicOpen(false)} onSubmit={createEpic} />}
-    {loading ? <LoadingPanel label="Loading planning data" /> : error ? <ErrorPanel message={error} onRetry={() => void reload()} /> : data ? mode === "board" ? <Board features={data.features} onStatusChange={updateStatus} /> : <FeatureInventory data={data} onStatusChange={updateStatus} /> : null}
-  </PageFrame>;
+      <section className="planning-filters" aria-label="Feature filters">
+        <label className="search-field">Search features<input aria-label="Search features" onChange={(event) => setSearch(event.target.value)} placeholder="Search title, goal or description" value={search} /></label>
+        <label className="filter-field">Priority<select aria-label="Feature priority" onChange={(event) => setPriority(event.target.value ? event.target.value as FeaturePriority : undefined)} value={priority ?? ""}><option value="">All priorities</option>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label>
+      </section>
+      {actionError && <div className="feedback-panel error-panel" role="alert"><span>{actionError}</span><button className="button ghost" onClick={() => setActionError(null)} type="button">Dismiss</button></div>}
+      {createFeatureOpen && <FeatureCreateForm actionPending={actionPending} epics={data?.epics ?? []} onCancel={() => setCreateFeatureOpen(false)} onSubmit={createFeature} />}
+      {createEpicOpen && <EpicCreateForm actionPending={actionPending} onCancel={() => setCreateEpicOpen(false)} onSubmit={createEpic} />}
+      {editingEpic && <EpicEditForm actionPending={actionPending} epic={editingEpic} onCancel={() => setEditingEpic(null)} onSubmit={(payload) => updateEpic(editingEpic, payload)} />}
+      {loading ? <LoadingPanel label="Loading planning data" /> : error ? <ErrorPanel message={error} onRetry={() => void reload()} /> : data ? mode === "board" ? <Board disabled={actionPending} features={data.features} onStatusChange={updateStatus} /> : <FeatureInventory data={data} disabled={actionPending} onEditEpic={setEditingEpic} onStatusChange={updateStatus} /> : null}
+    </PageFrame>
+  );
 }
 
-function Board({ features, onStatusChange }: { features: Feature[]; onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<void> }) {
-  return <section className="kanban-board" aria-label="Feature workflow board">{statuses.map((status) => <div className={`kanban-column status-${status}`} key={status}><div className="kanban-heading"><h2>{label(status)}</h2><span>{features.filter((feature) => feature.status === status).length}</span></div><div className="kanban-cards">{features.filter((feature) => feature.status === status).map((feature) => <FeatureCard feature={feature} key={feature.id} onStatusChange={onStatusChange} />)}{features.every((feature) => feature.status !== status) && <p className="kanban-empty">No features here yet.</p>}</div></div>)}</section>;
+function Board({
+  features,
+  onStatusChange,
+  disabled,
+}: {
+  features: Feature[];
+  onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<boolean>;
+  disabled: boolean;
+}) {
+  return <section className="kanban-board" aria-label="Feature workflow board">{statuses.map((status) => <div className={`kanban-column status-${status}`} key={status}><div className="kanban-heading"><h2>{label(status)}</h2><span>{features.filter((feature) => feature.status === status).length}</span></div><div className="kanban-cards">{features.filter((feature) => feature.status === status).map((feature) => <FeatureCard disabled={disabled} feature={feature} key={feature.id} onStatusChange={onStatusChange} />)}{features.every((feature) => feature.status !== status) && <p className="kanban-empty">No features here yet.</p>}</div></div>)}</section>;
 }
 
-function FeatureCard({ feature, onStatusChange }: { feature: Feature; onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<void> }) {
+function FeatureCard({
+  feature,
+  onStatusChange,
+  disabled,
+}: {
+  feature: Feature;
+  onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<boolean>;
+  disabled: boolean;
+}) {
   const [saving, setSaving] = useState(false);
   const nextStatus = statuses[(statuses.indexOf(feature.status) + 1) % statuses.length];
   const move = async () => {
     setSaving(true);
     try { await onStatusChange(feature, nextStatus); } finally { setSaving(false); }
   };
-  return <article className="feature-card"><Link className="feature-card-link" to={`/projects/${feature.project_id}/features/${feature.id}`}><span className="mono-label">{feature.key}</span><h3>{feature.title}</h3><div className="feature-card-meta"><span className={`priority-chip ${feature.priority}`}>{feature.priority}</span>{feature.epic_id && <span className="mono-label">Epic</span>}</div></Link><button aria-label={`Move ${feature.key} to ${label(nextStatus)}`} className="card-move" disabled={saving} onClick={() => void move()} type="button">{saving ? "..." : `Move to ${label(nextStatus)}`}</button></article>;
+  return <article className="feature-card"><Link className="feature-card-link" to={`/projects/${feature.project_id}/features/${feature.id}`}><span className="mono-label">{feature.key}</span><h3>{feature.title}</h3><div className="feature-card-meta"><span className={`priority-chip ${feature.priority}`}>{feature.priority}</span>{feature.epic_id && <span className="mono-label">Epic</span>}</div></Link><button aria-label={`Move ${feature.key} to ${label(nextStatus)}`} className="card-move" disabled={saving || disabled} onClick={() => void move()} type="button">{saving ? "..." : `Move to ${label(nextStatus)}`}</button></article>;
 }
 
-function FeatureInventory({ data, onStatusChange }: { data: PlanningData; onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<void> }) {
-  return <div className="inventory-grid"><section><div className="section-heading"><h2>Features</h2><span>{data.features.length} total</span></div>{data.features.length ? <div className="feature-list">{data.features.map((feature) => <FeatureCard feature={feature} key={feature.id} onStatusChange={onStatusChange} />)}</div> : <div className="quiet-empty-row">No features exist yet. Create the first planning record.</div>}</section><aside><div className="section-heading"><h2>Epics</h2><span>{data.epics.length} total</span></div>{data.epics.length ? <div className="epic-list">{data.epics.map((epic) => <div className="epic-card" key={epic.id}><span className="mono-label">EPIC</span><h3>{epic.title}</h3><p>{epic.description || "No description yet."}</p><span className="status-chip neutral">{epic.status}</span></div>)}</div> : <div className="quiet-empty-row">No epics yet.</div>}<div className="planning-disclaimer">Manual planning state. Satisfied criteria are user declarations, not evidence.</div></aside></div>;
+function FeatureInventory({
+  data,
+  onStatusChange,
+  onEditEpic,
+  disabled,
+}: {
+  data: PlanningData;
+  onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<boolean>;
+  onEditEpic: (epic: Epic) => void;
+  disabled: boolean;
+}) {
+  return <div className="inventory-grid"><section><div className="section-heading"><h2>Features</h2><span>{data.features.length} total</span></div>{data.features.length ? <div className="feature-list">{data.features.map((feature) => <FeatureCard disabled={disabled} feature={feature} key={feature.id} onStatusChange={onStatusChange} />)}</div> : <div className="quiet-empty-row">No features exist yet. Create the first planning record.</div>}</section><aside><div className="section-heading"><h2>Epics</h2><span>{data.epics.length} total</span></div>{data.epics.length ? <div className="epic-list">{data.epics.map((epic) => <article className="epic-card" key={epic.id}><span className="mono-label">EPIC</span><h3>{epic.title}</h3><p>{epic.description || "No description yet."}</p><span className="status-chip neutral">{label(epic.status)}</span><button className="button ghost" disabled={disabled} onClick={() => onEditEpic(epic)} type="button">Edit epic</button></article>)}</div> : <div className="quiet-empty-row">No epics yet.</div>}<div className="planning-disclaimer">Manual planning state. Satisfied criteria are user declarations, not evidence.</div></aside></div>;
 }
 
-function FeatureCreateForm({ epics, onSubmit, onCancel }: { epics: Epic[]; onSubmit: (payload: { title: string; description: string; goal: string; priority: FeaturePriority; status: FeatureStatus; epic_id?: string }) => Promise<void>; onCancel: () => void }) {
+type FeatureFormPayload = {
+  title: string;
+  description: string;
+  goal: string;
+  priority: FeaturePriority;
+  status: FeatureStatus;
+  epic_id?: string;
+  clear_epic?: boolean;
+};
+
+function FeatureCreateForm({
+  epics,
+  onSubmit,
+  onCancel,
+  actionPending,
+}: {
+  epics: Epic[];
+  onSubmit: (payload: Omit<FeatureFormPayload, "clear_epic">) => Promise<boolean>;
+  onCancel: () => void;
+  actionPending: boolean;
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState<FeaturePriority>("medium");
   const [status, setStatus] = useState<FeatureStatus>("backlog");
   const [epicId, setEpicId] = useState("");
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) { setError("Feature title is required."); return; }
-    setSaving(true);
-    try { await onSubmit({ title, description, goal, priority, status, ...(epicId ? { epic_id: epicId } : {}) }); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create feature."); } finally { setSaving(false); }
+    setError(null);
+    await onSubmit({ title, description, goal, priority, status, ...(epicId ? { epic_id: epicId } : {}) });
   };
-  return <form className="planning-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><h2>Create feature</h2><button className="icon-button" onClick={onCancel} type="button" aria-label="Close create feature">x</button></div><div className="form-grid"><label>Title<input autoFocus maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Priority<select onChange={(event) => setPriority(event.target.value as FeaturePriority)} value={priority}>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Initial state<select onChange={(event) => setStatus(event.target.value as FeatureStatus)} value={status}>{statuses.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Epic<select onChange={(event) => setEpicId(event.target.value)} value={epicId}><option value="">Unassigned</option>{epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}</select></label><label className="wide-field">Goal<textarea onChange={(event) => setGoal(event.target.value)} rows={2} value={goal} /></label><label className="wide-field">Description<textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" onClick={onCancel} type="button">Cancel</button><button className="button primary" disabled={saving} type="submit">{saving ? "Creating..." : "Create feature"}</button></div></form>;
+  return <form className="planning-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><h2>Create feature</h2><button aria-label="Close create feature" className="icon-button" onClick={onCancel} type="button">x</button></div><div className="form-grid"><label>Title<input autoFocus maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Priority<select onChange={(event) => setPriority(event.target.value as FeaturePriority)} value={priority}>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Initial state<select onChange={(event) => setStatus(event.target.value as FeatureStatus)} value={status}>{statuses.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Epic<select onChange={(event) => setEpicId(event.target.value)} value={epicId}><option value="">Unassigned</option>{epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}</select></label><label className="wide-field">Goal<textarea onChange={(event) => setGoal(event.target.value)} rows={2} value={goal} /></label><label className="wide-field">Description<textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" onClick={onCancel} type="button">Cancel</button><button className="button primary" disabled={actionPending} type="submit">{actionPending ? "Creating..." : "Create feature"}</button></div></form>;
 }
 
-function EpicCreateForm({ onSubmit, onCancel }: { onSubmit: (title: string, description: string) => Promise<void>; onCancel: () => void }) {
+function EpicCreateForm({ onSubmit, onCancel, actionPending }: { onSubmit: (title: string, description: string) => Promise<boolean>; onCancel: () => void; actionPending: boolean }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
-  const submit = async (event: FormEvent) => { event.preventDefault(); if (!title.trim()) return; setSaving(true); try { await onSubmit(title, description); } finally { setSaving(false); } };
-  return <form className="planning-form compact-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><h2>Create epic</h2><button className="icon-button" onClick={onCancel} type="button" aria-label="Close create epic">x</button></div><label>Title<input autoFocus maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Description<textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label><div className="form-actions"><button className="button secondary" onClick={onCancel} type="button">Cancel</button><button className="button primary" disabled={saving} type="submit">{saving ? "Creating..." : "Create epic"}</button></div></form>;
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!title.trim()) { setError("Epic title is required."); return; } setError(null); await onSubmit(title, description); };
+  return <form className="planning-form compact-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><h2>Create epic</h2><button aria-label="Close create epic" className="icon-button" onClick={onCancel} type="button">x</button></div><label>Title<input autoFocus maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Description<textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" onClick={onCancel} type="button">Cancel</button><button className="button primary" disabled={actionPending} type="submit">{actionPending ? "Creating..." : "Create epic"}</button></div></form>;
 }
 
-export function FeatureDetailPage({ workspace, onOpenPalette }: { workspace: Workspace | null; onOpenPalette: (button: HTMLButtonElement) => void }) {
+function EpicEditForm({ epic, onSubmit, onCancel, actionPending }: { epic: Epic; onSubmit: (payload: { title: string; description: string; status: EpicStatus }) => Promise<boolean>; onCancel: () => void; actionPending: boolean }) {
+  const [title, setTitle] = useState(epic.title);
+  const [description, setDescription] = useState(epic.description ?? "");
+  const [status, setStatus] = useState<EpicStatus>(epic.status);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!title.trim()) { setError("Epic title is required."); return; } setError(null); const saved = await onSubmit({ title, description, status }); if (!saved) setError("Could not save epic. Try again."); };
+  return <form className="planning-form compact-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><h2>Edit epic</h2><button aria-label="Close edit epic" className="icon-button" onClick={onCancel} type="button">x</button></div><label>Title<input maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Description<textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label><label>Status<select onChange={(event) => setStatus(event.target.value as EpicStatus)} value={status}>{epicStatuses.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" onClick={onCancel} type="button">Cancel</button><button className="button primary" disabled={actionPending} type="submit">{actionPending ? "Saving..." : "Save epic"}</button></div></form>;
+}
+
+type FeatureDetailProps = { workspace: Workspace | null; onOpenPalette: (button: HTMLButtonElement) => void };
+
+export function FeatureDetailPage({ workspace, onOpenPalette }: FeatureDetailProps) {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>();
   const [feature, setFeature] = useState<Feature | null>(null);
+  const [epics, setEpics] = useState<Epic[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [criteria, setCriteria] = useState<AcceptanceCriterion[]>([]);
   const [dependencies, setDependencies] = useState<FeatureDependency[]>([]);
@@ -201,6 +342,11 @@ export function FeatureDetailPage({ workspace, onOpenPalette }: { workspace: Wor
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [mutationPending, setMutationPending] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newCriterionDescription, setNewCriterionDescription] = useState("");
+  const [dependencyTarget, setDependencyTarget] = useState("");
+  const [dependencyDirection, setDependencyDirection] = useState<"blocked_by" | "blocks">("blocked_by");
   const requestId = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -211,44 +357,173 @@ export function FeatureDetailPage({ workspace, onOpenPalette }: { workspace: Wor
     if (!workspace || !projectId || !featureId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [nextFeature, nextTasks, nextCriteria, nextDependencies, nextFeatures] = await Promise.all([
+      const [nextFeature, nextEpics, nextTasks, nextCriteria, nextDependencies, nextFeatures] = await Promise.all([
         forgeApi.getFeature(workspace.id, projectId, featureId, controller.signal),
+        forgeApi.listEpics(workspace.id, projectId, controller.signal),
         forgeApi.listTasks(workspace.id, projectId, featureId, controller.signal),
         forgeApi.listCriteria(workspace.id, projectId, featureId, controller.signal),
         forgeApi.listDependencies(workspace.id, projectId, controller.signal),
         forgeApi.listFeatures(workspace.id, projectId, {}, controller.signal),
       ]);
       if (currentRequest !== requestId.current) return;
-      setFeature(nextFeature); setTasks(nextTasks); setCriteria(nextCriteria); setDependencies(nextDependencies); setFeatures(nextFeatures); setError(null);
+      setFeature(nextFeature);
+      setEpics(nextEpics);
+      setTasks(nextTasks);
+      setCriteria(nextCriteria);
+      setDependencies(nextDependencies);
+      setFeatures(nextFeatures);
+      setError(null);
     } catch (cause) {
       if (controller.signal.aborted || currentRequest !== requestId.current) return;
-      setError(cause instanceof Error ? cause.message : "Could not load feature.");
+      setError(errorMessage(cause, "Could not load feature."));
     } finally { if (currentRequest === requestId.current) setLoading(false); }
   }, [featureId, projectId, workspace]);
-  // This effect synchronizes the detail view with the selected feature.
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     return () => { requestId.current += 1; controllerRef.current?.abort(); };
   }, [load]);
-  const runAction = async (action: () => Promise<void>) => { try { setActionError(null); await action(); await load(); } catch (cause) { setActionError(cause instanceof Error ? cause.message : "Could not save planning data."); } };
-  const addTask = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); const title = String(form.get("title") ?? "").trim(); if (!title || !workspace || !projectId || !featureId) return; await runAction(async () => { await forgeApi.createTask(workspace.id, projectId, featureId, { title }); formElement.reset(); }); };
-  const addCriterion = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); const description = String(form.get("description") ?? "").trim(); if (!description || !workspace || !projectId || !featureId) return; await runAction(async () => { await forgeApi.createCriterion(workspace.id, projectId, featureId, { description }); formElement.reset(); }); };
-  const updateFeature = async (payload: { status?: FeatureStatus; priority?: FeaturePriority }) => { if (!workspace || !projectId || !featureId) return; await runAction(async () => { await forgeApi.updateFeature(workspace.id, projectId, featureId, payload); }); };
-  const toggleCriterion = async (criterion: AcceptanceCriterion) => { if (!workspace || !projectId || !featureId) return; await runAction(async () => { await forgeApi.updateCriterion(workspace.id, projectId, featureId, criterion.id, { satisfied: !criterion.satisfied }); }); };
-  const updateTask = async (task: Task, status: TaskStatus) => { if (!workspace || !projectId || !featureId) return; await runAction(async () => { await forgeApi.updateTask(workspace.id, projectId, featureId, task.id, { status }); }); };
-  const addDependency = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); const blocking = String(form.get("blocking") ?? ""); const blocked = String(form.get("blocked") ?? ""); if (!workspace || !projectId || !blocking || !blocked) return; await runAction(async () => { await forgeApi.createDependency(workspace.id, projectId, { blocking_feature_id: blocking, blocked_feature_id: blocked }); formElement.reset(); }); };
-  const removeDependency = async (id: string) => { if (!workspace || !projectId) return; await runAction(() => forgeApi.deleteDependency(workspace.id, projectId, id)); };
-  const dependencyLabel = (id: string) => features.find((item) => item.id === id)?.key ?? "Unknown feature";
+
+  const performMutation = async (action: () => Promise<void>, fallback: string): Promise<boolean> => {
+    if (mutationPending) return false;
+    setMutationPending(true);
+    setActionError(null);
+    try {
+      await action();
+      await load();
+      return true;
+    } catch (cause) {
+      setActionError(errorMessage(cause, fallback));
+      return false;
+    } finally { setMutationPending(false); }
+  };
+
+  const saveFeature = (payload: FeatureFormPayload): Promise<boolean> => {
+    if (!workspace || !projectId || !featureId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.updateFeature(workspace.id, projectId, featureId, payload).then(() => undefined), "Could not save feature.");
+  };
+  const addTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const title = newTaskTitle.trim();
+    if (!title) { setActionError("Task title is required."); return; }
+    if (!workspace || !projectId || !featureId) return;
+    const saved = await performMutation(() => forgeApi.createTask(workspace.id, projectId, featureId, { title }).then(() => undefined), "Could not create task.");
+    if (saved) setNewTaskTitle("");
+  };
+  const addCriterion = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const description = newCriterionDescription.trim();
+    if (!description) { setActionError("Acceptance criterion is required."); return; }
+    if (!workspace || !projectId || !featureId) return;
+    const saved = await performMutation(() => forgeApi.createCriterion(workspace.id, projectId, featureId, { description }).then(() => undefined), "Could not create acceptance criterion.");
+    if (saved) setNewCriterionDescription("");
+  };
+  const saveTask = (task: Task, payload: { title: string; description: string; status: TaskStatus }): Promise<boolean> => {
+    if (!workspace || !projectId || !featureId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.updateTask(workspace.id, projectId, featureId, task.id, payload).then(() => undefined), "Could not save task.");
+  };
+  const reorderTasks = (ids: string[]): Promise<boolean> => {
+    if (!workspace || !projectId || !featureId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.reorderTasks(workspace.id, projectId, featureId, ids).then(() => undefined), "Could not reorder tasks.");
+  };
+  const saveCriterion = (criterion: AcceptanceCriterion, payload: { description: string; satisfied: boolean }): Promise<boolean> => {
+    if (!workspace || !projectId || !featureId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.updateCriterion(workspace.id, projectId, featureId, criterion.id, payload).then(() => undefined), "Could not save acceptance criterion.");
+  };
+  const reorderCriteria = (ids: string[]): Promise<boolean> => {
+    if (!workspace || !projectId || !featureId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.reorderCriteria(workspace.id, projectId, featureId, ids).then(() => undefined), "Could not reorder acceptance criteria.");
+  };
+  const addDependency = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const target = dependencyTarget;
+    const direction = dependencyDirection;
+    if (!target) { setActionError("Select a feature dependency first."); return; }
+    if (!workspace || !projectId || !featureId) return;
+    const payload = direction === "blocked_by"
+      ? { blocking_feature_id: target, blocked_feature_id: featureId }
+      : { blocking_feature_id: featureId, blocked_feature_id: target };
+    const saved = await performMutation(() => forgeApi.createDependency(workspace.id, projectId, payload).then(() => undefined), "Could not create dependency.");
+    if (saved) {
+      setDependencyTarget("");
+      setDependencyDirection("blocked_by");
+    }
+  };
+  const removeDependency = (id: string): Promise<boolean> => {
+    if (!workspace || !projectId) return Promise.resolve(false);
+    return performMutation(() => forgeApi.deleteDependency(workspace.id, projectId, id), "Could not remove dependency.");
+  };
+
+  const dependencyLabel = (id: string) => {
+    const item = features.find((candidate) => candidate.id === id);
+    return item ? `${item.key} · ${item.title}` : "Unknown feature";
+  };
   const otherFeatures = useMemo(() => features.filter((item) => item.id !== featureId), [featureId, features]);
+  const blockedBy = dependencies.filter((dependency) => dependency.blocked_feature_id === featureId);
+  const blocks = dependencies.filter((dependency) => dependency.blocking_feature_id === featureId);
 
   return <PageFrame onOpenPalette={onOpenPalette} subtitle="Intent, tasks and manual acceptance criteria for one feature." title={feature ? `${feature.key} · ${feature.title}` : "Feature detail"}>
     <div className="planning-tabs"><Link className="detail-tab" to={`/projects/${projectId}/board`}>Board</Link><Link className="detail-tab active" to={`/projects/${projectId}/features/${featureId}`}>Feature detail</Link><Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link></div>
     {loading ? <LoadingPanel label="Loading feature" /> : error ? <ErrorPanel message={error} onRetry={() => void load()} /> : feature ? <>
-      <section className="feature-detail-header"><div><span className="mono-label">{feature.key}</span><h2>{feature.title}</h2><p>{feature.description || "No description yet."}</p>{feature.goal && <p className="feature-goal">Goal: {feature.goal}</p>}</div><div className="feature-controls"><label>State<select aria-label="Feature state" onChange={(event) => void updateFeature({ status: event.target.value as FeatureStatus })} value={feature.status}>{statuses.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Priority<select aria-label="Feature priority" onChange={(event) => void updateFeature({ priority: event.target.value as FeaturePriority })} value={feature.priority}>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label></div></section>
+      <FeatureEditForm key={`${feature.id}-${feature.updated_at}`} actionPending={mutationPending} epics={epics} feature={feature} onSubmit={saveFeature} />
       {actionError && <div className="feedback-panel error-panel" role="alert"><span>{actionError}</span><button className="button ghost" onClick={() => setActionError(null)} type="button">Dismiss</button></div>}
-      <div className="feature-detail-grid"><section className="detail-section"><div className="section-heading"><h2>Tasks</h2><span>{tasks.length}</span></div><form className="inline-add" onSubmit={(event) => void addTask(event)}><input aria-label="New task" name="title" placeholder="Add a task" /><button className="button secondary" type="submit">Add</button></form>{tasks.length ? <ul className="planning-list">{tasks.map((task) => <li key={task.id}><span className={`task-state ${task.status}`} aria-hidden="true" /><span className={task.status === "done" ? "task-done" : ""}>{task.title}</span><select aria-label={`Status for ${task.title}`} onChange={(event) => void updateTask(task, event.target.value as TaskStatus)} value={task.status}><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></li>)}</ul> : <div className="quiet-empty-row">Break the feature into small, local tasks.</div>}</section><section className="detail-section"><div className="section-heading"><h2>Acceptance criteria</h2><span>{criteria.filter((item) => item.satisfied).length} / {criteria.length} satisfied</span></div><p className="planning-disclaimer">Manual declaration only; this is not verification evidence.</p><form className="inline-add" onSubmit={(event) => void addCriterion(event)}><input aria-label="New acceptance criterion" name="description" placeholder="Add an acceptance criterion" /><button className="button secondary" type="submit">Add</button></form>{criteria.length ? <ul className="planning-list criteria-list">{criteria.map((criterion) => <li key={criterion.id}><button aria-label={`${criterion.satisfied ? "Mark unsatisfied" : "Mark satisfied"}: ${criterion.description}`} className={`criterion-check${criterion.satisfied ? " checked" : ""}`} onClick={() => void toggleCriterion(criterion)} type="button">{criterion.satisfied ? "✓" : ""}</button><span className={criterion.satisfied ? "task-done" : ""}>{criterion.description}</span></li>)}</ul> : <div className="quiet-empty-row">No criteria declared yet.</div>}</section></div>
-      <section className="detail-section dependencies-section"><div className="section-heading"><h2>Dependencies</h2><span>{dependencies.length}</span></div><form className="dependency-form" onSubmit={(event) => void addDependency(event)}><label>Blocking<select name="blocking" defaultValue=""><option value="">Select feature</option>{otherFeatures.map((item) => <option key={item.id} value={item.id}>{item.key} · {item.title}</option>)}</select></label><span aria-hidden="true">blocks</span><label>Blocked<select name="blocked" defaultValue={feature.id}><option value={feature.id}>{feature.key} · {feature.title}</option>{otherFeatures.map((item) => <option key={item.id} value={item.id}>{item.key} · {item.title}</option>)}</select></label><button className="button secondary" type="submit">Add dependency</button></form>{dependencies.length ? <ul className="dependency-list">{dependencies.map((dependency) => <li key={dependency.id}><span>{dependencyLabel(dependency.blocking_feature_id)} blocks {dependencyLabel(dependency.blocked_feature_id)}</span><button className="button ghost" onClick={() => void removeDependency(dependency.id)} type="button">Remove</button></li>)}</ul> : <div className="quiet-empty-row">No feature dependencies declared.</div>}</section>
+      <div className="feature-detail-grid"><section className="detail-section"><div className="section-heading"><h2>Tasks</h2><span>{tasks.length}</span></div><form className="inline-add" onSubmit={(event) => void addTask(event)}><input aria-label="New task" name="title" onChange={(event) => setNewTaskTitle(event.target.value)} placeholder="Add a task" value={newTaskTitle} /><button className="button secondary" disabled={mutationPending} type="submit">Add</button></form>{tasks.length ? <ul className="planning-list">{tasks.map((task, index) => <TaskRow disabled={mutationPending} first={index === 0} key={task.id} last={index === tasks.length - 1} onMove={(direction) => reorderTasks(moveIds(tasks, index, direction))} onSave={(payload) => saveTask(task, payload)} task={task} />)}</ul> : <div className="quiet-empty-row">Break the feature into small, local tasks.</div>}</section><section className="detail-section"><div className="section-heading"><h2>Acceptance criteria</h2><span>{criteria.filter((item) => item.satisfied).length} / {criteria.length} satisfied</span></div><p className="planning-disclaimer">Manual declaration only; this is not verification evidence.</p><form className="inline-add" onSubmit={(event) => void addCriterion(event)}><input aria-label="New acceptance criterion" name="description" onChange={(event) => setNewCriterionDescription(event.target.value)} placeholder="Add an acceptance criterion" value={newCriterionDescription} /><button className="button secondary" disabled={mutationPending} type="submit">Add</button></form>{criteria.length ? <ul className="planning-list criteria-list">{criteria.map((criterion, index) => <CriterionRow criterion={criterion} disabled={mutationPending} first={index === 0} key={criterion.id} last={index === criteria.length - 1} onMove={(direction) => reorderCriteria(moveIds(criteria, index, direction))} onSave={(payload) => saveCriterion(criterion, payload)} />)}</ul> : <div className="quiet-empty-row">No criteria declared yet.</div>}</section></div>
+      <section className="detail-section dependencies-section"><div className="section-heading"><h2>Dependencies</h2><span>{dependencies.length}</span></div><form className="dependency-form" onSubmit={(event) => void addDependency(event)}><label>Relationship<select aria-label="Dependency relationship" onChange={(event) => setDependencyDirection(event.target.value as "blocked_by" | "blocks")} value={dependencyDirection}><option value="blocked_by">Blocked by</option><option value="blocks">Blocks</option></select></label><label>Feature<select aria-label="Dependency feature" onChange={(event) => setDependencyTarget(event.target.value)} value={dependencyTarget}><option value="">Select feature</option>{otherFeatures.map((item) => <option key={item.id} value={item.id}>{item.key} · {item.title}</option>)}</select></label><button className="button secondary" disabled={mutationPending} type="submit">Add dependency</button></form><div className="dependency-groups"><DependencyGroup disabled={mutationPending} items={blockedBy} labelText="Blocked by" onRemove={removeDependency} resolve={dependencyLabel} empty="No features block this feature." /><DependencyGroup disabled={mutationPending} items={blocks} labelText="Blocks" onRemove={removeDependency} resolve={dependencyLabel} empty="This feature blocks nothing yet." /></div></section>
     </> : null}
   </PageFrame>;
+}
+
+function moveIds<T extends { id: string }>(items: T[], index: number, direction: "up" | "down"): string[] {
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (nextIndex < 0 || nextIndex >= items.length) return items.map((item) => item.id);
+  const ids = items.map((item) => item.id);
+  [ids[index], ids[nextIndex]] = [ids[nextIndex], ids[index]];
+  return ids;
+}
+
+function FeatureEditForm({ feature, epics, onSubmit, actionPending }: { feature: Feature; epics: Epic[]; onSubmit: (payload: FeatureFormPayload) => Promise<boolean>; actionPending: boolean }) {
+  const [title, setTitle] = useState(feature.title);
+  const [description, setDescription] = useState(feature.description ?? "");
+  const [goal, setGoal] = useState(feature.goal ?? "");
+  const [priority, setPriority] = useState<FeaturePriority>(feature.priority);
+  const [status, setStatus] = useState<FeatureStatus>(feature.status);
+  const [epicId, setEpicId] = useState(feature.epic_id ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) { setError("Feature title is required."); return; }
+    setError(null);
+    const saved = await onSubmit({ title, description, goal, priority, status, ...(epicId ? { epic_id: epicId } : { clear_epic: true }) });
+    if (!saved) setError("Could not save feature. Try again.");
+  };
+  return <form className="planning-form feature-edit-form" onSubmit={(event) => void submit(event)}><div className="section-heading"><div><span className="mono-label">{feature.key}</span><h2>Edit feature</h2></div><span className="planning-disclaimer">Manual planning state</span></div><div className="form-grid"><label>Title<input aria-label="Feature title" maxLength={160} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Priority<select aria-label="Feature priority" onChange={(event) => setPriority(event.target.value as FeaturePriority)} value={priority}>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Status<select aria-label="Feature state" onChange={(event) => setStatus(event.target.value as FeatureStatus)} value={status}>{statuses.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label><label>Epic<select aria-label="Feature epic" onChange={(event) => setEpicId(event.target.value)} value={epicId}><option value="">Unassigned</option>{epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}</select></label><label className="wide-field">Goal<textarea aria-label="Feature goal" onChange={(event) => setGoal(event.target.value)} rows={2} value={goal} /></label><label className="wide-field">Description<textarea aria-label="Feature description" onChange={(event) => setDescription(event.target.value)} rows={3} value={description} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button primary" disabled={actionPending} type="submit">{actionPending ? "Saving..." : "Save feature"}</button></div></form>;
+}
+
+function TaskRow({ task, onSave, onMove, first, last, disabled }: { task: Task; onSave: (payload: { title: string; description: string; status: TaskStatus }) => Promise<boolean>; onMove: (direction: "up" | "down") => Promise<boolean>; first: boolean; last: boolean; disabled: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description ?? "");
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async (event: FormEvent) => { event.preventDefault(); if (!title.trim()) { setError("Task title is required."); return; } setSaving(true); const saved = await onSave({ title, description, status }); setSaving(false); if (saved) { setEditing(false); setError(null); } else setError("Could not save task. Try again."); };
+  const updateStatus = async (nextStatus: TaskStatus) => { setSaving(true); const saved = await onSave({ title: task.title, description: task.description ?? "", status: nextStatus }); setSaving(false); if (!saved) setError("Could not save task. Try again."); };
+  const move = async (direction: "up" | "down") => { setSaving(true); await onMove(direction); setSaving(false); };
+  return <li className="planning-item"><span className={`task-state ${task.status}`} aria-hidden="true" />{editing ? <form className="item-edit-form" onSubmit={(event) => void save(event)}><label>Title<input aria-label={`Task title for ${task.title}`} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label>Description<input aria-label={`Task description for ${task.title}`} onChange={(event) => setDescription(event.target.value)} value={description} /></label><label>Status<select aria-label={`Task state for ${task.title}`} onChange={(event) => setStatus(event.target.value as TaskStatus)} value={status}><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label><button className="button secondary" disabled={saving || disabled} type="submit">{saving ? "Saving..." : "Save"}</button><button className="button ghost" disabled={saving || disabled} onClick={() => setEditing(false)} type="button">Cancel</button></form> : <><span className="planning-item-copy"><strong className={task.status === "done" ? "task-done" : ""}>{task.title}</strong>{task.description && <small>{task.description}</small>}</span><select aria-label={`Status for ${task.title}`} disabled={disabled || saving} onChange={(event) => { setStatus(event.target.value as TaskStatus); void updateStatus(event.target.value as TaskStatus); }} value={task.status}><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select><button aria-label={`Edit task ${task.title}`} className="button ghost" disabled={disabled || saving} onClick={() => setEditing(true)} type="button">Edit</button></>}<div className="reorder-controls"><button aria-label={`Move task ${task.title} up`} className="icon-button" disabled={first || saving || disabled} onClick={() => void move("up")} type="button">↑</button><button aria-label={`Move task ${task.title} down`} className="icon-button" disabled={last || saving || disabled} onClick={() => void move("down")} type="button">↓</button></div>{error && <span className="form-error" role="alert">{error}</span>}</li>;
+}
+
+function CriterionRow({ criterion, onSave, onMove, first, last, disabled }: { criterion: AcceptanceCriterion; onSave: (payload: { description: string; satisfied: boolean }) => Promise<boolean>; onMove: (direction: "up" | "down") => Promise<boolean>; first: boolean; last: boolean; disabled: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [description, setDescription] = useState(criterion.description);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async (event: FormEvent) => { event.preventDefault(); if (!description.trim()) { setError("Acceptance criterion is required."); return; } setSaving(true); const saved = await onSave({ description, satisfied: criterion.satisfied }); setSaving(false); if (saved) { setEditing(false); setError(null); } else setError("Could not save acceptance criterion. Try again."); };
+  const toggle = async () => { setSaving(true); await onSave({ description: criterion.description, satisfied: !criterion.satisfied }); setSaving(false); };
+  const move = async (direction: "up" | "down") => { setSaving(true); await onMove(direction); setSaving(false); };
+  return <li className="planning-item criterion-item">{editing ? <form className="item-edit-form" onSubmit={(event) => void save(event)}><label>Description<input aria-label={`Criterion description for ${criterion.description}`} onChange={(event) => setDescription(event.target.value)} value={description} /></label><button className="button secondary" disabled={saving || disabled} type="submit">{saving ? "Saving..." : "Save"}</button><button className="button ghost" disabled={saving || disabled} onClick={() => setEditing(false)} type="button">Cancel</button></form> : <><button aria-label={`${criterion.satisfied ? "Mark unsatisfied" : "Mark satisfied"}: ${criterion.description}`} className={`criterion-check${criterion.satisfied ? " checked" : ""}`} disabled={saving || disabled} onClick={() => void toggle()} type="button">{criterion.satisfied ? "✓" : ""}</button><span className="planning-item-copy"><strong className={criterion.satisfied ? "task-done" : ""}>{criterion.description}</strong><small>Manual declaration only; not verification evidence.</small></span><button aria-label={`Edit criterion ${criterion.description}`} className="button ghost" disabled={disabled} onClick={() => setEditing(true)} type="button">Edit</button></>}<div className="reorder-controls"><button aria-label={`Move criterion ${criterion.description} up`} className="icon-button" disabled={first || saving || disabled} onClick={() => void move("up")} type="button">↑</button><button aria-label={`Move criterion ${criterion.description} down`} className="icon-button" disabled={last || saving || disabled} onClick={() => void move("down")} type="button">↓</button></div>{error && <span className="form-error" role="alert">{error}</span>}</li>;
+}
+
+function DependencyGroup({ labelText, items, resolve, onRemove, empty, disabled }: { labelText: string; items: FeatureDependency[]; resolve: (id: string) => string; onRemove: (id: string) => Promise<boolean>; empty: string; disabled: boolean }) {
+  return <section className="dependency-group"><div className="section-heading"><h3>{labelText}</h3><span>{items.length}</span></div>{items.length ? <ul className="dependency-list">{items.map((dependency) => <li key={dependency.id}><span>{resolve(labelText === "Blocked by" ? dependency.blocking_feature_id : dependency.blocked_feature_id)}</span><button className="button ghost" disabled={disabled} onClick={() => void onRemove(dependency.id)} type="button">Remove</button></li>)}</ul> : <div className="quiet-empty-row">{empty}</div>}</section>;
 }

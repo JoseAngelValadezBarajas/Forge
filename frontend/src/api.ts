@@ -189,6 +189,8 @@ export const forgeApi = {
     request<AcceptanceCriterion>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/acceptance-criteria`, { method: "POST", body: JSON.stringify(payload) }),
   updateCriterion: (workspaceId: string, projectId: string, featureId: string, criterionId: string, payload: { description?: string; satisfied?: boolean; position?: number }) =>
     request<AcceptanceCriterion>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/acceptance-criteria/${criterionId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  reorderCriteria: (workspaceId: string, projectId: string, featureId: string, ids: string[]) =>
+    request<AcceptanceCriterion[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/acceptance-criteria/reorder`, { method: "POST", body: JSON.stringify({ ids }) }),
   listDependencies: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
     request<FeatureDependency[]>(`/workspaces/${workspaceId}/projects/${projectId}/dependencies`, { signal }),
   createDependency: (workspaceId: string, projectId: string, payload: { blocking_feature_id: string; blocked_feature_id: string }) =>
