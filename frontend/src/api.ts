@@ -151,6 +151,54 @@ export type ReadinessEvaluation = {
   stale: boolean;
 };
 
+export type RepositoryConnection = {
+  id: string;
+  project_id: string;
+  root_path: string;
+  status: "connected" | "disconnected";
+  connected_at: string;
+  disconnected_at: string | null;
+  last_observed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GitObservation = {
+  id: string;
+  repository_id: string;
+  observed_at: string;
+  head_sha: string | null;
+  branch: string | null;
+  detached: boolean;
+  unborn: boolean;
+  clean: boolean | null;
+  tracked_modified_count: number;
+  staged_count: number;
+  untracked_count: number;
+  observer_version: string;
+  status: string;
+  error_code: string | null;
+  error_detail: string | null;
+};
+
+export type FeatureRepositoryLink = {
+  id: string;
+  feature_id: string;
+  repository_id: string;
+  created_at: string;
+};
+
+export type ContextPackage = {
+  id: string | null;
+  project_id: string;
+  feature_id: string;
+  schema_version: string;
+  fingerprint: string;
+  created_at: string | null;
+  payload: Record<string, unknown>;
+  markdown: string;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -298,6 +346,28 @@ export const forgeApi = {
     request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { method: "POST", signal }),
   listReadinessEvaluations: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
     request<ReadinessEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { signal }),
+  listRepositories: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<RepositoryConnection[]>(`/workspaces/${workspaceId}/projects/${projectId}/repositories`, { signal }),
+  connectRepository: (workspaceId: string, projectId: string, rootPath: string) =>
+    request<RepositoryConnection>(`/workspaces/${workspaceId}/projects/${projectId}/repositories`, { method: "POST", body: JSON.stringify({ root_path: rootPath }) }),
+  observeRepository: (workspaceId: string, projectId: string, repositoryId: string, signal?: AbortSignal) =>
+    request<GitObservation>(`/workspaces/${workspaceId}/projects/${projectId}/repositories/${repositoryId}/observe`, { method: "POST", signal }),
+  listObservations: (workspaceId: string, projectId: string, repositoryId: string, signal?: AbortSignal) =>
+    request<GitObservation[]>(`/workspaces/${workspaceId}/projects/${projectId}/repositories/${repositoryId}/observations`, { signal }),
+  disconnectRepository: (workspaceId: string, projectId: string, repositoryId: string) =>
+    request<RepositoryConnection>(`/workspaces/${workspaceId}/projects/${projectId}/repositories/${repositoryId}/disconnect`, { method: "POST" }),
+  listFeatureRepositories: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<RepositoryConnection[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/repositories`, { signal }),
+  linkFeatureRepository: (workspaceId: string, projectId: string, featureId: string, repositoryId: string) =>
+    request<FeatureRepositoryLink>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/repositories`, { method: "POST", body: JSON.stringify({ repository_id: repositoryId }) }),
+  unlinkFeatureRepository: (workspaceId: string, projectId: string, featureId: string, repositoryId: string) =>
+    request<void>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/repositories/${repositoryId}`, { method: "DELETE" }),
+  previewContextPackage: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ContextPackage>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/context/preview`, { method: "POST", signal }),
+  listContextPackages: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ContextPackage[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/context/packages`, { signal }),
+  saveContextPackage: (workspaceId: string, projectId: string, featureId: string) =>
+    request<ContextPackage>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/context/packages`, { method: "POST" }),
 };
 
 export type DecisionCreatePayload = {

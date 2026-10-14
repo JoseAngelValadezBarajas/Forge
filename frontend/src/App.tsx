@@ -4,9 +4,10 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { forgeApi, type Workspace } from "./api";
 import { Sidebar } from "./components";
-import { HomePage, ProjectOverviewPage, ProjectsPage, WorkbenchPage } from "./pages";
+import { HomePage, ProjectsPage, WorkbenchPage } from "./pages";
 import { FeatureDetailPage, FeaturesPage, ProjectBoardPage } from "./planning";
 import { DecisionsPage, InvariantsPage } from "./fnd03";
+import { FeatureContextPage, ProjectOverviewWithRepositories, RepositoriesPage } from "./fnd04";
 
 type Theme = "dark" | "light";
 
@@ -59,7 +60,7 @@ function App() {
 }
 
 function WorkspaceRoutes({ activeWorkspace, workspaceCount, onOpenPalette }: { activeWorkspace: Workspace | null; workspaceCount: number; onOpenPalette: (button: HTMLButtonElement) => void }) {
-  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<DecisionsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/decisions" /><Route element={<InvariantsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/invariants" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
+  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewWithRepositories onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<RepositoriesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/repositories" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<FeatureContextPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId/context" /><Route element={<DecisionsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/decisions" /><Route element={<InvariantsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/invariants" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
 }
 
 const commands = [
@@ -68,7 +69,9 @@ const commands = [
   { label: "Create project", path: "/projects?create=1", hint: "Add a project", action: "navigate" },
   { label: "Create Feature", path: "", hint: "Create in the current project", action: "navigate", requiresProject: true },
   { label: "Create Epic", path: "", hint: "Create in the current project", action: "navigate", requiresProject: true },
+  { label: "Open Feature Context", path: "", hint: "Preview deterministic context package", action: "navigate", requiresFeature: true },
   { label: "Go to Project Board", path: "/projects", hint: "Select a project board", action: "navigate" },
+  { label: "Open Repositories", path: "/projects", hint: "Inspect optional local Git", action: "navigate", requiresProject: true },
   { label: "Open Features", path: "/projects", hint: "Select a project feature list", action: "navigate" },
   { label: "Open Decisions", path: "/projects", hint: "Select a project decision inventory", action: "navigate" },
   { label: "Open Invariants", path: "/projects", hint: "Select a project invariant inventory", action: "navigate" },
@@ -85,11 +88,15 @@ function CommandPalette({ onClose, onChangeWorkspace }: { onClose: () => void; o
   const inputRef = useRef<HTMLInputElement>(null);
   const projectMatch = location.pathname.match(/^\/projects\/([^/]+)/);
   const projectId = projectMatch?.[1];
+  const featureMatch = location.pathname.match(/^\/projects\/[^/]+\/features\/([^/]+)/);
+  const featureId = featureMatch?.[1];
   const availableCommands = commands
-    .filter((command) => !command.requiresProject || projectId)
+    .filter((command) => (!command.requiresProject || projectId) && (!command.requiresFeature || featureId))
     .map((command) => {
       if (command.label === "Create Feature" && projectId) return { ...command, path: `/projects/${projectId}/features?create=1` };
       if (command.label === "Create Epic" && projectId) return { ...command, path: `/projects/${projectId}/board?create=epic` };
+      if (command.label === "Open Repositories" && projectId) return { ...command, path: `/projects/${projectId}/repositories` };
+      if (command.label === "Open Feature Context" && projectId && featureId) return { ...command, path: `/projects/${projectId}/features/${featureId}/context` };
       return command;
     });
   const filtered = availableCommands.filter((command) => `${command.label} ${command.hint}`.toLowerCase().includes(query.toLowerCase()));

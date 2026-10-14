@@ -483,7 +483,7 @@ export function FeatureDetailPage({ workspace, onOpenPalette }: FeatureDetailPro
   const blocks = dependencies.filter((dependency) => dependency.blocking_feature_id === featureId);
 
   return <PageFrame onOpenPalette={onOpenPalette} subtitle="Intent, tasks and manual acceptance criteria for one feature." title={feature ? `${feature.key} · ${feature.title}` : "Feature detail"}>
-    <div className="planning-tabs"><Link className="detail-tab" to={`/projects/${projectId}/board`}>Board</Link><Link className="detail-tab active" to={`/projects/${projectId}/features/${featureId}`}>Feature detail</Link><Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link></div>
+    <div className="planning-tabs"><Link className="detail-tab" to={`/projects/${projectId}/board`}>Board</Link><Link className="detail-tab active" to={`/projects/${projectId}/features/${featureId}`}>Feature detail</Link><Link className="detail-tab" to={`/projects/${projectId}/features/${featureId}/context`}>Context</Link><Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link></div>
     {loading ? <LoadingPanel label="Loading feature" /> : error ? <ErrorPanel message={error} onRetry={() => void load()} /> : feature ? <>
       <FeatureEditForm key={`${feature.id}-${feature.updated_at}`} actionPending={mutationPending} epics={epics} feature={feature} onSubmit={saveFeature} />
       {actionError && <div className="feedback-panel error-panel" role="alert"><span>{actionError}</span><button className="button ghost" onClick={() => setActionError(null)} type="button">Dismiss</button></div>}

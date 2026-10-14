@@ -6,7 +6,7 @@ Run the backend on `127.0.0.1:8000` and the Vite frontend on `127.0.0.1:5173`. T
 
 The migration infrastructure is in `backend/migrations` and `alembic.ini`. Run `uv run alembic upgrade head` followed by `uv run --directory backend python -m app.initialization` after a fresh checkout. The initializer is explicit and idempotent: it creates `Local Workspace` once, and does not run on module import.
 
-The FND-01 and FND-02 API contract is summarized in [`api-contracts.md`](api-contracts.md). Workspace, project and planning IDs are opaque UUID strings; feature readable IDs are stable per project. Project names are unique case-insensitively within a workspace, archive is reversible, and an archived project is read-only for planning mutations.
+The API contract is summarized in [`api-contracts.md`](api-contracts.md). Workspace, project and planning IDs are opaque UUID strings; feature readable IDs are stable per project. Project names are unique case-insensitively within a workspace, archive is reversible, and an archived project is read-only for planning and FND-04 mutations. The Context Package schema is documented in [`context-schema.md`](context-schema.md).
 
 ## Checks
 
@@ -20,5 +20,5 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans every 
 
 Licensing documents live at the repository root: `LICENSE.md`, `NOTICE`, `COMMERCIAL-LICENSING.md`, `TRADEMARKS.md`, `CONTRIBUTING.md` and `SECURITY.md`. The third-party dependency inventory is in `docs/dependency-licenses.md`.
 
-Do not add provider credentials, cloud integrations, repository access, agent execution or verification evidence to FND-02. Keep claims in the UI tied to observed backend data; FND-02 manual states and criterion declarations must remain distinct from FND-03 readiness and later delivery evidence.
+FND-04 repository access is local and read-only. The observer must not fetch, push, commit, checkout, merge, reset, execute arbitrary commands, invoke hooks, inspect remotes or read source files. Git subprocesses use list arguments without a shell, a controlled environment, bounded concurrent stdout/stderr readers, explicit timeouts and process cleanup. Keep claims in the UI tied to observed backend data; manual planning states, readiness, Git observations and later delivery evidence remain distinct.
 

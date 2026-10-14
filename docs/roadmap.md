@@ -4,7 +4,7 @@
 - **FND-01** — Workspaces and projects, with persistent selection, real CRUD and explicit not-yet integration states.
 - **FND-02** — Product hierarchy: epics, features and tasks.
 - **FND-03** — Readiness workflow, decisions and invariants.
-- **FND-04** — Git observer and deterministic context packages.
+- **FND-04** — Optional local Git connections, read-only deterministic observations and immutable `forge-context-v1` Context Packages. No source scanning, remotes, network operations or delivery evidence.
 - **FND-05** — Agent runs, handoffs and delivery evidence.
 - **FND-06** — Workbench and release views grounded in real local evidence.
 
