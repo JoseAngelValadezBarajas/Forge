@@ -1,10 +1,10 @@
 # Forge
 
-Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-03 adds durable decisions, project/feature invariants and an explainable planning-readiness evaluation to the FND-01/FND-02 workspace and planning foundation. Projects remain useful before any repository or integration is connected.
+Forge is a local-first workspace for connecting product intent, optional local Git observations, deterministic planning context and delivery evidence. FND-04 adds read-only repository connections and immutable Context Packages to the FND-01/FND-02/FND-03 planning foundation. Projects remain useful before any repository or integration is connected.
 
 ## Status
 
-FND-03 is intentionally limited to product planning readiness. There are no connected repositories, agent runs, CI claims, verification results or release records in the UI. Readiness is deterministic planning guidance, not a technical or delivery verification. Those capabilities belong to later milestones.
+FND-04 is intentionally limited to optional local Git metadata and deterministic planning snapshots. Forge does not fetch, push, commit, checkout, execute arbitrary commands, scan source content, expose remotes or claim CI, verification or release evidence. Readiness remains deterministic planning guidance, not technical or delivery verification.
 
 ## Licensing
 
@@ -17,6 +17,8 @@ Copyright and attribution details are in [NOTICE](NOTICE). Project identity guid
 ## Planning slice
 
 After selecting a project, the Overview links to the persistent Board, Features/Epics, Decisions and Invariants views. A Feature detail view shows the six deterministic readiness rules, preview versus saved evaluation history, current-staleness state, linked decisions and revision-aware invariant acknowledgements. Board states and acknowledgements are manual planning declarations, not delivery evidence.
+
+Projects can optionally connect one or more local Git working trees. Repositories are observed on demand with bounded, read-only metadata collection. A Feature can link repositories and generate a `forge-context-v1` Context Package containing normalized planning data and selected Git observations. Packages are immutable, fingerprinted and deduplicated; preview never creates history.
 
 ## Stack
 

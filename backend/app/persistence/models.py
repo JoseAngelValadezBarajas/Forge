@@ -381,3 +381,119 @@ Index(
     ReadinessEvaluationModel.feature_id,
     ReadinessEvaluationModel.evaluated_at,
 )
+
+
+class RepositoryConnectionModel(Base):
+    __tablename__ = "repository_connections"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    root_path: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="connected")
+    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_observed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+Index(
+    "uq_repository_connections_project_root",
+    RepositoryConnectionModel.project_id,
+    RepositoryConnectionModel.root_path,
+    unique=True,
+)
+Index(
+    "ix_repository_connections_project_status",
+    RepositoryConnectionModel.project_id,
+    RepositoryConnectionModel.status,
+)
+
+
+class GitObservationModel(Base):
+    __tablename__ = "git_observations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("repository_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    head_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detached: Mapped[bool] = mapped_column(nullable=False, default=False)
+    unborn: Mapped[bool] = mapped_column(nullable=False, default=False)
+    clean: Mapped[bool | None] = mapped_column(nullable=True)
+    tracked_modified_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    staged_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    untracked_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    observer_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(String(240), nullable=True)
+
+
+Index(
+    "ix_git_observations_repository_date",
+    GitObservationModel.repository_id,
+    GitObservationModel.observed_at,
+)
+
+
+class FeatureRepositoryLinkModel(Base):
+    __tablename__ = "feature_repository_links"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    repository_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("repository_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_feature_repository_link",
+    FeatureRepositoryLinkModel.feature_id,
+    FeatureRepositoryLinkModel.repository_id,
+    unique=True,
+)
+Index("ix_feature_repository_links_repository", FeatureRepositoryLinkModel.repository_id)
+
+
+class ContextPackageModel(Base):
+    __tablename__ = "context_packages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+Index(
+    "uq_context_packages_feature_schema_fingerprint",
+    ContextPackageModel.feature_id,
+    ContextPackageModel.schema_version,
+    ContextPackageModel.fingerprint,
+    unique=True,
+)
+Index(
+    "ix_context_packages_project_feature_date",
+    ContextPackageModel.project_id,
+    ContextPackageModel.feature_id,
+    ContextPackageModel.created_at,
+)

@@ -45,4 +45,13 @@ Feature IDs are stable, UUID-backed and readable per project (`FEAT-001`). Manua
 
 Readiness outcomes are `READY_TO_START` or `NOT_READY`. R01 requires title and goal; R02 requires at least one described acceptance criterion but ignores its satisfied flag; R03 checks blocking Feature states; R04 checks linked decision acceptance including supersession; R05 checks current-revision invariant acknowledgement; and R06 rejects archived projects. An evaluation is stale when its saved fingerprint no longer matches the current normalized planning inputs. Preview remains available for archived projects, while saving a new evaluation is rejected with `422`; existing snapshots remain readable. The engine reports planning state only and never claims repository, CI, agent or delivery evidence.
 
-Repositories, Git paths, integrations, commits, CI, agents and releases are deliberately absent from this contract. A satisfied acceptance criterion is not evidence of verification.
+## Optional repositories and Context Packages
+
+- `GET|POST /api/workspaces/{workspace_id}/projects/{project_id}/repositories` lists or connects an absolute local Git working tree. Connection validates the repository without reading source content. Connections are project-scoped and duplicate roots return `409`.
+- `POST .../repositories/{repository_id}/observe` records one immutable, metadata-only Git observation. `GET .../repositories/{repository_id}/observations` reads its history. `POST .../repositories/{repository_id}/disconnect` marks a connection disconnected without deleting observations or packages.
+- `GET|POST .../features/{feature_id}/repositories` lists or links a repository to a Feature; `DELETE .../features/{feature_id}/repositories/{repository_id}` unlinks it. Cross-project links return `404`.
+- `POST .../features/{feature_id}/context/preview` builds a package without saving it. `GET|POST .../features/{feature_id}/context/packages` lists or immutably saves a `forge-context-v1` package. An identical Feature/schema/fingerprint is deduplicated. `GET .../context/packages/{package_id}` reads one snapshot and `/download?format=json|markdown` exports it.
+
+Packages contain normalized product planning and selected Git state. They do not contain local filesystem paths, remote URLs, credentials, author identities, commit messages, diffs, source content or untracked file names. Archived projects keep repository/package reads and preview available, but connection, observation, link and save mutations return `422`. Git operations are read-only and local; Forge does not fetch, push, commit, checkout, merge or reset.
+
+A satisfied acceptance criterion is not evidence of verification.

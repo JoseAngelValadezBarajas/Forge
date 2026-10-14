@@ -315,6 +315,36 @@ kbd { border: 1px solid var(--border); border-radius: 5px; color: var(--text-sub
 .history-row strong { color: var(--success); font-size: 10px; }
 .history-stale { color: var(--warning); }
 
+.repository-section, .context-package-section { display: grid; gap: 14px; }
+.project-repository-append { padding-top: 0; }
+.project-repository-append .repository-section { margin-top: 0; }
+.page-frame .future-grid > div:first-child { display: none; }
+.repository-inventory { display: grid; gap: 12px; }
+.repository-inventory.compact .repository-connect-form { display: none; }
+.repository-connect-form { align-items: end; display: flex; gap: 10px; }
+.repository-connect-form label, .inline-link-form label { color: var(--text-muted); display: grid; flex: 1; font-size: 11px; gap: 6px; }
+.repository-connect-form input, .inline-link-form select { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 8px 9px; }
+.repository-list { display: grid; gap: 10px; }
+.repository-card { align-items: center; background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); display: flex; gap: 16px; justify-content: space-between; padding: 13px; }
+.repository-card h3 { color: var(--text); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 12px; margin: 5px 0; overflow-wrap: anywhere; }
+.repository-card p, .repository-card small { color: var(--text-muted); font-size: 11px; line-height: 17px; margin: 0; }
+.repository-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.context-links { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr); }
+.context-links h3, .context-history h3 { font-size: 14px; margin: 0 0 8px; }
+.context-links p { color: var(--text-muted); font-size: 12px; margin: 0; }
+.context-preview { background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); display: grid; gap: 8px; padding: 13px; }
+.context-preview p { color: var(--text); font-size: 12px; margin: 0; }
+.context-preview code { color: var(--accent); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.context-history { display: grid; gap: 8px; }
+.context-history .history-row { grid-template-columns: 1fr auto auto auto; }
+
+@media (max-width: 680px) {
+  .repository-connect-form, .repository-card { align-items: stretch; flex-direction: column; }
+  .repository-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .context-links { grid-template-columns: 1fr; }
+  .context-history .history-row { align-items: start; grid-template-columns: 1fr auto; }
+}
+
 @media (max-width: 800px) {
   .readiness-support { grid-template-columns: 1fr; }
   .fnd-toolbar { align-items: start; flex-direction: column; gap: 12px; }

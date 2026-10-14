@@ -8,3 +8,5 @@ Typography uses Geist with system fallbacks for UI text and IBM Plex Mono with m
 
 The Figma reference contains sample data in several screens. FND-02 replaces it with SQLite-backed records, real counts, six manual board columns and explicit empty/loading/error states. Cards do not present manual state or satisfied criteria as verified, CI-passed or release-ready evidence. The inspected FND-02 references are Project Overview `4:158`, Project Board `4:271` and Feature Detail `5:89`.
 
+FND-04 reuses the same shell, tokens and states for the Repositories inventory and Feature Context section. In this implementation session the connected Figma reader exposed the top-level Product Map (`00 — Product Map`, `0:1`, frame `6:2`) but not the requested FND-04 screen pages. The implementation therefore records this as a pending visual comparison rather than claiming screen-level Figma certification.
+
