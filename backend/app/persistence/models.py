@@ -210,3 +210,174 @@ Index(
     unique=True,
 )
 Index("ix_feature_dependencies_project", FeatureDependencyModel.project_id)
+
+
+class DecisionModel(Base):
+    __tablename__ = "decisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    context: Mapped[str] = mapped_column(Text, nullable=False)
+    decision: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    alternatives_considered: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tradeoffs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="proposed")
+    superseded_by_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("decisions.id", ondelete="SET NULL"), nullable=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+Index("ix_decisions_project_updated", DecisionModel.project_id, DecisionModel.updated_at)
+Index("ix_decisions_project_status", DecisionModel.project_id, DecisionModel.status)
+
+
+class DecisionRevisionModel(Base):
+    __tablename__ = "decision_revisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    decision_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("decisions.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    context: Mapped[str] = mapped_column(Text, nullable=False)
+    decision: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    alternatives_considered: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tradeoffs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    superseded_by_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_decision_revisions_revision",
+    DecisionRevisionModel.decision_id,
+    DecisionRevisionModel.revision,
+    unique=True,
+)
+
+
+class DecisionFeatureLinkModel(Base):
+    __tablename__ = "decision_feature_links"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    decision_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("decisions.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_decision_feature_link",
+    DecisionFeatureLinkModel.decision_id,
+    DecisionFeatureLinkModel.feature_id,
+    unique=True,
+)
+Index("ix_decision_feature_links_feature", DecisionFeatureLinkModel.feature_id)
+
+
+class InvariantModel(Base):
+    __tablename__ = "invariants"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+Index("ix_invariants_project_status", InvariantModel.project_id, InvariantModel.status)
+Index("ix_invariants_feature_status", InvariantModel.feature_id, InvariantModel.status)
+
+
+class InvariantRevisionModel(Base):
+    __tablename__ = "invariant_revisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    invariant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("invariants.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    feature_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_invariant_revisions_revision",
+    InvariantRevisionModel.invariant_id,
+    InvariantRevisionModel.revision,
+    unique=True,
+)
+
+
+class InvariantAcknowledgementModel(Base):
+    __tablename__ = "invariant_acknowledgements"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    invariant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("invariants.id", ondelete="CASCADE"), nullable=False
+    )
+    acknowledged_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    acknowledged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_invariant_acknowledgement",
+    InvariantAcknowledgementModel.feature_id,
+    InvariantAcknowledgementModel.invariant_id,
+    unique=True,
+)
+Index("ix_invariant_acknowledgements_invariant", InvariantAcknowledgementModel.invariant_id)
+
+
+class ReadinessEvaluationModel(Base):
+    __tablename__ = "readiness_evaluations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    rule_set_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False)
+    results_json: Mapped[str] = mapped_column(Text, nullable=False)
+    input_snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+Index(
+    "ix_readiness_evaluations_feature_date",
+    ReadinessEvaluationModel.feature_id,
+    ReadinessEvaluationModel.evaluated_at,
+)

@@ -1,10 +1,10 @@
 # Forge
 
-Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-02 adds persistent epics, features, tasks, acceptance criteria and feature dependencies to the FND-01 workspace/project foundation. Projects remain useful before any repository or integration is connected.
+Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-03 adds durable decisions, project/feature invariants and an explainable planning-readiness evaluation to the FND-01/FND-02 workspace and planning foundation. Projects remain useful before any repository or integration is connected.
 
 ## Status
 
-FND-02 is intentionally limited to product planning. There are no connected repositories, agent runs, CI claims, verification results or release records in the UI. Those capabilities belong to later milestones.
+FND-03 is intentionally limited to product planning readiness. There are no connected repositories, agent runs, CI claims, verification results or release records in the UI. Readiness is deterministic planning guidance, not a technical or delivery verification. Those capabilities belong to later milestones.
 
 ## Licensing
 
@@ -16,7 +16,7 @@ Copyright and attribution details are in [NOTICE](NOTICE). Project identity guid
 
 ## Planning slice
 
-After selecting a project, the Overview links to the persistent Board and Features/Epics views. Board states are manual planning states; an acceptance criterion marked satisfied is a user declaration, not delivery evidence.
+After selecting a project, the Overview links to the persistent Board, Features/Epics, Decisions and Invariants views. A Feature detail view shows the six deterministic readiness rules, preview versus saved evaluation history, current-staleness state, linked decisions and revision-aware invariant acknowledgements. Board states and acknowledgements are manual planning declarations, not delivery evidence.
 
 ## Stack
 
@@ -95,7 +95,7 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans the cu
 
 The implementation uses the supplied Forge Figma file as the visual reference. The accessible Core canvas is `04 — Desktop / Core` (`node-id=1:5`), with Workspace Home at `4:32` and Project Overview at `4:158`. The shell follows the inspected graphite/copper palette, 232px sidebar, compact workspace header, rounded graphite surfaces, Geist-style type hierarchy and IBM Plex Mono labels. Figma sample content is replaced with records from SQLite or honest empty states; no sample projects, commits, CI results or verification claims are rendered.
 
-The FND-02 visual review uses Project Overview (`4:158`), Project Board (`4:271`) and Feature Detail (`5:89`) from the supplied Forge Figma file, with Foundations, Components, Interaction & States and Responsive & Layout as supporting references.
+The FND-02/FND-03 visual review uses Project Overview (`4:158`), Project Board (`4:271`), Feature Detail (`5:89`) and the compact Readiness component (`12:30`) from the supplied Forge Figma file, with Foundations, Components, Interaction & States and Responsive & Layout as supporting references.
 
 ## Repository layout
 

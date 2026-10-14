@@ -6,6 +6,7 @@ import { forgeApi, type Workspace } from "./api";
 import { Sidebar } from "./components";
 import { HomePage, ProjectOverviewPage, ProjectsPage, WorkbenchPage } from "./pages";
 import { FeatureDetailPage, FeaturesPage, ProjectBoardPage } from "./planning";
+import { DecisionsPage, InvariantsPage } from "./fnd03";
 
 type Theme = "dark" | "light";
 
@@ -55,7 +56,7 @@ function App() {
 }
 
 function WorkspaceRoutes({ activeWorkspace, workspaceCount, onOpenPalette }: { activeWorkspace: Workspace | null; workspaceCount: number; onOpenPalette: (button: HTMLButtonElement) => void }) {
-  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
+  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<DecisionsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/decisions" /><Route element={<InvariantsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/invariants" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
 }
 
 const commands = [
@@ -66,6 +67,8 @@ const commands = [
   { label: "Create Epic", path: "/projects", hint: "Open a project to organize features", action: "navigate" },
   { label: "Go to Project Board", path: "/projects", hint: "Select a project board", action: "navigate" },
   { label: "Open Features", path: "/projects", hint: "Select a project feature list", action: "navigate" },
+  { label: "Open Decisions", path: "/projects", hint: "Select a project decision inventory", action: "navigate" },
+  { label: "Open Invariants", path: "/projects", hint: "Select a project invariant inventory", action: "navigate" },
   { label: "Change workspace", path: "/", hint: "Use the workspace switcher", action: "workspace" },
   { label: "Open Workbench", path: "/workbench", hint: "Coming in a later milestone", action: "navigate" },
 ];

@@ -12,8 +12,13 @@ const port = process.argv[3] ?? "8000";
 const backendDirectory = process.cwd();
 const projectRoot = join(backendDirectory, "..");
 const uv = process.platform === "win32" ? "uv.exe" : "uv";
-const databasePath = join(tmpdir(), `forge-fnd02-e2e-${process.pid}-${Date.now()}.db`);
-const env = { ...process.env, FORGE_DATABASE_URL: `sqlite:///${databasePath.replaceAll("\\", "/")}` };
+const databasePath = join(tmpdir(), `forge-fnd03-e2e-${process.pid}-${Date.now()}.db`);
+const frontendPort = process.env.FORGE_FRONTEND_PORT ?? "5173";
+const env = {
+  ...process.env,
+  FORGE_DATABASE_URL: `sqlite:///${databasePath.replaceAll("\\", "/")}`,
+  FORGE_FRONTEND_ORIGIN: process.env.FORGE_FRONTEND_ORIGIN ?? `http://${host}:${frontendPort}`,
+};
 
 const cleanup = () => {
   for (const path of [databasePath, `${databasePath}-wal`, `${databasePath}-shm`]) {

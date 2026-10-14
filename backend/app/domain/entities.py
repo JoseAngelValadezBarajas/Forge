@@ -35,6 +35,22 @@ class TaskStatus(StrEnum):
     DONE = "done"
 
 
+class DecisionStatus(StrEnum):
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    SUPERSEDED = "superseded"
+
+
+class InvariantStatus(StrEnum):
+    ACTIVE = "active"
+    RETIRED = "retired"
+
+
+class ReadinessOutcome(StrEnum):
+    READY_TO_START = "READY_TO_START"
+    NOT_READY = "NOT_READY"
+
+
 @dataclass(frozen=True, slots=True)
 class Workspace:
     id: str
