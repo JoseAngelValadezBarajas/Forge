@@ -12,15 +12,15 @@ Runs use explicit states:
 
 Run events are append-only. They use an explicit type (`progress`, `blocker`, `decision_note`, `output_reported`, `status_changed`, `correction` or `general_note`), record origin as `manual`, and distinguish Forge recording time from an optional reported occurrence time. Corrections reference the event they supersede; original events remain unchanged.
 
-Outputs are structured references with a summary and provenance. FND-05 does not accept arbitrary filesystem paths, transcripts, source content or provider telemetry.
+Outputs are structured references with a summary and provenance. Reference validation is kind-specific: safe links are HTTP(S) without credentials, commits are hexadecimal identifiers, artifacts are opaque identifiers and labels remain declarative text. Forge never opens a filesystem path or fetches a URL, and all references remain `DECLARED`. FND-05 does not accept arbitrary filesystem paths, transcripts, source content or provider telemetry.
 
 ## Handoff lifecycle
 
-Handoffs are created from a run as `DRAFT`. Draft fields may be edited using optimistic version checks. Marking a draft `READY` creates an immutable revision with a deterministic `forge-handoff-v1` JSON payload, Markdown rendering and SHA-256 fingerprint. A correction after acknowledgement creates a new draft; it never edits a published revision.
+Handoffs are created from a run as `DRAFT`. Draft fields may be edited using optimistic version checks. Marking a draft `READY` requires a non-whitespace title, summary and next actions, then creates an immutable revision with a deterministic `forge-handoff-v1` JSON payload, Markdown rendering and SHA-256 fingerprint. JSON and Markdown preserve the project, feature, source-context schema and provenance metadata; untrusted content is contained in escaped blocks. A correction after acknowledgement creates a new draft; it never edits a published revision.
 
 Acknowledgement requires the exact published `revision` displayed to the reviewer. The server rejects stale revisions with `409`, rejects withdrawn handoffs, and does not acknowledge a revision the reviewer did not explicitly inspect. Acknowledgement means review responsibility only; it does not certify implementation, testing, CI or delivery correctness.
 
-Published revisions can be listed and downloaded as JSON or Markdown. Markdown escapes unsafe content before rendering inside the exported code block.
+Published revisions can be listed and downloaded as JSON or Markdown. The Handoff Review screen distinguishes the editable draft from the published history, exposes each revision's date, fingerprint and acknowledgement state, and allows the selected snapshot to be downloaded. Markdown escapes unsafe content before rendering inside the exported blocks.
 
 ## API surface
 
@@ -41,4 +41,4 @@ The implementation follows the Workbench, Run Detail, Handoff Queue, Handoff Rev
 
 ## Verification
 
-The FND-05 migration is `20261014_0006_fnd05_runs_handoffs`. The backend regression suite covers isolation, state transitions, optimistic conflicts, append-only corrections, immutable revisions, stale acknowledgements, archived-project boundaries and Markdown escaping. Frontend tests cover empty Workbench state, out-of-order search responses, current-version event writes and visible-revision acknowledgement. Playwright runs the real API and a temporary SQLite database, including screenshots under `frontend/test-results/`.
+The FND-05 migration is `20261014_0006_fnd05_runs_handoffs`. The backend regression suite covers isolation, state transitions, optimistic conflicts, append-only corrections, immutable revisions, empty/whitespace READY validation, revision-aware acknowledgements, safe output references, archived-project boundaries and Markdown escaping. Frontend tests cover empty Workbench state, out-of-order search responses, current-version event writes, exact READY validation feedback, visible-revision acknowledgement and published revision history. Playwright runs the real API and a temporary SQLite database, including screenshots under `frontend/test-results/`.

@@ -8,7 +8,9 @@ import builtins
 import hashlib
 import html
 import json
+import re
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from sqlalchemy import select, update
@@ -89,6 +91,58 @@ def _markdown_value(value: str) -> str:
     return html.escape(value, quote=False).replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _validate_output_reference(reference_kind: str, reference_value: str | None) -> str | None:
+    """Validate declared output references without resolving them.
+
+    Output references are claims recorded for human review. They are never opened,
+    fetched, or interpreted as local files by this service.
+    """
+
+    value = clean_optional(reference_value, 500)
+    if not value:
+        if reference_kind in {"safe_link", "commit", "artifact"}:
+            raise InvalidInput(f"A reference value is required for {reference_kind} outputs")
+        return None
+    if any(ord(character) < 32 for character in value):
+        raise InvalidInput("Output references cannot contain control characters")
+
+    if reference_kind == "safe_link":
+        try:
+            parsed = urlsplit(value)
+            hostname = parsed.hostname
+        except ValueError as exc:
+            raise InvalidInput("Safe links must be valid HTTP or HTTPS URLs") from exc
+        if parsed.scheme.lower() not in {"http", "https"} or not hostname:
+            raise InvalidInput("Safe links must use HTTP or HTTPS")
+        if parsed.username is not None or parsed.password is not None:
+            raise InvalidInput("Safe links cannot contain embedded credentials")
+        return value
+
+    if reference_kind == "commit":
+        if not re.fullmatch(r"[0-9a-fA-F]{7,64}", value):
+            raise InvalidInput("Commit references must be hexadecimal commit identifiers")
+        return value
+
+    if reference_kind == "artifact":
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}", value):
+            raise InvalidInput("Artifact references must be opaque identifiers, not paths or URLs")
+        return value
+
+    if reference_kind == "label":
+        lowered = value.lower()
+        if (
+            "\\" in value
+            or "/" in value
+            or "://" in value
+            or lowered.startswith(("file:", "javascript:", "data:"))
+            or re.match(r"^[A-Za-z]:", value)
+        ):
+            raise InvalidInput("Labels cannot contain paths, URLs, or executable schemes")
+        return value
+
+    raise InvalidInput("Output reference kind is not supported")
+
+
 def _handoff_payload(
     handoff: HandoffModel, revision: int, package: ContextPackageModel
 ) -> dict[str, object]:
@@ -127,44 +181,50 @@ def _handoff_markdown(payload: dict[str, object]) -> str:
     assert isinstance(content, dict)
     source = payload["source_context"]
     assert isinstance(source, dict)
-    lines = [
-        f"# {_markdown_value(str(content['title']))}",
-        "",
-        f"- Schema: `{_markdown_value(str(payload['schema']))}`",
-        f"- Handoff: `{_markdown_value(str(payload['handoff_id']))}`",
-        f"- Revision: `{_markdown_value(str(payload['revision']))}`",
-        f"- Run: `{_markdown_value(str(payload['run_id']))}`",
-        f"- Context package: `{_markdown_value(str(source['package_id']))}`",
-        f"- Context fingerprint: `{_markdown_value(str(source['fingerprint']))}`",
-        "",
-        "## Summary",
-        "",
-        f"<pre>{_markdown_value(str(content['summary']))}</pre>",
-        "",
-        "## Reported outcomes",
-        "",
-        f"<pre>{_markdown_value(str(content['outcomes']))}</pre>",
-        "",
-        "## Blockers",
-        "",
-        f"<pre>{_markdown_value(str(content['blockers']))}</pre>",
-        "",
-        "## Open questions",
-        "",
-        f"<pre>{_markdown_value(str(content['questions']))}</pre>",
-        "",
-        "## Next actions",
-        "",
-        f"<pre>{_markdown_value(str(content['next_actions']))}</pre>",
-        "",
-        "## References",
-        "",
-        f"<pre>{_markdown_value(str(content['references']))}</pre>",
-        "",
-        "> Reported context only. This handoff is not proof of implementation, tests, CI, "
-        "or release correctness.",
-        "",
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+
+    def block(label: str, value: object) -> list[str]:
+        return [f"## {label}", "", "<pre>", _markdown_value(str(value)), "</pre>", ""]
+
+    metadata = [
+        ("schema", payload["schema"]),
+        ("handoff_id", payload["handoff_id"]),
+        ("revision", payload["revision"]),
+        ("project_id", payload["project_id"]),
+        ("feature_id", payload["feature_id"]),
+        ("run_id", payload["run_id"]),
+        ("source_context.package_id", source["package_id"]),
+        ("source_context.schema_version", source["schema_version"]),
+        ("source_context.fingerprint", source["fingerprint"]),
+        ("provenance.origin", provenance["origin"]),
+        ("provenance.reported", provenance["reported"]),
+        ("provenance.observed", provenance["observed"]),
+        ("provenance.verified", provenance["verified"]),
     ]
+    lines = ["# Forge Handoff", ""]
+    lines.extend(block("Title", content["title"]))
+    lines.extend(["## Metadata", "", "<pre>"])
+    lines.extend(
+        f"{label}: {_markdown_value(str(value))}" for label, value in metadata
+    )
+    lines.extend(["</pre>", ""])
+    for label, key in (
+        ("Summary", "summary"),
+        ("Reported outcomes", "outcomes"),
+        ("Blockers", "blockers"),
+        ("Open questions", "questions"),
+        ("Next actions", "next_actions"),
+        ("References", "references"),
+    ):
+        lines.extend(block(label, content[key]))
+    lines.extend(
+        [
+            "> Reported context only. This handoff is not proof of implementation, tests, CI, "
+            "or release correctness.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -431,8 +491,7 @@ class RunService:
         allowed_kinds = {"label", "safe_link", "commit", "artifact"}
         if reference_kind not in allowed_kinds:
             raise InvalidInput("Output reference kind is not supported")
-        if reference_value and ("\\" in reference_value or reference_value.startswith("/")):
-            raise InvalidInput("Filesystem paths are not accepted as output references")
+        validated_reference = _validate_output_reference(reference_kind, reference_value)
         result = self.session.execute(
             update(AgentRunModel)
             .where(AgentRunModel.id == run.id, AgentRunModel.version == expected_version)
@@ -447,7 +506,7 @@ class RunService:
             label=clean_required(label, "Output label", 160),
             summary=clean_required(summary, "Output summary", 10000),
             reference_kind=reference_kind,
-            reference_value=clean_optional(reference_value, 500) or None,
+            reference_value=validated_reference,
             provenance=clean_required(provenance, "Output provenance", 5000),
         )
         self.session.add(output)
@@ -614,6 +673,19 @@ class HandoffService:
         item = self._handoff(workspace_id, project_id, handoff_id)
         if item.status != "DRAFT":
             raise InvalidInput("Only a draft handoff can be marked ready")
+        missing = [
+            label
+            for label, value in (
+                ("title", item.title),
+                ("summary", item.summary),
+                ("next_actions", item.next_actions),
+            )
+            if not value.strip()
+        ]
+        if missing:
+            raise InvalidInput(
+                "Handoff cannot be marked READY; missing fields: " + ", ".join(missing)
+            )
         revision = item.current_revision + 1
         package = self._package(item)
         payload = _handoff_payload(item, revision, package)

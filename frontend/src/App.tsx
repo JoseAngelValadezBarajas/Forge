@@ -51,8 +51,8 @@ function App() {
   const paletteInvokerRef = useRef<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
   const workspaceState = useWorkspaces();
-  const selectWorkspace = useCallback((workspace: Workspace) => { workspaceState.select(workspace); navigate("/"); }, [navigate, workspaceState]);
-  const createWorkspace = useCallback(async (name: string, description: string) => { await workspaceState.create(name, description); navigate("/"); }, [navigate, workspaceState]);
+  const selectWorkspace = useCallback((workspace: Workspace) => { navigate("/"); workspaceState.select(workspace); }, [navigate, workspaceState]);
+  const createWorkspace = useCallback(async (name: string, description: string) => { navigate("/"); await workspaceState.create(name, description); }, [navigate, workspaceState]);
   const openPalette = useCallback((button?: HTMLButtonElement) => { const active = document.activeElement; paletteInvokerRef.current = button ?? (active instanceof HTMLButtonElement ? active : null); setPaletteOpen(true); }, []);
   const closePalette = useCallback(() => { setPaletteOpen(false); requestAnimationFrame(() => paletteInvokerRef.current?.focus()); }, []);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); if (paletteOpen) closePalette(); else openPalette(); } }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [closePalette, openPalette, paletteOpen]);

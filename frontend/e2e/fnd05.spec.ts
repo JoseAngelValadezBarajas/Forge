@@ -68,12 +68,16 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/handoffs/`));
   await expect(page.getByRole("heading", { name: "Handoff Review & Acknowledge" })).toBeVisible();
   await page.getByRole("textbox", { name: "summary" }).fill("A human-readable report from Chromium.");
+  await page.getByRole("textbox", { name: "next_actions" }).fill("Review the recorded context manually.");
   await page.getByRole("textbox", { name: "outcomes" }).fill("Run record and timeline were persisted.");
   await page.getByRole("textbox", { name: "blockers" }).fill("No delivery verification was performed.");
   await page.screenshot({ path: "test-results/fnd05-handoff-composer.png", fullPage: true });
   await page.getByRole("button", { name: "Mark ready" }).click();
   await expect(page.getByText("READY", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "A human-readable report from Chromium." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Revision 1.*Current/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download revision 1 as JSON" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download revision 1 as Markdown" })).toBeVisible();
   await page.screenshot({ path: "test-results/fnd05-handoff-ready.png", fullPage: true });
 
   const handoffUrl = page.url();
@@ -83,8 +87,9 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
   await page.screenshot({ path: "test-results/fnd05-handoff-queue.png", fullPage: true });
   await page.getByRole("link", { name: /Next step for Browser-reported planning run/ }).click();
   await expect(page).toHaveURL(handoffUrl);
-  await page.getByRole("button", { name: "Acknowledge" }).click();
+  await page.getByRole("button", { name: "Acknowledge", exact: true }).click();
   await expect(page.getByText("ACKNOWLEDGED", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Acknowledged by manual reviewer/)).toBeVisible();
   await page.screenshot({ path: "test-results/fnd05-handoff-acknowledged.png", fullPage: true });
 
   await page.reload();

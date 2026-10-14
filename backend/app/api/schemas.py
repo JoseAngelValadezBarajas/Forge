@@ -622,3 +622,4 @@ class HandoffResponse(BaseModel):
     withdrawn_at: datetime | None
     published_revision: HandoffRevisionResponse | None = None
     acknowledgement: HandoffAcknowledgementResponse | None = None
+    acknowledgements: list[HandoffAcknowledgementResponse] = Field(default_factory=list)

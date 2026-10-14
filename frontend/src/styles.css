@@ -508,9 +508,17 @@ kbd { border: 1px solid var(--border); border-radius: 5px; color: var(--text-sub
 .fnd05-revision { display: grid; gap: 8px; margin-top: 16px; }
 .fnd05-revision > span { color: var(--info); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .fnd05-revision pre { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font: 11px/18px "IBM Plex Mono", Consolas, monospace; max-height: 360px; overflow: auto; padding: 14px; white-space: pre-wrap; }
+.fnd05-revision-history { display: grid; gap: 18px; grid-template-columns: minmax(190px, 0.7fr) minmax(0, 2fr); margin-top: 16px; }
+.fnd05-revision-list { align-content: start; display: grid; gap: 8px; }
+.fnd05-revision-choice { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; display: grid; gap: 4px; padding: 12px; text-align: left; }
+.fnd05-revision-choice:hover, .fnd05-revision-choice:focus-visible, .fnd05-revision-choice.selected { border-color: var(--accent); color: var(--text); }
+.fnd05-revision-choice span { font: 10px/15px "IBM Plex Mono", Consolas, monospace; overflow-wrap: anywhere; }
+.fnd05-revision-choice span:last-child { color: var(--text-muted); font-family: "Geist", system-ui, sans-serif; font-size: 11px; }
+.status-success { color: var(--success) !important; }
+.status-warning { color: var(--warning) !important; }
 
 @media (max-width: 900px) {
-  .fnd05-grid, .fnd05-form, .fnd05-detail-grid { grid-template-columns: 1fr; }
+  .fnd05-grid, .fnd05-form, .fnd05-detail-grid, .fnd05-revision-history { grid-template-columns: 1fr; }
   .fnd05-detail-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
 

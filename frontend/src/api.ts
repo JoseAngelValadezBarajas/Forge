@@ -303,6 +303,7 @@ export type Handoff = {
   withdrawn_at: string | null;
   published_revision: HandoffRevision | null;
   acknowledgement: HandoffAcknowledgement | null;
+  acknowledgements: HandoffAcknowledgement[];
 };
 
 export class ApiError extends Error {

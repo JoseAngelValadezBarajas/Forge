@@ -1416,10 +1416,24 @@ def _handoff_response(item: HandoffModel, db: Session) -> HandoffResponse:
         )
         if revision is not None:
             published = _revision_response(revision)
-    acknowledgement = db.scalar(
-        select(HandoffAcknowledgementModel)
-        .where(HandoffAcknowledgementModel.handoff_id == item.id)
-        .order_by(HandoffAcknowledgementModel.revision.desc())
+    acknowledgements = list(
+        db.scalars(
+            select(HandoffAcknowledgementModel)
+            .where(HandoffAcknowledgementModel.handoff_id == item.id)
+            .order_by(
+                HandoffAcknowledgementModel.revision.asc(),
+                HandoffAcknowledgementModel.acknowledged_at.asc(),
+            )
+        ).all()
+    )
+    current_acknowledgement = next(
+        (
+            acknowledgement
+            for acknowledgement in acknowledgements
+            if item.status == "ACKNOWLEDGED"
+            and acknowledgement.revision == item.current_revision
+        ),
+        None,
     )
     return HandoffResponse(
         id=item.id,
@@ -1444,10 +1458,14 @@ def _handoff_response(item: HandoffModel, db: Session) -> HandoffResponse:
         withdrawn_at=item.withdrawn_at,
         published_revision=published,
         acknowledgement=(
-            HandoffAcknowledgementResponse.model_validate(acknowledgement)
-            if acknowledgement
+            HandoffAcknowledgementResponse.model_validate(current_acknowledgement)
+            if current_acknowledgement
             else None
         ),
+        acknowledgements=[
+            HandoffAcknowledgementResponse.model_validate(acknowledgement)
+            for acknowledgement in acknowledgements
+        ],
     )
 
 
