@@ -209,6 +209,118 @@ kbd { border: 1px solid var(--border); border-radius: 5px; color: var(--text-sub
 .palette-empty { color: var(--text-muted); font-size: 12px; padding: 16px 10px; }
 .palette-footer { border-top: 1px solid var(--border-subtle); color: var(--text-subtle); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; justify-content: space-between; padding: 11px 18px; }
 
+.planning-toolbar { align-items: center; display: flex; justify-content: space-between; margin-top: 18px; }
+.planning-tabs, .planning-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.planning-actions .button { min-width: 92px; }
+.planning-filters { align-items: end; display: flex; gap: 12px; margin-top: 18px; }
+.planning-filters .search-field { flex: 1; }
+.kanban-board { display: grid; gap: 10px; grid-template-columns: repeat(6, minmax(170px, 1fr)); margin-top: 18px; min-width: 1030px; }
+.kanban-column { background: var(--surface-dim, var(--surface)); border: 1px solid var(--border-soft, var(--border)); border-radius: 10px; min-height: 560px; padding: 8px; }
+.kanban-heading { align-items: center; display: flex; justify-content: space-between; min-height: 30px; }
+.kanban-heading h2 { color: var(--text-muted); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; letter-spacing: .08em; margin: 0; text-transform: uppercase; }
+.kanban-heading span { color: var(--text-subtle); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.status-refining .kanban-heading h2 { color: var(--info); }
+.status-ready .kanban-heading h2 { color: var(--warning); }
+.status-in_progress .kanban-heading h2 { color: var(--accent); }
+.status-verify .kanban-heading h2, .status-done .kanban-heading h2 { color: var(--success); }
+.kanban-cards, .feature-list, .epic-list { display: grid; gap: 8px; }
+.feature-card { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: 9px; display: grid; gap: 9px; padding: 11px; }
+.feature-card-link { display: grid; gap: 7px; }
+.feature-card h3, .epic-card h3 { color: var(--text); font-size: 14px; line-height: 20px; margin: 0; }
+.feature-card-meta { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.priority-chip { border-radius: 999px; font-size: 10px; padding: 3px 7px; text-transform: uppercase; }
+.priority-chip.low { background: var(--surface-tag); color: var(--text-muted); }
+.priority-chip.medium { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.priority-chip.high { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+.priority-chip.critical { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.card-move { background: transparent; border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 10px; padding: 5px; text-align: left; }
+.card-move:hover { background: var(--surface-tag); color: var(--text); }
+.card-move:disabled { cursor: wait; opacity: .6; }
+.kanban-empty { color: var(--text-subtle); font-size: 12px; line-height: 18px; margin: 14px 8px; }
+.planning-form, .planning-summary, .detail-section, .feature-detail-header, .epic-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-top: 16px; padding: 18px 20px; }
+.planning-form { display: grid; gap: 14px; }
+.planning-form .section-heading { margin-bottom: 0; }
+.planning-form label, .feature-controls label, .dependency-form label { color: var(--text-muted); display: grid; font-size: 11px; gap: 6px; }
+.planning-form input, .planning-form textarea, .planning-form select, .feature-controls select, .dependency-form select, .planning-list select { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 9px; }
+.form-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wide-field { grid-column: 1 / -1; }
+.compact-form { max-width: 680px; }
+.inventory-grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); margin-top: 18px; }
+.inventory-grid section, .inventory-grid aside { min-width: 0; }
+.epic-card { margin-top: 0; }
+.epic-card p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 8px 0 12px; }
+.planning-disclaimer { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 12px 0 0; }
+.planning-summary { margin-top: 20px; }
+.planning-summary .section-heading { align-items: center; }
+.planning-summary h2 { margin-top: 7px; }
+.planning-metrics { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 16px; }
+.planning-metrics div { background: var(--surface-interactive); border-radius: var(--radius-sm); display: grid; gap: 4px; padding: 12px; }
+.planning-metrics strong { font-size: 24px; line-height: 30px; }
+.planning-metrics span { color: var(--text-muted); font-size: 11px; }
+.summary-epics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.feature-detail-header { align-items: start; display: flex; justify-content: space-between; margin-top: 18px; }
+.feature-detail-header h2 { font-size: 24px; line-height: 30px; margin: 8px 0 5px; }
+.feature-detail-header p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; max-width: 650px; }
+.feature-goal { color: var(--text) !important; margin-top: 10px !important; }
+.feature-controls { display: flex; gap: 10px; }
+.feature-detail-grid { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-section { min-width: 0; }
+.inline-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.inline-add input { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 8px 9px; width: 100%; }
+.planning-list, .dependency-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.planning-list li, .dependency-list li { align-items: center; background: var(--surface-interactive); border-radius: var(--radius-sm); display: flex; gap: 9px; min-height: 42px; padding: 8px 10px; }
+.planning-list li > span:nth-child(2), .dependency-list li > span { flex: 1; font-size: 12px; line-height: 18px; }
+.planning-list select { font-size: 11px; margin-left: auto; }
+.task-state { background: var(--text-subtle); border-radius: 50%; flex: 0 0 8px; height: 8px; width: 8px; }
+.task-state.in_progress { background: var(--accent); }
+.task-state.done { background: var(--success); }
+.task-done { color: var(--text-muted); text-decoration: line-through; }
+.criteria-list li { align-items: start; }
+.criterion-check { align-items: center; background: transparent; border: 1px solid var(--border); border-radius: 5px; color: var(--success); display: flex; flex: 0 0 20px; height: 20px; justify-content: center; padding: 0; }
+.criterion-check.checked { background: color-mix(in srgb, var(--success) 16%, transparent); border-color: var(--success); }
+.dependencies-section { margin-top: 0; }
+.dependency-form { align-items: end; display: flex; gap: 10px; }
+.dependency-form label { flex: 1; }
+.dependency-form > span { color: var(--text-subtle); font-size: 11px; padding-bottom: 10px; }
+.dependency-list { margin-top: 14px; }
+
+@media (max-width: 1150px) {
+  .kanban-board { overflow-x: auto; }
+  .planning-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .planning-toolbar, .feature-detail-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .planning-filters, .dependency-form { align-items: stretch; flex-direction: column; }
+  .dependency-form > span { padding: 0; }
+  .inventory-grid, .feature-detail-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .wide-field { grid-column: auto; }
+  .planning-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.feature-edit-form .section-heading { align-items: start; }
+.feature-edit-form .section-heading h2 { margin: 6px 0 0; }
+.planning-item { align-items: start; position: relative; }
+.planning-item-copy { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.planning-item-copy strong { font-size: 12px; font-weight: 600; line-height: 18px; }
+.planning-item-copy small { color: var(--text-muted); font-size: 11px; line-height: 16px; }
+.item-edit-form { align-items: end; display: grid; flex: 1; gap: 8px; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto auto auto; }
+.item-edit-form label { color: var(--text-muted); display: grid; font-size: 10px; gap: 4px; }
+.item-edit-form input, .item-edit-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 7px 8px; }
+.reorder-controls { display: flex; gap: 2px; }
+.reorder-controls .icon-button { height: 28px; min-width: 28px; padding: 0; }
+.dependency-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+.dependency-group { border-top: 1px solid var(--border); padding-top: 12px; }
+.dependency-group .section-heading { margin-bottom: 8px; }
+.dependency-group h3 { color: var(--text); font-size: 13px; margin: 0; }
+.criterion-item .criterion-check { flex: 0 0 24px; }
+
+@media (max-width: 760px) {
+  .item-edit-form { grid-template-columns: 1fr; }
+  .dependency-groups { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 900px) {
   .sidebar { flex-basis: 188px; }
   .home-grid { grid-template-columns: 1fr; }

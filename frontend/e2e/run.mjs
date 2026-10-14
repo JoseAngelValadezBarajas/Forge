@@ -18,7 +18,7 @@ const temporaryDatabasePaths = () =>
   readdirSync(tmpdir())
     .filter(
       (name) =>
-        name.startsWith("forge-fnd01-e2e-") &&
+        name.startsWith("forge-fnd02-e2e-") &&
         [".db", ".db-wal", ".db-shm", ".db.shutdown"].some((suffix) => name.endsWith(suffix)),
     )
     .map((name) => join(tmpdir(), name));
