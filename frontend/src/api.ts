@@ -290,12 +290,12 @@ export const forgeApi = {
     request<InvariantRevision[]>(`/workspaces/${workspaceId}/projects/${projectId}/invariants/${invariantId}/revisions`, { signal }),
   listFeatureInvariants: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
     request<ApplicableInvariant[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/invariants`, { signal }),
-  acknowledgeInvariant: (workspaceId: string, projectId: string, featureId: string, invariantId: string) =>
-    request<{ acknowledged_revision: number }>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/invariants/${invariantId}/acknowledge`, { method: "POST" }),
+  acknowledgeInvariant: (workspaceId: string, projectId: string, featureId: string, invariantId: string, expectedRevision: number) =>
+    request<InvariantAcknowledgement>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/invariants/${invariantId}/acknowledge`, { method: "POST", body: JSON.stringify({ expected_revision: expectedRevision }) }),
   previewReadiness: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
     request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/preview`, { method: "POST", signal }),
-  saveReadiness: (workspaceId: string, projectId: string, featureId: string) =>
-    request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { method: "POST" }),
+  saveReadiness: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { method: "POST", signal }),
   listReadinessEvaluations: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
     request<ReadinessEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { signal }),
 };
@@ -307,6 +307,14 @@ export type DecisionCreatePayload = {
   rationale: string;
   alternatives_considered?: string;
   tradeoffs?: string;
+};
+
+export type InvariantAcknowledgement = {
+  id: string;
+  feature_id: string;
+  invariant_id: string;
+  acknowledged_revision: number;
+  acknowledged_at: string;
 };
 
 export type InvariantCreatePayload = {

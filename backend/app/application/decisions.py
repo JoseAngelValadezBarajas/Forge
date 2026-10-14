@@ -124,6 +124,14 @@ class DecisionService:
         decision = self._decision(project_id, decision_id)
         if decision.status == DecisionStatus.SUPERSEDED.value:
             raise InvalidInput("Superseded decisions cannot be edited")
+        before = (
+            decision.title,
+            decision.context,
+            decision.decision,
+            decision.rationale,
+            decision.alternatives_considered,
+            decision.tradeoffs,
+        )
         if title is not None:
             decision.title = clean_title(title)
         if context is not None:
@@ -136,6 +144,17 @@ class DecisionService:
             decision.alternatives_considered = clean_text(alternatives_considered)
         if tradeoffs is not None:
             decision.tradeoffs = clean_text(tradeoffs)
+        after = (
+            decision.title,
+            decision.context,
+            decision.decision,
+            decision.rationale,
+            decision.alternatives_considered,
+            decision.tradeoffs,
+        )
+        content_changed = before != after
+        if content_changed and decision.status == DecisionStatus.ACCEPTED.value:
+            decision.status = DecisionStatus.PROPOSED.value
         decision.revision += 1
         decision.updated_at = now()
         self.session.flush()

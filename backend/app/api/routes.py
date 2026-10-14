@@ -22,6 +22,7 @@ from app.api.schemas import (
     FeatureCreate,
     FeatureResponse,
     FeatureUpdate,
+    InvariantAcknowledgementRequest,
     InvariantAcknowledgementResponse,
     InvariantCreate,
     InvariantResponse,
@@ -49,6 +50,7 @@ from app.application.services import (
     InvalidInput,
     PlanningService,
     ProjectService,
+    RevisionConflict,
     WorkspaceService,
 )
 from app.config import get_settings
@@ -74,6 +76,8 @@ def _service_error(exc: Exception) -> HTTPException:
     if isinstance(exc, EntityNotFound):
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, DuplicateName):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, RevisionConflict):
         return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, InvalidInput):
         return HTTPException(status_code=422, detail=str(exc))
@@ -1007,13 +1011,14 @@ def acknowledge_invariant(
     project_id: str,
     feature_id: str,
     invariant_id: str,
+    payload: InvariantAcknowledgementRequest,
     db: Session = Depends(get_db),
 ) -> InvariantAcknowledgementResponse:
     try:
         acknowledgement = InvariantService(db).acknowledge(
-            workspace_id, project_id, feature_id, invariant_id
+            workspace_id, project_id, feature_id, invariant_id, payload.expected_revision
         )
-    except (DuplicateName, EntityNotFound, InvalidInput) as exc:
+    except (DuplicateName, EntityNotFound, InvalidInput, RevisionConflict) as exc:
         raise _service_error(exc) from exc
     return InvariantAcknowledgementResponse.model_validate(acknowledgement)
 
@@ -1068,6 +1073,8 @@ def save_readiness_evaluation(
         project_service = PlanningService(db)
         project = project_service.project(workspace_id, project_id)
         feature = project_service.get_feature(workspace_id, project_id, feature_id)
+        if project.status == ProjectStatus.ARCHIVED.value:
+            raise InvalidInput("Archived projects are read-only")
         evaluation = ReadinessEngine(db).evaluate(project, feature)
         stored = ReadinessEvaluationModel(
             feature_id=evaluation.feature_id,
@@ -1090,6 +1097,6 @@ def save_readiness_evaluation(
         db.add(stored)
         db.commit()
         db.refresh(stored)
-    except EntityNotFound as exc:
+    except (EntityNotFound, InvalidInput) as exc:
         raise _service_error(exc) from exc
     return _stored_readiness_response(stored, project, feature, db)

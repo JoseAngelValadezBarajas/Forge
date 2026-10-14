@@ -94,6 +94,11 @@ class ReadinessEngine:
                     FeatureDependencyModel.project_id == project.id,
                     FeatureDependencyModel.blocked_feature_id == feature.id,
                 )
+                .order_by(
+                    FeatureDependencyModel.blocking_feature_id,
+                    FeatureDependencyModel.blocked_feature_id,
+                    FeatureDependencyModel.id,
+                )
             ).all()
         )
         decisions = list(
@@ -188,7 +193,9 @@ class ReadinessEngine:
         current = decision
         visited: set[str] = set()
         valid_chain = True
+        chain: list[dict[str, object]] = []
         while current.status == "superseded":
+            chain.append(self._decision_snapshot(current))
             if current.id in visited or current.superseded_by_id is None:
                 valid_chain = False
                 break
@@ -203,6 +210,19 @@ class ReadinessEngine:
                 valid_chain = False
                 break
             current = successor
+        if valid_chain:
+            chain.append(self._decision_snapshot(current))
+        return {
+            "id": decision.id,
+            **self._decision_snapshot(decision),
+            "supersession_chain": chain,
+            "effective_id": current.id if valid_chain else None,
+            "effective_status": current.status if valid_chain else "invalid",
+            "effective": self._decision_snapshot(current) if valid_chain else None,
+        }
+
+    @staticmethod
+    def _decision_snapshot(decision: DecisionModel) -> dict[str, object]:
         return {
             "id": decision.id,
             "title": decision.title,
@@ -214,14 +234,22 @@ class ReadinessEngine:
             "status": decision.status,
             "revision": decision.revision,
             "superseded_by_id": decision.superseded_by_id,
-            "effective_id": current.id if valid_chain else None,
-            "effective_status": current.status if valid_chain else "invalid",
         }
 
     @staticmethod
     def _fingerprint(inputs: dict[str, object]) -> str:
+        canonical_inputs = dict(inputs)
+        dependencies = cast(list[dict[str, object]], inputs.get("dependencies", []))
+        canonical_inputs["dependencies"] = sorted(
+            dependencies,
+            key=lambda item: (
+                str(item.get("blocking_feature_id", "")),
+                str(item.get("blocked_feature_id", "")),
+                str(item.get("id", "")),
+            ),
+        )
         payload = json.dumps(
-            {"rule_set_version": RULE_SET_VERSION, "inputs": inputs},
+            {"rule_set_version": RULE_SET_VERSION, "inputs": canonical_inputs},
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=True,

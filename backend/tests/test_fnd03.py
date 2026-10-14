@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.application.readiness import ReadinessEngine
 from app.db import Base, get_db
 from app.main import app
 
@@ -105,7 +106,8 @@ def test_readiness_preview_save_stale_and_history(
     accepted = client.post(f"{path}/decisions/{decision_id}/accept")
     assert accepted.status_code == 200
     acknowledged = client.post(
-        f"{path}/features/{feature_id}/invariants/{invariant_id}/acknowledge"
+        f"{path}/features/{feature_id}/invariants/{invariant_id}/acknowledge",
+        json={"expected_revision": 1},
     )
     assert acknowledged.status_code == 200
 
@@ -178,7 +180,8 @@ def test_invariant_revision_invalidates_acknowledgement(
         json={"title": "Invariant", "statement": "Keep it true", "rationale": "Important"},
     ).json()
     ack = client.post(
-        f"{path}/features/{feature_id}/invariants/{invariant['id']}/acknowledge"
+        f"{path}/features/{feature_id}/invariants/{invariant['id']}/acknowledge",
+        json={"expected_revision": 1},
     )
     assert ack.json()["acknowledged_revision"] == 1
     changed = client.patch(
@@ -187,3 +190,161 @@ def test_invariant_revision_invalidates_acknowledgement(
     assert changed["revision"] == 2
     applicable = client.get(f"{path}/features/{feature_id}/invariants").json()
     assert applicable[0]["needs_acknowledgement"] is True
+
+
+def test_effective_successor_content_changes_fingerprint_and_requires_reacceptance(
+    fnd03_client: tuple[TestClient, str, str, str],
+) -> None:
+    client, path, _project_id, feature_id = root(fnd03_client)
+    assert (
+        client.post(
+            f"{path}/features/{feature_id}/acceptance-criteria",
+            json={"description": "The readiness context is complete"},
+        ).status_code
+        == 201
+    )
+    original = client.post(
+        f"{path}/decisions",
+        json={
+            "title": "Decision A",
+            "context": "Initial context",
+            "decision": "Use the first plan",
+            "rationale": "It is explicit",
+        },
+    ).json()
+    assert (
+        client.post(f"{path}/decisions/{original['id']}/features/{feature_id}").status_code == 204
+    )
+    successor = client.post(
+        f"{path}/decisions/{original['id']}/supersede",
+        json={
+            "title": "Decision B",
+            "context": "Successor context",
+            "decision": "Use the revised plan",
+            "rationale": "It is clearer",
+        },
+    ).json()
+    accepted = client.post(f"{path}/decisions/{successor['id']}/accept")
+    assert accepted.status_code == 200
+    saved = client.post(f"{path}/features/{feature_id}/readiness/evaluations")
+    assert saved.status_code == 201
+    assert saved.json()["outcome"] == "READY_TO_START"
+
+    changed = client.patch(
+        f"{path}/decisions/{successor['id']}",
+        json={"rationale": "The revised plan needs a new review"},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["status"] == "proposed"
+    history = client.get(f"{path}/features/{feature_id}/readiness/evaluations").json()
+    assert history[0]["stale"] is True
+    assert client.post(f"{path}/features/{feature_id}/readiness/preview").json()["outcome"] == (
+        "NOT_READY"
+    )
+
+    reaccepted = client.post(f"{path}/decisions/{successor['id']}/accept")
+    assert reaccepted.status_code == 200
+    current = client.post(f"{path}/features/{feature_id}/readiness/preview").json()
+    assert current["outcome"] == "READY_TO_START"
+    assert current["input_fingerprint"] != saved.json()["input_fingerprint"]
+
+
+def test_dependency_fingerprint_is_independent_of_read_order() -> None:
+    dependencies: list[dict[str, object]] = [
+        {"id": "b", "blocking_feature_id": "z", "blocked_feature_id": "feature"},
+        {"id": "a", "blocking_feature_id": "a", "blocked_feature_id": "feature"},
+    ]
+    first: dict[str, object] = {
+        "feature": {"id": "feature"},
+        "project": {"id": "project"},
+        "criteria": [],
+        "dependencies": dependencies,
+        "decisions": [],
+        "invariants": [],
+    }
+    second: dict[str, object] = {**first, "dependencies": list(reversed(dependencies))}
+    assert ReadinessEngine._fingerprint(first) == ReadinessEngine._fingerprint(second)
+
+
+def test_acknowledgement_requires_expected_revision_and_preserves_scope(
+    fnd03_client: tuple[TestClient, str, str, str],
+) -> None:
+    client, path, workspace_id, feature_id = root(fnd03_client)
+    invariant = client.post(
+        f"{path}/invariants",
+        json={
+            "title": "Scoped review",
+            "statement": "Review the current rule",
+            "rationale": "Scope",
+        },
+    ).json()
+    invariant_id = invariant["id"]
+    assert (
+        client.post(
+            f"{path}/features/{feature_id}/invariants/{invariant_id}/acknowledge",
+            json={"expected_revision": 1},
+        ).json()["acknowledged_revision"]
+        == 1
+    )
+    changed = client.patch(f"{path}/invariants/{invariant_id}", json={"rationale": "Changed"})
+    assert changed.json()["revision"] == 2
+    conflict = client.post(
+        f"{path}/features/{feature_id}/invariants/{invariant_id}/acknowledge",
+        json={"expected_revision": 1},
+    )
+    assert conflict.status_code == 409
+    current = client.post(
+        f"{path}/features/{feature_id}/invariants/{invariant_id}/acknowledge",
+        json={"expected_revision": 2},
+    )
+    assert current.status_code == 200
+    assert current.json()["acknowledged_revision"] == 2
+
+    second_feature = client.post(
+        f"{path}/features", json={"title": "Second feature", "goal": "Keep scope separate"}
+    ).json()
+    second_applicable = client.get(f"{path}/features/{second_feature['id']}/invariants").json()
+    assert second_applicable[0]["needs_acknowledgement"] is True
+
+    other_workspace = client.post("/api/workspaces", json={"name": "Other FND03 workspace"}).json()
+    other_project = client.post(
+        f"/api/workspaces/{other_workspace['id']}/projects", json={"name": "Other project"}
+    ).json()
+    other_feature = client.post(
+        f"/api/workspaces/{other_workspace['id']}/projects/{other_project['id']}/features",
+        json={"title": "Other feature", "goal": "Other scope"},
+    ).json()
+    assert (
+        client.post(
+            f"/api/workspaces/{other_workspace['id']}/projects/{other_project['id']}/features/{other_feature['id']}/invariants/{invariant_id}/acknowledge",
+            json={"expected_revision": 2},
+        ).status_code
+        == 404
+    )
+    assert workspace_id != other_workspace["id"]
+
+
+def test_archived_projects_allow_preview_but_not_saved_evaluations(
+    fnd03_client: tuple[TestClient, str, str, str],
+) -> None:
+    client, path, _project_id, feature_id = root(fnd03_client)
+    assert (
+        client.post(
+            f"{path}/features/{feature_id}/acceptance-criteria",
+            json={"description": "The archived readiness snapshot remains readable"},
+        ).status_code
+        == 201
+    )
+    saved = client.post(f"{path}/features/{feature_id}/readiness/evaluations")
+    assert saved.status_code == 201
+    assert client.post(f"{path}/archive").status_code == 200
+    preview = client.post(f"{path}/features/{feature_id}/readiness/preview")
+    assert preview.status_code == 200
+    assert preview.json()["outcome"] == "NOT_READY"
+    assert "R06" in preview.json()["failed_checks"]
+    assert client.post(f"{path}/features/{feature_id}/readiness/evaluations").status_code == 422
+    assert len(client.get(f"{path}/features/{feature_id}/readiness/evaluations").json()) == 1
+    assert client.post(f"{path}/restore").status_code == 200
+    restored = client.post(f"{path}/features/{feature_id}/readiness/evaluations")
+    assert restored.status_code == 201
+    assert len(client.get(f"{path}/features/{feature_id}/readiness/evaluations").json()) == 2

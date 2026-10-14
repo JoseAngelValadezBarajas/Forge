@@ -335,6 +335,10 @@ class InvariantAcknowledgementResponse(BaseModel):
     acknowledged_at: datetime
 
 
+class InvariantAcknowledgementRequest(BaseModel):
+    expected_revision: int = Field(gt=0)
+
+
 class ApplicableInvariantResponse(InvariantResponse):
     acknowledged_revision: int | None
     acknowledged_at: datetime | None

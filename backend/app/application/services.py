@@ -39,6 +39,10 @@ class InvalidInput(ServiceError):
     pass
 
 
+class RevisionConflict(ServiceError):
+    pass
+
+
 def clean_name(value: str) -> str:
     name = value.strip()
     if not name:

@@ -31,6 +31,7 @@ test("completes the decisions, invariants and readiness workflow in Chromium", a
   await page.getByLabel("New acceptance criterion").fill("The readiness result explains every rule");
   await page.locator("form.inline-add").nth(1).getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText("The readiness result explains every rule", { exact: true })).toBeVisible();
+  await expect(page.getByText("PASS · R02", { exact: true })).toBeVisible();
 
   await page.goto(projectUrl);
   await page.getByRole("link", { name: "Decisions", exact: true }).first().click();
@@ -70,6 +71,9 @@ test("completes the decisions, invariants and readiness workflow in Chromium", a
 
   await page.goto(featureUrl);
   await expect(page.getByText("STALE", { exact: true })).toBeVisible();
+  await expect(page.getByText("Planning is not verification · rev 2", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge review", exact: true }).click();
+  await expect(page.getByText("Reviewed · not technical proof", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Evaluate & save", exact: true }).click();
   await expect(page.locator(".history-row")).toHaveCount(2);
   await page.reload();

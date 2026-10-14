@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,7 @@ from app.application.services import (
     DuplicateName,
     EntityNotFound,
     InvalidInput,
+    RevisionConflict,
     clean_text,
     clean_title,
     now,
@@ -196,7 +197,12 @@ class InvariantService:
         return [(item, acknowledgements.get(item.id)) for item in invariants]
 
     def acknowledge(
-        self, workspace_id: str, project_id: str, feature_id: str, invariant_id: str
+        self,
+        workspace_id: str,
+        project_id: str,
+        feature_id: str,
+        invariant_id: str,
+        expected_revision: int,
     ) -> InvariantAcknowledgementModel:
         self._project(workspace_id, project_id, writable=True)
         self._feature(project_id, feature_id)
@@ -205,6 +211,21 @@ class InvariantService:
             raise InvalidInput("Retired invariants cannot be acknowledged")
         if invariant.feature_id is not None and invariant.feature_id != feature_id:
             raise EntityNotFound("Invariant does not apply to this feature")
+        guard = self.session.execute(
+            update(InvariantModel)
+            .where(
+                InvariantModel.id == invariant_id,
+                InvariantModel.project_id == project_id,
+                InvariantModel.status == InvariantStatus.ACTIVE.value,
+                InvariantModel.revision == expected_revision,
+            )
+            .values(revision=InvariantModel.revision)
+        )
+        if getattr(guard, "rowcount", None) != 1:
+            self.session.rollback()
+            raise RevisionConflict(
+                "Invariant changed before acknowledgement; reload the current revision"
+            )
         acknowledgement = self.session.scalar(
             select(InvariantAcknowledgementModel).where(
                 InvariantAcknowledgementModel.feature_id == feature_id,
@@ -215,11 +236,11 @@ class InvariantService:
             acknowledgement = InvariantAcknowledgementModel(
                 feature_id=feature_id,
                 invariant_id=invariant_id,
-                acknowledged_revision=invariant.revision,
+                acknowledged_revision=expected_revision,
             )
             self.session.add(acknowledgement)
         else:
-            acknowledgement.acknowledged_revision = invariant.revision
+            acknowledgement.acknowledged_revision = expected_revision
             acknowledgement.acknowledged_at = now()
         try:
             self.session.commit()
