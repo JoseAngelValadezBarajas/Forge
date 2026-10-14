@@ -50,6 +50,7 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
   await page.getByRole("button", { name: "+ Add event" }).click();
   await page.getByRole("textbox", { name: "Event title" }).fill("Browser progress");
   await page.getByRole("textbox", { name: "Event description" }).fill("The real browser recorded this progress event.");
+  await page.screenshot({ path: "test-results/fnd05-event-reporting.png", fullPage: true });
   await page.getByRole("button", { name: "Report event" }).click();
   await expect(page.getByText("Browser progress")).toBeVisible();
   await expect(page.getByText("2 events")).toBeVisible();
@@ -61,6 +62,7 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
   await expect(page.getByText("Reported artifact")).toBeVisible();
   await page.getByRole("button", { name: "Move to IN PROGRESS" }).click();
   await expect(page.locator(".fnd05-status.in_progress")).toBeVisible();
+  await page.screenshot({ path: "test-results/fnd05-run-detail.png", fullPage: true });
 
   await page.getByRole("button", { name: "Prepare handoff" }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/handoffs/`));
@@ -68,6 +70,7 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
   await page.getByRole("textbox", { name: "summary" }).fill("A human-readable report from Chromium.");
   await page.getByRole("textbox", { name: "outcomes" }).fill("Run record and timeline were persisted.");
   await page.getByRole("textbox", { name: "blockers" }).fill("No delivery verification was performed.");
+  await page.screenshot({ path: "test-results/fnd05-handoff-composer.png", fullPage: true });
   await page.getByRole("button", { name: "Mark ready" }).click();
   await expect(page.getByText("READY", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "A human-readable report from Chromium." })).toBeVisible();
@@ -98,4 +101,7 @@ test("records a run and publishes an explicit handoff against real SQLite", asyn
 
   await page.setViewportSize({ width: 390, height: 852 });
   await page.screenshot({ path: "test-results/fnd05-mobile-handoff.png", fullPage: true });
+  await page.goto(`/projects/${project.id}/runs/${run.id}`);
+  await expect(page.getByRole("heading", { name: "Run Detail & Timeline" })).toBeVisible();
+  await page.screenshot({ path: "test-results/fnd05-mobile-run-detail.png", fullPage: true });
 });
