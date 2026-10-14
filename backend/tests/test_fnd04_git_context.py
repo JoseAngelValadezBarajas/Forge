@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import html
+import io
 import os
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from threading import Event
+from typing import Any, Protocol
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.context.packages import ContextPackageBuilder
 from app.db import Base, get_db
-from app.git.observer import GitObserver
+from app.git.observer import GitObserver, _GitCommandError, _GitCommandResult
 from app.main import app
 
 
@@ -56,6 +59,119 @@ def test_context_builder_is_canonical_across_record_order_and_text_spacing() -> 
     )
     assert first.fingerprint == second.fingerprint
     assert first.canonical_json == second.canonical_json
+
+
+def test_context_builder_preserves_position_order_and_complete_safe_markdown() -> None:
+    builder = ContextPackageBuilder()
+    snapshot = builder.build(
+        project={"id": "project-42", "name": "Forge", "description": "Plan", "status": "active"},
+        feature={
+            "id": "feature-42",
+            "key": "FEAT-042",
+            "title": "Export",
+            "description": "<script>alert(1)</script>",
+            "goal": "Keep context",
+            "priority": "high",
+            "status": "ready",
+        },
+        planning={
+            "tasks": [
+                {"id": "task-b", "title": "Second", "status": "backlog", "position": 2},
+                {"id": "task-a", "title": "First", "status": "done", "position": 1},
+            ],
+            "acceptance_criteria": [
+                {"id": "criterion-b", "description": "Second", "position": 2},
+                {"id": "criterion-a", "description": "First", "position": 1},
+            ],
+        },
+        dependencies=[{"id": "dependency-1", "direction": "blocked_by"}],
+        decisions=[{"id": "decision-1", "revision": 3, "title": "Use local Git"}],
+        invariants=[
+            {"id": "invariant-1", "acknowledged_revision": 2, "statement": "Keep it local"}
+        ],
+        readiness={
+            "evaluation_id": "evaluation-1",
+            "evaluated_at": "2026-01-01T00:00:00+00:00",
+            "rule_set_version": "fnd03-v1",
+            "input_fingerprint": "f" * 64,
+            "outcome": "NOT_READY",
+            "stale": False,
+            "blockers": [{"code": "R02", "message": "Add criteria"}],
+        },
+        observations=[
+            {
+                "id": "observation-1",
+                "repository_id": "repository-1",
+                "observed_at": "2026-01-01T00:00:00+00:00",
+                "status": "error",
+                "error_code": "NOT_REPOSITORY",
+            }
+        ],
+    )
+    assert snapshot.payload["project"]["id"] == "project-42"
+    assert [item["id"] for item in snapshot.payload["planning"]["tasks"]] == [
+        "task-a",
+        "task-b",
+    ]
+    assert [item["id"] for item in snapshot.payload["planning"]["acceptance_criteria"]] == [
+        "criterion-a",
+        "criterion-b",
+    ]
+    assert html.escape(snapshot.canonical_json) in snapshot.markdown
+    assert "## Tasks" not in snapshot.markdown
+    assert "## Planning" in snapshot.markdown
+    assert "task-a" in snapshot.markdown and "task-b" in snapshot.markdown
+    assert "criterion-a" in snapshot.markdown and "criterion-b" in snapshot.markdown
+    assert "R02" in snapshot.markdown
+    assert "NOT_REPOSITORY" in snapshot.markdown
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in snapshot.markdown
+
+    reordered = builder.build(
+        project={"id": "project-42", "name": "Forge", "description": "Plan", "status": "active"},
+        feature={
+            "id": "feature-42",
+            "key": "FEAT-042",
+            "title": "Export",
+            "description": "<script>alert(1)</script>",
+            "goal": "Keep context",
+            "priority": "high",
+            "status": "ready",
+        },
+        planning={
+            "tasks": [
+                {"id": "task-a", "title": "First", "status": "done", "position": 2},
+                {"id": "task-b", "title": "Second", "status": "backlog", "position": 1},
+            ],
+            "acceptance_criteria": [
+                {"id": "criterion-a", "description": "First", "position": 2},
+                {"id": "criterion-b", "description": "Second", "position": 1},
+            ],
+        },
+        dependencies=[{"id": "dependency-1", "direction": "blocked_by"}],
+        decisions=[{"id": "decision-1", "revision": 3, "title": "Use local Git"}],
+        invariants=[
+            {"id": "invariant-1", "acknowledged_revision": 2, "statement": "Keep it local"}
+        ],
+        readiness={
+            "evaluation_id": "evaluation-1",
+            "evaluated_at": "2026-01-01T00:00:00+00:00",
+            "rule_set_version": "fnd03-v1",
+            "input_fingerprint": "f" * 64,
+            "outcome": "NOT_READY",
+            "stale": False,
+            "blockers": [{"code": "R02", "message": "Add criteria"}],
+        },
+        observations=[
+            {
+                "id": "observation-1",
+                "repository_id": "repository-1",
+                "observed_at": "2026-01-01T00:00:00+00:00",
+                "status": "error",
+                "error_code": "NOT_REPOSITORY",
+            }
+        ],
+    )
+    assert snapshot.fingerprint != reordered.fingerprint
 
 
 def git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -136,24 +252,139 @@ def test_git_observer_handles_unborn_detached_missing_and_relative_paths(tmp_pat
     assert relative.error_code == "INVALID_PATH"
 
 
+class _FakeStream(Protocol):
+    @property
+    def closed(self) -> bool: ...
+
+    def read(self, size: int) -> bytes: ...
+
+    def close(self) -> None: ...
+
+
+class _FakeProcess:
+    def __init__(self, stdout: _FakeStream, stderr: _FakeStream, *, running: bool = True) -> None:
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = None if running else 0
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def wait(self, timeout: float | None = None) -> int:
+        if self.returncode is None:
+            raise subprocess.TimeoutExpired(["git"], timeout or 0)
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.terminated = True
+        self.returncode = -15
+
+    def kill(self) -> None:
+        self.terminated = True
+        self.returncode = -9
+
+
+class _BlockingStream:
+    def __init__(self) -> None:
+        self.released = Event()
+        self.closed = False
+
+    def read(self, _size: int) -> bytes:
+        self.released.wait()
+        return b""
+
+    def close(self) -> None:
+        self.closed = True
+        self.released.set()
+
+
 def test_git_observer_fails_closed_on_timeout_and_output_limit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = make_repo(tmp_path / "repo")
 
-    def timeout(*_args: object, **_kwargs: object) -> None:
-        raise subprocess.TimeoutExpired(["git"], 0.01)
+    timeout_process = _FakeProcess(_BlockingStream(), _BlockingStream())
+    monkeypatch.setattr(subprocess, "Popen", lambda *_args, **_kwargs: timeout_process)
+    with pytest.raises(_GitCommandError) as timeout_error:
+        GitObserver(timeout_seconds=0.01)._run(root, ["status"])
+    assert timeout_error.value.code == "TIMEOUT"
+    assert timeout_process.terminated is True
+    assert timeout_process.stdout.closed is True
+    assert timeout_process.stderr.closed is True
 
-    monkeypatch.setattr(subprocess, "run", timeout)
-    assert GitObserver().observe(root).error_code == "TIMEOUT"
+    output_process = _FakeProcess(io.BytesIO(b"x" * 100), io.BytesIO())
+    monkeypatch.setattr(subprocess, "Popen", lambda *_args, **_kwargs: output_process)
+    with pytest.raises(_GitCommandError) as output_error:
+        GitObserver(output_limit=10)._run(root, ["status"])
+    assert output_error.value.code == "OUTPUT_LIMIT"
+    assert output_process.terminated is True
 
-    class Result:
-        returncode = 0
-        stdout = "x" * 100
-        stderr = ""
 
-    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs: Result())
-    assert GitObserver(output_limit=10).observe(root).error_code == "OUTPUT_LIMIT"
+def test_git_observer_checks_each_git_result_and_redacts_error_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    observer = GitObserver()
+
+    monkeypatch.setattr(
+        observer,
+        "_run",
+        lambda *_args: _GitCommandResult(128, "", "fatal: not a git repository: private details"),
+    )
+    status_error = observer.observe(root)
+    assert status_error.status == "error"
+    assert status_error.clean is None
+    assert status_error.error_code == "NOT_REPOSITORY"
+    assert str(root) not in (status_error.error_detail or "")
+
+    monkeypatch.setattr(
+        observer,
+        "_run",
+        lambda *_args: _GitCommandResult(128, "", "fatal: bad object HEAD"),
+    )
+    assert observer.observe(root).error_code == "INVALID_REPOSITORY"
+
+    def branch_failure(_root: Path, args: list[str]) -> _GitCommandResult:
+        if args[0] == "--no-optional-locks":
+            return _GitCommandResult(0, "## main...origin/main\n", "")
+        return _GitCommandResult(2, "", "branch failure")
+
+    monkeypatch.setattr(observer, "_run", branch_failure)
+    assert observer.observe(root).error_code == "SYMBOLIC_REF_FAILED"
+
+    def head_failure(_root: Path, args: list[str]) -> _GitCommandResult:
+        if args[0] == "--no-optional-locks":
+            return _GitCommandResult(0, "## main\n", "")
+        if args[0] == "symbolic-ref":
+            return _GitCommandResult(0, "main\n", "")
+        return _GitCommandResult(7, "", "head failure")
+
+    monkeypatch.setattr(observer, "_run", head_failure)
+    assert observer.observe(root).error_code == "HEAD_LOOKUP_FAILED"
+
+
+def test_git_observer_environment_does_not_inherit_git_selection_or_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_EXEC_PATH",
+        "GIT_CEILING_DIRECTORIES",
+        "GIT_CONFIG_COUNT",
+    ):
+        monkeypatch.setenv(key, "unsafe-value")
+    env = GitObserver._environment()
+    assert env["GIT_CONFIG_COUNT"] == "0"
+    assert env["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert "GIT_DIR" not in env
+    assert "GIT_WORK_TREE" not in env
+    assert "GIT_INDEX_FILE" not in env
+    assert "GIT_EXEC_PATH" not in env
+    assert "GIT_CEILING_DIRECTORIES" not in env
 
 
 @pytest.fixture
@@ -247,6 +478,12 @@ def test_repository_observation_and_deterministic_package_lifecycle(
         .headers["content-type"]
         .startswith("text/markdown")
     )
+    json_download = client.get(
+        f"{base}/features/{feature_id}/context/packages/{package_id}/download",
+        params={"format": "json"},
+    )
+    assert json_download.headers["content-type"].startswith("application/json")
+    assert json_download.json()["schema"] == "forge-context-v1"
 
 
 def test_archived_project_keeps_reads_but_rejects_new_observations_and_packages(

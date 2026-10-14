@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 import unicodedata
@@ -48,7 +49,7 @@ class ContextPackageBuilder:
     ) -> ContextPackageSnapshot:
         payload: dict[str, Any] = {
             "schema": self.schema_version,
-            "project": self._text_record(project, ("name", "description", "status")),
+            "project": self._text_record(project, ("id", "name", "description", "status")),
             "feature": self._text_record(
                 feature, ("id", "key", "title", "description", "goal", "priority", "status")
             ),
@@ -70,7 +71,7 @@ class ContextPackageBuilder:
             fingerprint=fingerprint,
             payload=payload,
             canonical_json=canonical_json,
-            markdown=self._markdown(payload, fingerprint),
+            markdown=self._markdown(payload, fingerprint, canonical_json),
         )
 
     def _text_record(self, source: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
@@ -84,9 +85,7 @@ class ContextPackageBuilder:
             "tasks": [
                 self._text_record(item, ("id", "title", "description", "status"))
                 | {"position": item.get("position")}
-                for item in self._sorted_records(
-                    source.get("tasks", []), "id", fallback=("position",)
-                )
+                for item in self._positioned_records(source.get("tasks", []))
             ],
             "acceptance_criteria": [
                 self._text_record(item, ("id", "description"))
@@ -94,9 +93,7 @@ class ContextPackageBuilder:
                     "satisfied": bool(item.get("satisfied", False)),
                     "position": item.get("position"),
                 }
-                for item in self._sorted_records(
-                    source.get("acceptance_criteria", []), "id", fallback=("position",)
-                )
+                for item in self._positioned_records(source.get("acceptance_criteria", []))
             ],
         }
 
@@ -125,6 +122,19 @@ class ContextPackageBuilder:
         )
         return [ContextPackageBuilder._normalize_record(item) for item in ordered]
 
+    @staticmethod
+    def _positioned_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        def position_key(item: dict[str, Any]) -> tuple[bool, int, str]:
+            position = item.get("position")
+            try:
+                numeric_position = int(position) if position is not None else 0
+            except (TypeError, ValueError):
+                numeric_position = 0
+            return position is None, numeric_position, str(item.get("id", ""))
+
+        ordered = sorted(records, key=position_key)
+        return [ContextPackageBuilder._normalize_record(item) for item in ordered]
+
     @classmethod
     def _normalize_record(cls, record: dict[str, Any]) -> dict[str, Any]:
         return {key: cls._normalize_value(value) for key, value in record.items()}
@@ -140,10 +150,10 @@ class ContextPackageBuilder:
         return value
 
     @staticmethod
-    def _markdown(payload: dict[str, Any], fingerprint: str) -> str:
-        project = payload["project"]
-        feature = payload["feature"]
-        lines = [
+    def _markdown(
+        payload: dict[str, Any], fingerprint: str, canonical_json: str
+    ) -> str:
+        lines: list[str] = [
             "# Forge Context Package",
             "",
             f"- Schema: `{payload['schema']}`",
@@ -151,39 +161,81 @@ class ContextPackageBuilder:
             "",
             "## Project",
             "",
-            (
-                f"**{project.get('name') or 'Unnamed project'}** · "
-                f"{project.get('status') or 'unknown'}"
-            ),
-            "",
-            "## Feature",
-            "",
-            f"**{feature.get('key') or feature.get('id')} · {feature.get('title') or 'Untitled'}**",
-            "",
-            feature.get("goal") or "No goal recorded.",
-            "",
-            "## Planning",
-            "",
-            f"- Tasks: {len(payload['planning']['tasks'])}",
-            f"- Acceptance criteria: {len(payload['planning']['acceptance_criteria'])}",
-            f"- Dependencies: {len(payload['dependencies'])}",
-            f"- Decisions: {len(payload['decisions'])}",
-            f"- Invariants: {len(payload['invariants'])}",
-            "",
-            "## Readiness",
-            "",
-            str(
-                payload["readiness"].get("outcome")
-                if payload["readiness"]
-                else "No saved evaluation."
-            ),
-            "",
-            "## Git observations",
-            "",
-            (
-                f"{len(payload['git_observations'])} metadata observation(s). "
-                "Source content and machine-specific details are excluded."
-            ),
-            "",
         ]
+
+        def add_record(title: str, record: dict[str, Any]) -> None:
+            lines.extend(
+                [
+                    f"### {html.escape(title)}",
+                    "",
+                    "<pre>",
+                    html.escape(json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2)),
+                    "</pre>",
+                    "",
+                ]
+            )
+
+        add_record("Project declaration", payload["project"])
+        lines.extend(["## Feature", ""])
+        add_record("Feature declaration", payload["feature"])
+        lines.extend(
+            [
+                "## Planning",
+                "",
+                "Tasks and acceptance criteria retain position ascending, then stable ID order.",
+                "",
+            ]
+        )
+        for index, task in enumerate(payload["planning"]["tasks"], start=1):
+            add_record(f"Task {index}", task)
+        for index, criterion in enumerate(payload["planning"]["acceptance_criteria"], start=1):
+            add_record(f"Acceptance criterion {index}", criterion)
+
+        for section, item_label, key, empty in (
+            ("Dependencies", "Dependency", "dependencies", "No dependencies are included."),
+            ("Decisions", "Decision", "decisions", "No linked decisions are included."),
+            ("Invariants", "Invariant", "invariants", "No applicable invariants are included."),
+        ):
+            lines.extend([f"## {section}", ""])
+            records = payload[key]
+            if records:
+                for index, record in enumerate(records, start=1):
+                    add_record(f"{item_label} {index}", record)
+            else:
+                lines.extend([empty, ""])
+
+        lines.extend(["## Readiness", ""])
+        if payload["readiness"]:
+            add_record("Saved planning evaluation", payload["readiness"])
+        else:
+            lines.extend(["No saved readiness evaluation.", ""])
+
+        lines.extend(["## Git observations", ""])
+        if payload["git_observations"]:
+            for index, observation in enumerate(payload["git_observations"], start=1):
+                add_record(f"Observation {index}", observation)
+        else:
+            lines.extend(["No Git observations are included.", ""])
+
+        lines.extend(
+            [
+                "## Provenance and limits",
+                "",
+                "- Planning fields are declared product context, not delivery verification.",
+                "- Git fields are read-only observations and may be historical or unavailable.",
+                "- No local paths, remote URLs, credentials, source content or untracked names "
+                "are exported.",
+                "- A clean observation does not prove tests passed or that a release is ready.",
+                "",
+                "## Canonical payload",
+                "",
+                "The following escaped JSON is the complete deterministic payload represented "
+                "by this document.",
+                "",
+                "<pre>",
+                html.escape(canonical_json),
+                "</pre>",
+                "",
+            ]
+        )
         return "\n".join(lines)

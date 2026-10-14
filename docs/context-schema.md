@@ -4,7 +4,7 @@ Forge Context Packages use the versioned schema identifier `forge-context-v1`.
 
 The canonical JSON document contains:
 
-- `project`: project name, description and lifecycle status;
+- `project`: stable project ID, name, description and lifecycle status;
 - `feature`: opaque Feature ID, readable key, title, description, goal, priority and status;
 - `planning`: ordered tasks and acceptance criteria;
 - `dependencies`: normalized dependency IDs and direction;
@@ -15,7 +15,7 @@ The canonical JSON document contains:
 
 The package deliberately excludes local filesystem paths, remote URLs, credentials, author identities, commit messages, diffs, source content, untracked file names and delivery verification. A Git observation's `error_detail` is not included because it may contain machine-specific paths.
 
-Text is Unicode NFKC-normalized, line endings are normalized, and surrounding/inline horizontal whitespace is made stable. Records are sorted by stable IDs and positional fields before JSON serialization. The SHA-256 fingerprint is calculated over the exact UTF-8 canonical JSON using sorted keys and compact separators. Markdown and JSON exports are generated from the same snapshot; Markdown is not hashed separately.
+Text is Unicode NFKC-normalized, line endings are normalized, and surrounding/inline horizontal whitespace is made stable. Tasks and acceptance criteria are ordered by `position ASC, id ASC`; other records use stable IDs and documented fallback fields. The SHA-256 fingerprint is calculated over the exact UTF-8 canonical JSON using sorted keys and compact separators. Markdown and JSON exports are generated from the same snapshot; Markdown includes every logical record and an escaped copy of the complete canonical payload, but Markdown is not hashed separately.
 
 Preview is never persisted. Generate & save creates an immutable snapshot and deduplicates an identical Feature/schema/fingerprint combination. A later planning or Git observation change creates a new fingerprint while preserving prior packages.
 

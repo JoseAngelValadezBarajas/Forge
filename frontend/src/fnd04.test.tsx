@@ -69,7 +69,10 @@ describe("FND-04 repository and context surfaces", () => {
     expect(await screen.findByRole("heading", { name: "Context package", level: 1 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Preview package" }));
     expect(await screen.findByText("forge-context-v1")).toBeInTheDocument();
-    expect(screen.getByText("No saved readiness evaluation")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Readiness" }));
+    expect(screen.getByText("No saved readiness evaluation is included.")).toBeInTheDocument();
     expect(screen.getByText("0 saved")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Provenance & limits" }));
+    expect(screen.getByText(/Local paths, remote URLs, credentials/)).toBeInTheDocument();
   });
 });

@@ -20,5 +20,5 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans every 
 
 Licensing documents live at the repository root: `LICENSE.md`, `NOTICE`, `COMMERCIAL-LICENSING.md`, `TRADEMARKS.md`, `CONTRIBUTING.md` and `SECURITY.md`. The third-party dependency inventory is in `docs/dependency-licenses.md`.
 
-FND-04 repository access is local and read-only. The observer must not fetch, push, commit, checkout, merge, reset, execute arbitrary commands, invoke hooks, inspect remotes or read source files. Keep claims in the UI tied to observed backend data; manual planning states, readiness, Git observations and later delivery evidence remain distinct.
+FND-04 repository access is local and read-only. The observer must not fetch, push, commit, checkout, merge, reset, execute arbitrary commands, invoke hooks, inspect remotes or read source files. Git subprocesses use list arguments without a shell, a controlled environment, bounded concurrent stdout/stderr readers, explicit timeouts and process cleanup. Keep claims in the UI tied to observed backend data; manual planning states, readiness, Git observations and later delivery evidence remain distinct.
 

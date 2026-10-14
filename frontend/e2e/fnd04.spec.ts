@@ -57,8 +57,16 @@ test("connects, observes and snapshots an optional local repository", async ({ p
     await expect(page.getByText(/forge-fnd04-repository-/)).toBeVisible();
     await page.getByRole("button", { name: "Preview package", exact: true }).click();
     await expect(page.getByText("forge-context-v1", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Tasks & criteria", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Tasks & criteria", level: 4 })).toBeVisible();
+    await page.getByRole("button", { name: "Git observations", exact: true }).click();
+    await expect(page.getByText(/No Git observations are included|Historical metadata observations/)).toBeVisible();
+    await page.getByRole("button", { name: "Provenance & limits", exact: true }).click();
+    await expect(page.getByText(/Local paths, remote URLs, credentials/)).toBeVisible();
     await page.getByRole("button", { name: "Generate & save", exact: true }).click();
     await expect(page.locator(".context-history .history-row")).toHaveCount(1);
+    await expect(page.getByRole("link", { name: /Download JSON/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Download Markdown/ }).first()).toBeVisible();
     await page.screenshot({ path: "test-results/fnd04-context-package.png", fullPage: true });
 
     writeFileSync(join(repositoryPath, "untracked.txt"), "metadata change\n", "utf8");
