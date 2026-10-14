@@ -4,7 +4,7 @@ Forge is a local-first workspace for connecting product intent, optional local G
 
 ## Status
 
-FND-04 is intentionally limited to optional local Git metadata and deterministic planning snapshots. Forge does not fetch, push, commit, checkout, execute arbitrary commands, scan source content, expose remotes or claim CI, verification or release evidence. Readiness remains deterministic planning guidance, not technical or delivery verification.
+FND-06 adds declared evidence, deterministic verification of saved Forge snapshots, and immutable release-candidate snapshots with explainable gates and manifests. Forge does not fetch external URLs, import or execute artifacts, run tests or remote CI, write Git, deploy, or publish releases. A user report remains REPORTED; a passing named check proves only its stated condition. `READY_BY_DEFINED_GATES` is not functional verification, and every manifest remains `NOT_PUBLISHED`. See the [FND-06 model and limitations](docs/product/fnd06-evidence-and-releases.md) and [API contracts](docs/product/fnd06-api-contracts.md).
 
 ## Licensing
 
@@ -20,7 +20,7 @@ After selecting a project, the Overview links to the persistent Board, Features/
 
 Projects can optionally connect one or more local Git working trees. Repositories are observed on demand with bounded, read-only metadata collection. A Feature can link repositories and generate a `forge-context-v1` Context Package containing normalized planning data and selected Git observations. Packages are immutable, fingerprinted and deduplicated; preview never creates history.
 
-The FND-05 Workbench records human-reported Agent Runs against an immutable Context Package, append-only timeline events, structured output references and explicit Handoffs. Published Handoff revisions are deterministic `forge-handoff-v1` documents that can be reviewed, acknowledged by revision and exported as JSON or Markdown. Forge does not start agents, read conversations or claim CI, verification or delivery evidence; see [`docs/fnd05-runs-handoffs.md`](docs/fnd05-runs-handoffs.md).
+The FND-05 Workbench records human-reported Agent Runs against an immutable Context Package, append-only timeline events, structured output references and explicit Handoffs. Published Handoff revisions are deterministic `forge-handoff-v1` documents that can be reviewed, acknowledged by revision and exported as JSON or Markdown. Forge does not start agents or read conversations; see [`docs/fnd05-runs-handoffs.md`](docs/fnd05-runs-handoffs.md).
 
 ## Stack
 

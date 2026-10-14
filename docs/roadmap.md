@@ -6,7 +6,7 @@
 - **FND-03** — Readiness workflow, decisions and invariants.
 - **FND-04** — Optional local Git connections, read-only deterministic observations and immutable `forge-context-v1` Context Packages. No source scanning, remotes, network operations or delivery evidence.
 - **FND-05** — Agent runs, human-reported events, immutable handoff revisions and explicit review acknowledgements. No agent execution or delivery evidence is implemented.
-- **FND-06** — Workbench and release views grounded in real local evidence.
+- **FND-06** — Evidence provenance, deterministic checks over saved Forge snapshots, immutable Release Candidates, explainable gates and `NOT_PUBLISHED` manifests. It does not import artifact bytes, execute tests, integrate remote CI, write Git or publish releases. See [FND-06 limitations](product/fnd06-evidence-and-releases.md).
 
 Cloud accounts, automatic agent execution, external provider sync, authentication, multi-user collaboration and Electron remain outside the current foundation scope.
 
