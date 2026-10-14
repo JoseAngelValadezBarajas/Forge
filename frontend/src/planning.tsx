@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   forgeApi,
@@ -121,10 +121,11 @@ function PlanningPage({
   mode: "board" | "features";
 }) {
   const { projectId } = useParams<{ projectId: string }>();
+  const location = useLocation();
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<FeaturePriority | undefined>();
-  const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
-  const [createEpicOpen, setCreateEpicOpen] = useState(false);
+  const [createFeatureOpen, setCreateFeatureOpen] = useState(() => new URLSearchParams(location.search).get("create") === "1");
+  const [createEpicOpen, setCreateEpicOpen] = useState(() => new URLSearchParams(location.search).get("create") === "epic");
   const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);

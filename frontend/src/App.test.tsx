@@ -94,7 +94,7 @@ describe("Forge workspace and project shell", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 
-  it("ignores an out-of-order project response after switching workspace", async () => {
+  it("returns home and ignores an out-of-order project response after switching workspace", async () => {
     window.history.pushState({}, "", "/projects");
     const localProjects = deferred<Response>();
     const researchProjects = deferred<Response>();
@@ -110,10 +110,12 @@ describe("Forge workspace and project shell", () => {
     expect(await screen.findByRole("heading", { name: "Projects", level: 1 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Local Workspace/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Research/ }));
+    expect(window.location.pathname).toBe("/");
+    expect(await screen.findByRole("heading", { name: "Workspace", level: 1 })).toBeInTheDocument();
     researchProjects.resolve(new Response(JSON.stringify([
       { id: "research-project", workspace_id: "ws-2", name: "Research Project", description: null, status: "active", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", archived_at: null },
     ]), { status: 200, headers: { "Content-Type": "application/json" } }));
-    expect(await screen.findByRole("heading", { name: "Research Project", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Research Project", level: 3 })).not.toBeInTheDocument();
     localProjects.resolve(new Response(JSON.stringify([
       { id: "local-project", workspace_id: "ws-1", name: "Stale Local Project", description: null, status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null },
     ]), { status: 200, headers: { "Content-Type": "application/json" } }));
@@ -147,7 +149,7 @@ describe("Forge workspace and project shell", () => {
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Stale Search Project", level: 3 })).not.toBeInTheDocument());
   });
 
-  it("ignores an out-of-order project detail after switching workspace", async () => {
+  it("returns home instead of loading a stale project detail after switching workspace", async () => {
     window.history.pushState({}, "", "/projects/project-1");
     const localProject = deferred<Response>();
     const researchProject = deferred<Response>();
@@ -163,10 +165,12 @@ describe("Forge workspace and project shell", () => {
     expect(await screen.findByRole("button", { name: /Local Workspace/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Local Workspace/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Research/ }));
+    expect(window.location.pathname).toBe("/");
+    expect(await screen.findByRole("heading", { name: "Workspace", level: 1 })).toBeInTheDocument();
     researchProject.resolve(new Response(JSON.stringify({
       id: "project-1", workspace_id: "ws-2", name: "Research Detail", description: null, status: "active", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", archived_at: null,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    expect(await screen.findByRole("heading", { name: "Research Detail", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Research Detail", level: 2 })).not.toBeInTheDocument();
     localProject.resolve(new Response(JSON.stringify({
       id: "project-1", workspace_id: "ws-1", name: "Stale Local Detail", description: null, status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
