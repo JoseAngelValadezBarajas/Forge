@@ -49,6 +49,40 @@ describe("FND-02 planning views", () => {
     await waitFor(() => expect(screen.queryByText("CI passed")).not.toBeInTheDocument());
   });
 
+  it("reopens palette-created Epic and Feature forms after closing them on the same routes", async () => {
+    render(<BrowserRouter><App /></BrowserRouter>);
+    await screen.findByRole("heading", { name: "Project Board" });
+
+    const openPalette = () => fireEvent.click(screen.getByRole("button", { name: /Search or command/ }));
+    const choose = (label: string) => fireEvent.click(screen.getByRole("option", { name: new RegExp(`^${label}`) }));
+
+    openPalette();
+    choose("Create Epic");
+    expect(await screen.findByRole("heading", { name: "Create epic" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Cancel$/ }));
+    expect(screen.queryByRole("heading", { name: "Create epic" })).not.toBeInTheDocument();
+    expect(window.location.search).toBe("");
+
+    openPalette();
+    choose("Create Epic");
+    expect(await screen.findByRole("heading", { name: "Create epic" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Cancel$/ }));
+
+    fireEvent.click(screen.getByRole("link", { name: /^Features$/ }));
+    expect(await screen.findByRole("heading", { name: "Features & Epics" })).toBeInTheDocument();
+
+    openPalette();
+    choose("Create Feature");
+    expect(await screen.findByRole("heading", { name: "Create feature" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Cancel$/ }));
+    expect(screen.queryByRole("heading", { name: "Create feature" })).not.toBeInTheDocument();
+    expect(window.location.search).toBe("");
+
+    openPalette();
+    choose("Create Feature");
+    expect(await screen.findByRole("heading", { name: "Create feature" })).toBeInTheDocument();
+  });
+
   it("edits planning records, reorders children, and keeps dependency perspectives isolated", async () => {
     let featureState = { ...feature, epic_id: null as string | null };
     const epic = { id: "epic-1", project_id: "project-1", title: "Intent epic", description: "Intent", status: "planning", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };

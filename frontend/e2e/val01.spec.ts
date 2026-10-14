@@ -206,6 +206,49 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   expect(consoleErrors).toEqual([]);
 });
 
+test("reopens Command Palette Epic and Feature forms after closing repeated same-route intents", async ({ page }) => {
+  test.setTimeout(120_000);
+  await createWorkspaceAndProject(page, `palette-${Date.now()}`);
+  const projectUrl = page.url();
+
+  const openPalette = async () => {
+    await page.getByRole("button", { name: /Search or command/ }).click();
+    await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+  };
+
+  await page.goto(`${projectUrl}/board`);
+  await openPalette();
+  await page.getByRole("option", { name: /^Create Epic/ }).click();
+  await expect(page).toHaveURL(/\/board\?create=epic$/);
+  await expect(page.getByRole("heading", { name: "Create epic" })).toBeVisible();
+  await expect(page.getByLabel("Title")).toBeFocused();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create epic" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/board$/);
+
+  await openPalette();
+  await page.getByRole("option", { name: /^Create Epic/ }).click();
+  await expect(page.getByRole("heading", { name: "Create epic" })).toBeVisible();
+  await expect(page.getByLabel("Title")).toBeFocused();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  await page.getByRole("link", { name: "Features", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Features & Epics" })).toBeVisible();
+  await openPalette();
+  await page.getByRole("option", { name: /^Create Feature/ }).click();
+  await expect(page).toHaveURL(/\/features\?create=1$/);
+  await expect(page.getByRole("heading", { name: "Create feature" })).toBeVisible();
+  await expect(page.getByLabel("Title")).toBeFocused();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create feature" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/features$/);
+
+  await openPalette();
+  await page.getByRole("option", { name: /^Create Feature/ }).click();
+  await expect(page.getByRole("heading", { name: "Create feature" })).toBeVisible();
+  await expect(page.getByLabel("Title")).toBeFocused();
+});
+
 test.describe("mobile evidence", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
