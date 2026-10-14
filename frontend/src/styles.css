@@ -19,6 +19,9 @@
   --info: #71a7e8;
   --success: #63c18c;
   --warning: #e8b86f;
+  --status-warning-bg: #2a251b;
+  --status-success-bg: #1f3329;
+  --surface-track: #2a2f34;
   --danger: #e57373;
   --focus: #e2a16f;
   --space-1: 4px;
@@ -54,6 +57,9 @@
   --info: #4378b7;
   --success: #2f8a5c;
   --warning: #a46d19;
+  --status-warning-bg: #f4e8cc;
+  --status-success-bg: #d9f0e2;
+  --surface-track: #d1cec7;
   --danger: #b34f4f;
   --focus: #9c4e22;
   --shadow-dialog: 0 24px 80px rgb(42 34 25 / 18%);
@@ -165,6 +171,9 @@ a { color: inherit; text-decoration: none; }
 .project-card-meta { color: var(--text-subtle); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; justify-content: space-between; }
 .status-chip.active { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
 .status-chip.archived { background: var(--surface-tag); color: var(--text-muted); }
+.status-chip.proposed { background: var(--status-warning-bg); color: var(--warning); }
+.status-chip.accepted { background: var(--status-success-bg); color: var(--success); }
+.status-chip.superseded, .status-chip.retired { background: var(--surface-tag); color: var(--text-muted); }
 .detail-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .detail-tab { background: var(--surface-interactive); border-radius: 999px; color: var(--text-muted); font-size: 11px; padding: 5px 9px; }
 .detail-tab.active { background: var(--accent); color: var(--text-dark-on-accent); }
@@ -258,6 +267,50 @@ kbd { border: 1px solid var(--border); border-radius: 5px; color: var(--text-sub
 .planning-metrics strong { font-size: 24px; line-height: 30px; }
 .planning-metrics span { color: var(--text-muted); font-size: 11px; }
 .summary-epics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+.fnd-toolbar { align-items: end; display: flex; justify-content: space-between; margin-top: 18px; }
+.fnd-toolbar p { color: var(--text-muted); font-size: 12px; margin: 8px 0 0; }
+.fnd-form { margin-top: 18px; }
+.fnd-record-list { display: grid; gap: 12px; margin-top: 18px; }
+.fnd-record-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); display: grid; gap: 10px; padding: 18px 20px; }
+.fnd-record-header { align-items: start; display: flex; gap: 14px; justify-content: space-between; }
+.fnd-record-card h3 { font-size: 18px; line-height: 24px; margin: 6px 0 0; }
+.fnd-record-card p { color: var(--text); font-size: 13px; line-height: 20px; margin: 0; }
+.fnd-record-card small { color: var(--text-muted); font-size: 12px; line-height: 18px; }
+.fnd-record-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fnd-history { background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); display: grid; gap: 6px; margin-top: -6px; padding: 10px 12px; }
+.fnd-history span { color: var(--text-muted); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.readiness-panel { display: grid; gap: 16px; }
+.readiness-outcome { background: var(--status-warning-bg); border-radius: 7px; color: var(--warning); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; padding: 6px 8px; }
+.readiness-outcome.ready { background: var(--status-success-bg); color: var(--success); }
+.readiness-outcome.blocked { background: var(--status-warning-bg); color: var(--warning); }
+.readiness-progress { display: grid; gap: 8px; }
+.readiness-progress > div:first-child { color: var(--text-muted); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; justify-content: space-between; }
+.readiness-track { background: var(--surface-track); border-radius: 999px; height: 7px; overflow: hidden; }
+.readiness-track span { background: var(--success); border-radius: inherit; display: block; height: 100%; transition: width 160ms ease; }
+.readiness-rules { display: grid; gap: 8px; }
+.readiness-rule { background: var(--surface-interactive); border-left: 3px solid var(--success); border-radius: var(--radius-sm); display: grid; gap: 5px; padding: 10px 12px; }
+.readiness-rule.failed { border-left-color: var(--warning); }
+.readiness-rule strong { color: var(--success); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.readiness-rule.failed strong { color: var(--warning); }
+.readiness-rule p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 4px 0 0; }
+.readiness-blocker { color: var(--warning); font-size: 12px; line-height: 18px; }
+.readiness-support { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.readiness-support > div, .readiness-history { background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 13px; }
+.readiness-support h3, .readiness-history h3 { font-size: 14px; margin: 0; }
+.readiness-support p, .readiness-history p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; }
+.inline-link-form { display: flex; gap: 8px; margin-top: 12px; }
+.inline-link-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 7px 8px; }
+.readiness-invariant { align-items: center; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; justify-content: space-between; margin-top: 8px; padding-top: 8px; }
+.readiness-invariant span, .readiness-invariant small { color: var(--text-muted); font-size: 12px; }
+.history-row { align-items: center; border-top: 1px solid var(--border-subtle); color: var(--text-muted); display: grid; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; gap: 12px; grid-template-columns: 1fr auto auto; margin-top: 8px; padding-top: 8px; }
+.history-row strong { color: var(--success); font-size: 10px; }
+.history-stale { color: var(--warning); }
+
+@media (max-width: 800px) {
+  .readiness-support { grid-template-columns: 1fr; }
+  .fnd-toolbar { align-items: start; flex-direction: column; gap: 12px; }
+}
 .feature-detail-header { align-items: start; display: flex; justify-content: space-between; margin-top: 18px; }
 .feature-detail-header h2 { font-size: 24px; line-height: 30px; margin: 8px 0 5px; }
 .feature-detail-header p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; max-width: 650px; }

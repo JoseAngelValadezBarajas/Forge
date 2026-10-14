@@ -88,6 +88,69 @@ export type ProjectPlanningOverview = {
   dependencies: number;
 };
 
+export type DecisionStatus = "proposed" | "accepted" | "superseded";
+export type Decision = {
+  id: string;
+  project_id: string;
+  title: string;
+  context: string;
+  decision: string;
+  rationale: string;
+  alternatives_considered: string | null;
+  tradeoffs: string | null;
+  status: DecisionStatus;
+  superseded_by_id: string | null;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DecisionRevision = Decision & { decision_id: string };
+export type InvariantStatus = "active" | "retired";
+export type Invariant = {
+  id: string;
+  project_id: string;
+  feature_id: string | null;
+  title: string;
+  statement: string;
+  rationale: string;
+  status: InvariantStatus;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApplicableInvariant = Invariant & {
+  acknowledged_revision: number | null;
+  acknowledged_at: string | null;
+  needs_acknowledgement: boolean;
+};
+
+export type InvariantRevision = Invariant & { invariant_id: string };
+export type ReadinessReference = { kind: string; id: string; label?: string };
+export type ReadinessBlocker = { code: string; message: string; references: ReadinessReference[] };
+export type ReadinessRuleResult = {
+  rule_id: string;
+  rule_version: string;
+  result: "passed" | "failed";
+  explanation: string;
+  blockers: ReadinessBlocker[];
+  references: ReadinessReference[];
+};
+export type ReadinessEvaluation = {
+  evaluation_id: string | null;
+  feature_id: string;
+  evaluated_at: string;
+  rule_set_version: string;
+  input_fingerprint: string;
+  outcome: "READY_TO_START" | "NOT_READY";
+  passed_checks: string[];
+  failed_checks: string[];
+  blockers: ReadinessBlocker[];
+  results: ReadinessRuleResult[];
+  stale: boolean;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -197,4 +260,58 @@ export const forgeApi = {
     request<FeatureDependency>(`/workspaces/${workspaceId}/projects/${projectId}/dependencies`, { method: "POST", body: JSON.stringify(payload) }),
   deleteDependency: (workspaceId: string, projectId: string, dependencyId: string) =>
     request<void>(`/workspaces/${workspaceId}/projects/${projectId}/dependencies/${dependencyId}`, { method: "DELETE" }),
+  listDecisions: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<Decision[]>(`/workspaces/${workspaceId}/projects/${projectId}/decisions`, { signal }),
+  createDecision: (workspaceId: string, projectId: string, payload: Omit<DecisionCreatePayload, "status">) =>
+    request<Decision>(`/workspaces/${workspaceId}/projects/${projectId}/decisions`, { method: "POST", body: JSON.stringify(payload) }),
+  updateDecision: (workspaceId: string, projectId: string, decisionId: string, payload: Partial<DecisionCreatePayload>) =>
+    request<Decision>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  acceptDecision: (workspaceId: string, projectId: string, decisionId: string) =>
+    request<Decision>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}/accept`, { method: "POST" }),
+  supersedeDecision: (workspaceId: string, projectId: string, decisionId: string, payload: DecisionCreatePayload) =>
+    request<Decision>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}/supersede`, { method: "POST", body: JSON.stringify(payload) }),
+  listDecisionRevisions: (workspaceId: string, projectId: string, decisionId: string, signal?: AbortSignal) =>
+    request<DecisionRevision[]>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}/revisions`, { signal }),
+  linkDecision: (workspaceId: string, projectId: string, decisionId: string, featureId: string) =>
+    request<void>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}/features/${featureId}`, { method: "POST" }),
+  unlinkDecision: (workspaceId: string, projectId: string, decisionId: string, featureId: string) =>
+    request<void>(`/workspaces/${workspaceId}/projects/${projectId}/decisions/${decisionId}/features/${featureId}`, { method: "DELETE" }),
+  listFeatureDecisions: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<Decision[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/decisions`, { signal }),
+  listInvariants: (workspaceId: string, projectId: string, includeRetired = true, signal?: AbortSignal) =>
+    request<Invariant[]>(`/workspaces/${workspaceId}/projects/${projectId}/invariants?include_retired=${includeRetired}`, { signal }),
+  createInvariant: (workspaceId: string, projectId: string, payload: InvariantCreatePayload) =>
+    request<Invariant>(`/workspaces/${workspaceId}/projects/${projectId}/invariants`, { method: "POST", body: JSON.stringify(payload) }),
+  updateInvariant: (workspaceId: string, projectId: string, invariantId: string, payload: Partial<InvariantCreatePayload>) =>
+    request<Invariant>(`/workspaces/${workspaceId}/projects/${projectId}/invariants/${invariantId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  retireInvariant: (workspaceId: string, projectId: string, invariantId: string) =>
+    request<Invariant>(`/workspaces/${workspaceId}/projects/${projectId}/invariants/${invariantId}/retire`, { method: "POST" }),
+  listInvariantRevisions: (workspaceId: string, projectId: string, invariantId: string, signal?: AbortSignal) =>
+    request<InvariantRevision[]>(`/workspaces/${workspaceId}/projects/${projectId}/invariants/${invariantId}/revisions`, { signal }),
+  listFeatureInvariants: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ApplicableInvariant[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/invariants`, { signal }),
+  acknowledgeInvariant: (workspaceId: string, projectId: string, featureId: string, invariantId: string) =>
+    request<{ acknowledged_revision: number }>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/invariants/${invariantId}/acknowledge`, { method: "POST" }),
+  previewReadiness: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/preview`, { method: "POST", signal }),
+  saveReadiness: (workspaceId: string, projectId: string, featureId: string) =>
+    request<ReadinessEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { method: "POST" }),
+  listReadinessEvaluations: (workspaceId: string, projectId: string, featureId: string, signal?: AbortSignal) =>
+    request<ReadinessEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/features/${featureId}/readiness/evaluations`, { signal }),
+};
+
+export type DecisionCreatePayload = {
+  title: string;
+  context: string;
+  decision: string;
+  rationale: string;
+  alternatives_considered?: string;
+  tradeoffs?: string;
+};
+
+export type InvariantCreatePayload = {
+  title: string;
+  statement: string;
+  rationale: string;
+  feature_id?: string;
 };

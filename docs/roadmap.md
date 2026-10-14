@@ -10,5 +10,5 @@
 
 Cloud accounts, automatic agent execution, external provider sync, authentication, multi-user collaboration and Electron remain outside the current foundation scope.
 
-FND-02 adds persistent epics, features, tasks, acceptance criteria, dependencies and a manual planning board. FND-03 begins at readiness workflow, decisions and invariants; it must not be inferred from FND-02 manual states or satisfied acceptance criteria.
+FND-02 adds persistent epics, features, tasks, acceptance criteria, dependencies and a manual planning board. FND-03 adds revisioned decisions, scoped invariants, revision-aware acknowledgements and deterministic readiness snapshots. It must not be inferred from FND-02 manual states or satisfied acceptance criteria, and it does not introduce repositories, agents, Git or delivery evidence.
 

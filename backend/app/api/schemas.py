@@ -3,7 +3,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.domain.entities import EpicStatus, FeaturePriority, FeatureStatus, TaskStatus
+from app.domain.entities import (
+    DecisionStatus,
+    EpicStatus,
+    FeaturePriority,
+    FeatureStatus,
+    InvariantStatus,
+    TaskStatus,
+)
 
 
 class WorkspaceCreate(BaseModel):
@@ -221,3 +228,149 @@ class ProjectPlanningOverview(BaseModel):
     acceptance_criteria: int
     satisfied_criteria: int
     dependencies: int
+
+
+class DecisionCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    context: str = Field(min_length=1, max_length=10000)
+    decision: str = Field(min_length=1, max_length=10000)
+    rationale: str = Field(min_length=1, max_length=10000)
+    alternatives_considered: str | None = Field(default=None, max_length=10000)
+    tradeoffs: str | None = Field(default=None, max_length=10000)
+
+
+class DecisionUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    context: str | None = Field(default=None, min_length=1, max_length=10000)
+    decision: str | None = Field(default=None, min_length=1, max_length=10000)
+    rationale: str | None = Field(default=None, min_length=1, max_length=10000)
+    alternatives_considered: str | None = Field(default=None, max_length=10000)
+    tradeoffs: str | None = Field(default=None, max_length=10000)
+
+
+class DecisionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    title: str
+    context: str
+    decision: str
+    rationale: str
+    alternatives_considered: str | None
+    tradeoffs: str | None
+    status: DecisionStatus
+    superseded_by_id: str | None
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DecisionRevisionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    decision_id: str
+    revision: int
+    title: str
+    context: str
+    decision: str
+    rationale: str
+    alternatives_considered: str | None
+    tradeoffs: str | None
+    status: DecisionStatus
+    superseded_by_id: str | None
+    created_at: datetime
+
+
+class InvariantCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    statement: str = Field(min_length=1, max_length=10000)
+    rationale: str = Field(min_length=1, max_length=10000)
+    feature_id: str | None = None
+
+
+class InvariantUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    statement: str | None = Field(default=None, min_length=1, max_length=10000)
+    rationale: str | None = Field(default=None, min_length=1, max_length=10000)
+
+
+class InvariantResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    feature_id: str | None
+    title: str
+    statement: str
+    rationale: str
+    status: InvariantStatus
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class InvariantRevisionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    invariant_id: str
+    revision: int
+    title: str
+    statement: str
+    rationale: str
+    status: InvariantStatus
+    feature_id: str | None
+    created_at: datetime
+
+
+class InvariantAcknowledgementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    feature_id: str
+    invariant_id: str
+    acknowledged_revision: int
+    acknowledged_at: datetime
+
+
+class ApplicableInvariantResponse(InvariantResponse):
+    acknowledged_revision: int | None
+    acknowledged_at: datetime | None
+    needs_acknowledgement: bool
+
+
+class ReadinessReference(BaseModel):
+    kind: str
+    id: str
+    label: str | None = None
+
+
+class ReadinessBlocker(BaseModel):
+    code: str
+    message: str
+    references: list[ReadinessReference] = Field(default_factory=list)
+
+
+class ReadinessRuleResult(BaseModel):
+    rule_id: str
+    rule_version: str
+    result: Literal["passed", "failed"]
+    explanation: str
+    blockers: list[ReadinessBlocker] = Field(default_factory=list)
+    references: list[ReadinessReference] = Field(default_factory=list)
+
+
+class ReadinessEvaluationResponse(BaseModel):
+    evaluation_id: str | None
+    feature_id: str
+    evaluated_at: datetime
+    rule_set_version: str
+    input_fingerprint: str
+    outcome: Literal["READY_TO_START", "NOT_READY"]
+    passed_checks: list[str]
+    failed_checks: list[str]
+    blockers: list[ReadinessBlocker]
+    results: list[ReadinessRuleResult]
+    stale: bool = False
