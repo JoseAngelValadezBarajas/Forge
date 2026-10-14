@@ -15,5 +15,6 @@ npm run typecheck
 npm run test
 npx playwright install chromium
 npm run e2e
+npm run test:isolation
 Pop-Location
 

@@ -18,6 +18,9 @@ connect_args = {"check_same_thread": False} if database_url.startswith("sqlite")
 engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
+# Import ORM models after Base exists so Alembic sees all mapped tables.
+from app.persistence import models as _models  # noqa: E402, F401
+
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()

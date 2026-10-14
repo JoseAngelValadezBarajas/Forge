@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "node e2e/run.mjs",
+    "test:isolation": "node ../scripts/verify_e2e_isolation.mjs"
   },
   "dependencies": {
     "react": "19.3.0",

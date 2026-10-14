@@ -2,5 +2,5 @@
 
 Forge helps humans and AI agents keep software work connected from intent to delivery evidence. It is local-first: repositories and project truth remain on the developer's machine unless a later capability explicitly changes that boundary.
 
-FND-00 establishes only the workspace shell and runtime foundation. The empty UI is deliberate: it makes the next real action clear without pretending that projects, commits, CI or agent runs exist.
+FND-00 establishes the runtime foundation and app shell. FND-01 adds the first durable product concepts: a workspace contains projects, while a project can exist independently of a repository or integration. The UI remains honest about capabilities that are not implemented yet.
 

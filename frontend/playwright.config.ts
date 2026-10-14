@@ -23,17 +23,17 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --host ${forgeConfig.host} --port ${backendPort}`,
+      command: `node ../frontend/e2e/start-backend.mjs ${forgeConfig.host} ${backendPort}`,
       cwd: "../backend",
       url: `http://${forgeConfig.host}:${backendPort}/api/health`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
     {
       command: `npm run dev -- --host ${forgeConfig.host}`,
       cwd: ".",
       url: localBaseUrl,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],
