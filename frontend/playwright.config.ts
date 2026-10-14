@@ -19,9 +19,10 @@ export default defineConfig({
   reporter: "html",
   use: {
     baseURL: localBaseUrl,
+    viewport: { width: 1440, height: 900 },
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {
       command: `node ../frontend/e2e/start-backend.mjs ${forgeConfig.host} ${backendPort}`,

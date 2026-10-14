@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   forgeApi,
@@ -121,15 +121,30 @@ function PlanningPage({
   mode: "board" | "features";
 }) {
   const { projectId } = useParams<{ projectId: string }>();
+  const location = useLocation();
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<FeaturePriority | undefined>();
-  const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
-  const [createEpicOpen, setCreateEpicOpen] = useState(false);
+  const [localCreateForm, setLocalCreateForm] = useState<"feature" | "epic" | null>(null);
   const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const { data, loading, error, reload } = usePlanningData(workspace, projectId, search, priority);
   const navigate = useNavigate();
+  const routeCreateForm = useMemo<"feature" | "epic" | null>(() => {
+    const intent = new URLSearchParams(location.search).get("create");
+    return intent === "1" ? "feature" : intent === "epic" ? "epic" : null;
+  }, [location.search]);
+  const createForm = routeCreateForm ?? localCreateForm;
+  const clearCreateIntent = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("create")) return;
+    params.delete("create");
+    navigate({ pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : "", hash: location.hash }, { replace: true });
+  }, [location.hash, location.pathname, location.search, navigate]);
+  const closeCreateForm = useCallback(() => {
+    setLocalCreateForm(null);
+    clearCreateIntent();
+  }, [clearCreateIntent]);
 
   const runMutation = async (action: () => Promise<void>, fallback: string): Promise<boolean> => {
     if (actionPending) return false;
@@ -161,7 +176,7 @@ function PlanningPage({
     try {
       const feature = await forgeApi.createFeature(workspace.id, projectId, payload);
       await reload();
-      setCreateFeatureOpen(false);
+      setLocalCreateForm(null);
       navigate(`/projects/${projectId}/features/${feature.id}`);
       return true;
     } catch (cause) {
@@ -177,7 +192,8 @@ function PlanningPage({
     return runMutation(
       async () => {
         await forgeApi.createEpic(workspace.id, projectId, { title, description });
-        setCreateEpicOpen(false);
+        setLocalCreateForm(null);
+        clearCreateIntent();
       },
       "Could not create epic.",
     );
@@ -215,8 +231,8 @@ function PlanningPage({
           <Link className="detail-tab" to={`/projects/${projectId}`}>Overview</Link>
         </div>
         <div className="planning-actions">
-          <button className="button secondary" disabled={actionPending} onClick={() => setCreateEpicOpen(true)} type="button">+ Epic</button>
-          <button className="button primary" disabled={actionPending} onClick={() => setCreateFeatureOpen(true)} type="button">+ Feature</button>
+          <button className="button secondary" disabled={actionPending} onClick={() => setLocalCreateForm("epic")} type="button">+ Epic</button>
+          <button className="button primary" disabled={actionPending} onClick={() => setLocalCreateForm("feature")} type="button">+ Feature</button>
         </div>
       </div>
       <section className="planning-filters" aria-label="Feature filters">
@@ -224,8 +240,8 @@ function PlanningPage({
         <label className="filter-field">Priority<select aria-label="Feature priority" onChange={(event) => setPriority(event.target.value ? event.target.value as FeaturePriority : undefined)} value={priority ?? ""}><option value="">All priorities</option>{priorities.map((item) => <option key={item} value={item}>{label(item)}</option>)}</select></label>
       </section>
       {actionError && <div className="feedback-panel error-panel" role="alert"><span>{actionError}</span><button className="button ghost" onClick={() => setActionError(null)} type="button">Dismiss</button></div>}
-      {createFeatureOpen && <FeatureCreateForm actionPending={actionPending} epics={data?.epics ?? []} onCancel={() => setCreateFeatureOpen(false)} onSubmit={createFeature} />}
-      {createEpicOpen && <EpicCreateForm actionPending={actionPending} onCancel={() => setCreateEpicOpen(false)} onSubmit={createEpic} />}
+      {createForm === "feature" && <FeatureCreateForm actionPending={actionPending} epics={data?.epics ?? []} onCancel={closeCreateForm} onSubmit={createFeature} />}
+      {createForm === "epic" && <EpicCreateForm actionPending={actionPending} onCancel={closeCreateForm} onSubmit={createEpic} />}
       {editingEpic && <EpicEditForm actionPending={actionPending} epic={editingEpic} onCancel={() => setEditingEpic(null)} onSubmit={(payload) => updateEpic(editingEpic, payload)} />}
       {loading ? <LoadingPanel label="Loading planning data" /> : error ? <ErrorPanel message={error} onRetry={() => void reload()} /> : data ? mode === "board" ? <Board disabled={actionPending} features={data.features} onStatusChange={updateStatus} /> : <FeatureInventory data={data} disabled={actionPending} onEditEpic={setEditingEpic} onStatusChange={updateStatus} /> : null}
     </PageFrame>
