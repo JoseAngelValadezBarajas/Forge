@@ -6,5 +6,5 @@ Tokens live in `frontend/src/styles.css` as CSS custom properties. They cover ba
 
 Typography uses Geist with system fallbacks for UI text and IBM Plex Mono with monospace fallbacks for labels and compact metadata. The app does not depend on an external font service to start locally.
 
-The Figma reference contains sample data in several screens. FND-00 intentionally does not reproduce that data; projects, activity, blockers and delivery evidence render as honest empty states.
+The Figma reference contains sample data in several screens. FND-02 replaces it with SQLite-backed records, real counts, six manual board columns and explicit empty/loading/error states. Cards do not present manual state or satisfied criteria as verified, CI-passed or release-ready evidence. The inspected FND-02 references are Project Overview `4:158`, Project Board `4:271` and Feature Detail `5:89`.
 

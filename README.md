@@ -1,10 +1,10 @@
 # Forge
 
-Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-01 adds persistent workspaces and projects to the executable FND-00 foundation. Projects remain useful before any repository or integration is connected.
+Forge is a local-first workspace for connecting product intent, local repositories, implementation context and delivery evidence. FND-02 adds persistent epics, features, tasks, acceptance criteria and feature dependencies to the FND-01 workspace/project foundation. Projects remain useful before any repository or integration is connected.
 
 ## Status
 
-FND-01 is intentionally limited. There are no connected repositories, features, agent runs, CI claims or release records in the UI. Those capabilities belong to later milestones.
+FND-02 is intentionally limited to product planning. There are no connected repositories, agent runs, CI claims, verification results or release records in the UI. Those capabilities belong to later milestones.
 
 ## Licensing
 
@@ -13,6 +13,10 @@ Forge is source-available. Forge code and materials for which the project rights
 The Community terms do not automatically authorize commercial exploitation outside PolyForm's permitted purposes. A commercial business must obtain a separate written [Forge Commercial](COMMERCIAL-LICENSING.md) agreement before internal use for a commercial purpose or other commercial exploitation, unless the specific use is independently permitted by PolyForm. PolyForm's stated exceptions and rights recognized by law remain applicable.
 
 Copyright and attribution details are in [NOTICE](NOTICE). Project identity guidance is in [TRADEMARKS.md](TRADEMARKS.md), contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md), and responsible disclosure guidance is in [SECURITY.md](SECURITY.md).
+
+## Planning slice
+
+After selecting a project, the Overview links to the persistent Board and Features/Epics views. Board states are manual planning states; an acceptance criterion marked satisfied is a user declaration, not delivery evidence.
 
 ## Stack
 
@@ -90,6 +94,8 @@ Run `uv run python scripts/audit_secrets.py` before publication. It scans the cu
 ## Design reference
 
 The implementation uses the supplied Forge Figma file as the visual reference. The accessible Core canvas is `04 — Desktop / Core` (`node-id=1:5`), with Workspace Home at `4:32` and Project Overview at `4:158`. The shell follows the inspected graphite/copper palette, 232px sidebar, compact workspace header, rounded graphite surfaces, Geist-style type hierarchy and IBM Plex Mono labels. Figma sample content is replaced with records from SQLite or honest empty states; no sample projects, commits, CI results or verification claims are rendered.
+
+The FND-02 visual review uses Project Overview (`4:158`), Project Board (`4:271`) and Feature Detail (`5:89`) from the supplied Forge Figma file, with Foundations, Components, Interaction & States and Responsive & Layout as supporting references.
 
 ## Repository layout
 

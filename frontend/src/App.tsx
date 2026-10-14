@@ -5,6 +5,7 @@ import { Route, Routes, useNavigate } from "react-router-dom";
 import { forgeApi, type Workspace } from "./api";
 import { Sidebar } from "./components";
 import { HomePage, ProjectOverviewPage, ProjectsPage, WorkbenchPage } from "./pages";
+import { FeatureDetailPage, FeaturesPage, ProjectBoardPage } from "./planning";
 
 type Theme = "dark" | "light";
 
@@ -54,13 +55,17 @@ function App() {
 }
 
 function WorkspaceRoutes({ activeWorkspace, workspaceCount, onOpenPalette }: { activeWorkspace: Workspace | null; workspaceCount: number; onOpenPalette: (button: HTMLButtonElement) => void }) {
-  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
+  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
 }
 
 const commands = [
   { label: "Go to Home", path: "/", hint: "Workspace overview", action: "navigate" },
   { label: "Go to Projects", path: "/projects", hint: "Project inventory", action: "navigate" },
   { label: "Create project", path: "/projects?create=1", hint: "Add a project", action: "navigate" },
+  { label: "Create Feature", path: "/projects", hint: "Open a project board to plan work", action: "navigate" },
+  { label: "Create Epic", path: "/projects", hint: "Open a project to organize features", action: "navigate" },
+  { label: "Go to Project Board", path: "/projects", hint: "Select a project board", action: "navigate" },
+  { label: "Open Features", path: "/projects", hint: "Select a project feature list", action: "navigate" },
   { label: "Change workspace", path: "/", hint: "Use the workspace switcher", action: "workspace" },
   { label: "Open Workbench", path: "/workbench", hint: "Coming in a later milestone", action: "navigate" },
 ];
