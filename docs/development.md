@@ -8,6 +8,8 @@ The migration infrastructure is in `backend/migrations` and `alembic.ini`. Run `
 
 The API contract is summarized in [`api-contracts.md`](api-contracts.md). Workspace, project and planning IDs are opaque UUID strings; feature readable IDs are stable per project. Project names are unique case-insensitively within a workspace, archive is reversible, and an archived project is read-only for planning and FND-04 mutations. The Context Package schema is documented in [`context-schema.md`](context-schema.md).
 
+FND-05 run and handoff behavior is documented in [`fnd05-runs-handoffs.md`](fnd05-runs-handoffs.md). Its migration is applied by `uv run alembic upgrade head`; do not create run records with `create_all`. The Workbench E2E suite starts an isolated backend with a temporary SQLite file. If port 8000 is occupied by another process, use aligned `FORGE_BACKEND_PORT` and `FORGE_FRONTEND_PORT` overrides; the runner fails safely rather than reusing or modifying an existing server.
+
 ## Checks
 
 Use `scripts/test.ps1` for the full quality sequence. It validates migrations, starts both local services through the Playwright config, validates `/api/health` through Vite, checks navigation and keyboard-accessible palette behavior, and checks that theme switching does not emit browser console errors. Use `npm ci` and `uv sync --locked --dev` for reproducible installs.

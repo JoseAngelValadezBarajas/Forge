@@ -497,3 +497,176 @@ Index(
     ContextPackageModel.feature_id,
     ContextPackageModel.created_at,
 )
+
+
+class AgentRunModel(Base):
+    __tablename__ = "agent_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    context_package_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("context_packages.id", ondelete="RESTRICT"), nullable=False
+    )
+    context_schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    context_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    execution_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    executor_type: Mapped[str] = mapped_column(String(40), nullable=False, default="human")
+    executor_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="PLANNED")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index("ix_agent_runs_project_updated", AgentRunModel.project_id, AgentRunModel.updated_at)
+Index("ix_agent_runs_feature_status", AgentRunModel.feature_id, AgentRunModel.status)
+Index("ix_agent_runs_context_package", AgentRunModel.context_package_id)
+
+
+class RunEventModel(Base):
+    __tablename__ = "run_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    supersedes_event_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("run_events.id", ondelete="SET NULL"), nullable=True
+    )
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+
+Index("ix_run_events_run_recorded", RunEventModel.run_id, RunEventModel.recorded_at)
+Index("ix_run_events_supersedes", RunEventModel.supersedes_event_id)
+
+
+class RunOutputReferenceModel(Base):
+    __tablename__ = "run_output_references"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    reference_value: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    provenance: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "ix_run_outputs_run_created",
+    RunOutputReferenceModel.run_id,
+    RunOutputReferenceModel.created_at,
+)
+
+
+class HandoffModel(Base):
+    __tablename__ = "handoffs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    context_package_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("context_packages.id", ondelete="RESTRICT"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    outcomes: Mapped[str] = mapped_column(Text, nullable=False)
+    blockers: Mapped[str] = mapped_column(Text, nullable=False)
+    questions: Mapped[str] = mapped_column(Text, nullable=False)
+    next_actions: Mapped[str] = mapped_column(Text, nullable=False)
+    references: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")
+    current_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index("ix_handoffs_project_updated", HandoffModel.project_id, HandoffModel.updated_at)
+Index("ix_handoffs_run_status", HandoffModel.run_id, HandoffModel.status)
+
+
+class HandoffRevisionModel(Base):
+    __tablename__ = "handoff_revisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    handoff_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("handoffs.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    outcomes: Mapped[str] = mapped_column(Text, nullable=False)
+    blockers: Mapped[str] = mapped_column(Text, nullable=False)
+    questions: Mapped[str] = mapped_column(Text, nullable=False)
+    next_actions: Mapped[str] = mapped_column(Text, nullable=False)
+    references: Mapped[str] = mapped_column(Text, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    context_package_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    context_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_handoff_revisions_revision",
+    HandoffRevisionModel.handoff_id,
+    HandoffRevisionModel.revision,
+    unique=True,
+)
+
+
+class HandoffAcknowledgementModel(Base):
+    __tablename__ = "handoff_acknowledgements"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    handoff_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("handoffs.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    acknowledged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_handoff_acknowledgements_revision",
+    HandoffAcknowledgementModel.handoff_id,
+    HandoffAcknowledgementModel.revision,
+    unique=True,
+)

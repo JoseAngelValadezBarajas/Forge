@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -29,7 +29,7 @@ function response(value: unknown, status = 200) {
 }
 
 describe("FND-04 repository and context surfaces", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
   it("observes a connected local repository without presenting source data", async () => {
     const observe = { id: "observation-1", repository_id: repository.id, status: "ok" };
@@ -67,7 +67,7 @@ describe("FND-04 repository and context surfaces", () => {
     });
     render(<MemoryRouter initialEntries={["/projects/project-1/features/feature-1/context"]}><Routes><Route element={<FeatureContextPage onOpenPalette={() => undefined} workspace={workspace} />} path="/projects/:projectId/features/:featureId/context" /></Routes></MemoryRouter>);
     expect(await screen.findByRole("heading", { name: "Context package", level: 1 })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Preview package" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Preview package" }));
     expect(await screen.findByText("forge-context-v1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Readiness" }));
     expect(screen.getByText("No saved readiness evaluation is included.")).toBeInTheDocument();

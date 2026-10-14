@@ -55,3 +55,16 @@ Readiness outcomes are `READY_TO_START` or `NOT_READY`. R01 requires title and g
 Packages contain normalized product planning and selected Git state. They do not contain local filesystem paths, remote URLs, credentials, author identities, commit messages, diffs, source content or untracked file names. Archived projects keep repository/package reads and preview available, but connection, observation, link and save mutations return `422`. Git operations are read-only and local; Forge does not fetch, push, commit, checkout, merge or reset.
 
 A satisfied acceptance criterion is not evidence of verification.
+
+## Agent runs and handoffs
+
+- `GET /api/workspaces/{workspace_id}/runs` lists runs with optional `project_id`, `feature_id`, `status` and `search` filters.
+- `GET|POST /api/workspaces/{workspace_id}/projects/{project_id}/runs` lists or records a run. Creation requires a same-Feature immutable Context Package, fixes `execution_mode` to `manual`, and accepts `executor_type` as `human`, `external_agent` or `unknown` only as a reported label.
+- `GET .../runs/{run_id}` reads a pinned run; `POST .../runs/{run_id}/status` performs an allowed transition with `{ "expected_version": number }`.
+- `GET|POST .../runs/{run_id}/events` reads or appends a manual event with an expected run version. Corrections link `supersedes_event_id`; events are never edited or deleted.
+- `GET|POST .../runs/{run_id}/outputs` reads or records structured output references. Arbitrary filesystem paths, source content and transcripts are rejected.
+- `GET /api/workspaces/{workspace_id}/projects/{project_id}/handoffs` lists handoffs. `POST .../runs/{run_id}/handoffs` creates a draft; `GET|PATCH .../handoffs/{handoff_id}` reads or edits a draft with an expected version.
+- `POST .../handoffs/{handoff_id}/ready` publishes an immutable `forge-handoff-v1` revision. `POST .../revise` creates a new draft from an acknowledged revision. `POST .../acknowledge` requires `{ "expected_revision": number, "acknowledged_by": string }` and returns `409` if the displayed revision is stale. `POST .../withdraw` prevents later acknowledgement.
+- `GET .../handoffs/{handoff_id}/revisions` lists immutable history; `/revisions/{revision}/download?format=json|markdown` exports one exact revision.
+
+Archived projects remain readable, but all new FND-05 writes are rejected until the project is restored. A run or handoff is a human-reported record and never implies agent execution, CI, verification or delivery evidence.

@@ -1,5 +1,7 @@
 # Design system
 
+FND-05 reuses the same shell for Workbench, Run Detail, Handoff Queue and Handoff Review. The inspected Figma references are Workbench Overview `67:3`, Record a New Run `67:170`, Run Detail & Timeline `67:242`, Handoff Queue `68:265`, Handoff Review & Acknowledge `68:342`, Empty Workbench `69:3`, Run Failure & Missing Context `69:61` and Mobile Run Detail `69:172`. Status chips and the reporting-boundary banner use existing semantic tokens; reported, observed and verified states remain visually and textually distinct.
+
 The FND-00 shell follows the supplied Forge Figma Core reference (`04 — Desktop / Core`, `1:5`; Workspace Home `4:32`). The visual language is graphite/copper: quiet dark surfaces, thin borders, restrained semantic color and copper for focus and emphasis.
 
 Tokens live in `frontend/src/styles.css` as CSS custom properties. They cover backgrounds, surfaces, borders, typography, spacing, radius, accents, semantic states and focus rings. Components consume those variables rather than scattering color literals.

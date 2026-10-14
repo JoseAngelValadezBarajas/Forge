@@ -48,6 +48,11 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Workspace", exact: true })).toBeVisible();
+  await page.locator("button.workspace-switcher").click();
+  await page.getByRole("menuitem", { name: "Create workspace", exact: true }).click();
+  await page.getByLabel("Name").fill(`VAL01 First Run ${suffix}`);
+  await page.getByLabel("Description").fill("Fresh acceptance workspace");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByText("Your workspace is ready", { exact: true })).toBeVisible();
   await expect(page.getByText("FND-02", { exact: true })).toHaveCount(0);
   await capture(page, "first-run");
