@@ -20,6 +20,8 @@ After selecting a project, the Overview links to the persistent Board, Features/
 
 Projects can optionally connect one or more local Git working trees. Repositories are observed on demand with bounded, read-only metadata collection. A Feature can link repositories and generate a `forge-context-v1` Context Package containing normalized planning data and selected Git observations. Packages are immutable, fingerprinted and deduplicated; preview never creates history.
 
+The FND-05 Workbench records human-reported Agent Runs against an immutable Context Package, append-only timeline events, structured output references and explicit Handoffs. Published Handoff revisions are deterministic `forge-handoff-v1` documents that can be reviewed, acknowledged by revision and exported as JSON or Markdown. Forge does not start agents, read conversations or claim CI, verification or delivery evidence; see [`docs/fnd05-runs-handoffs.md`](docs/fnd05-runs-handoffs.md).
+
 ## Stack
 
 - Backend: Python 3.12+, FastAPI, Pydantic Settings, SQLAlchemy 2, SQLite, Alembic, uv, pytest, ruff and mypy.

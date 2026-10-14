@@ -4,10 +4,11 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { forgeApi, type Workspace } from "./api";
 import { Sidebar } from "./components";
-import { HomePage, ProjectsPage, WorkbenchPage } from "./pages";
+import { HomePage, ProjectsPage } from "./pages";
 import { FeatureDetailPage, FeaturesPage, ProjectBoardPage } from "./planning";
 import { DecisionsPage, InvariantsPage } from "./fnd03";
 import { FeatureContextPage, ProjectOverviewWithRepositories, RepositoriesPage } from "./fnd04";
+import { HandoffDetailPage, HandoffQueuePage, RunCreatePage, RunDetailPage, RunInventoryPage, WorkbenchPage } from "./fnd05";
 
 type Theme = "dark" | "light";
 
@@ -60,7 +61,7 @@ function App() {
 }
 
 function WorkspaceRoutes({ activeWorkspace, workspaceCount, onOpenPalette }: { activeWorkspace: Workspace | null; workspaceCount: number; onOpenPalette: (button: HTMLButtonElement) => void }) {
-  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewWithRepositories onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<RepositoriesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/repositories" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<FeatureContextPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId/context" /><Route element={<DecisionsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/decisions" /><Route element={<InvariantsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/invariants" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} />} path="/workbench" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
+  return <Routes><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="/" /><Route element={<ProjectsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects" /><Route element={<ProjectOverviewWithRepositories onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId" /><Route element={<RepositoriesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/repositories" /><Route element={<ProjectBoardPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/board" /><Route element={<FeaturesPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features" /><Route element={<FeatureDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId" /><Route element={<FeatureContextPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/features/:featureId/context" /><Route element={<DecisionsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/decisions" /><Route element={<InvariantsPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/invariants" /><Route element={<WorkbenchPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/workbench" /><Route element={<RunInventoryPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/workbench/runs" /><Route element={<RunCreatePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/workbench/runs/new" /><Route element={<HandoffQueuePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/workbench/handoffs" /><Route element={<RunDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/runs/:runId" /><Route element={<HandoffDetailPage onOpenPalette={onOpenPalette} workspace={activeWorkspace} />} path="/projects/:projectId/handoffs/:handoffId" /><Route element={<HomePage onOpenPalette={onOpenPalette} workspace={activeWorkspace} workspaceCount={workspaceCount} />} path="*" /></Routes>;
 }
 
 const commands = [
@@ -76,7 +77,10 @@ const commands = [
   { label: "Open Decisions", path: "/projects", hint: "Select a project decision inventory", action: "navigate" },
   { label: "Open Invariants", path: "/projects", hint: "Select a project invariant inventory", action: "navigate" },
   { label: "Change workspace", path: "/", hint: "Use the workspace switcher", action: "workspace" },
-  { label: "Open Workbench", path: "/workbench", hint: "Coming in a later milestone", action: "navigate" },
+  { label: "Open Workbench", path: "/workbench", hint: "Recorded work and handoffs", action: "navigate" },
+  { label: "Open Agent Runs", path: "/workbench/runs", hint: "Reported run inventory", action: "navigate" },
+  { label: "Record a Run", path: "/workbench/runs/new", hint: "Pin a saved Context Package", action: "navigate" },
+  { label: "Open Handoffs", path: "/workbench/handoffs", hint: "Review reported handoffs", action: "navigate" },
 ];
 
 function CommandPalette({ onClose, onChangeWorkspace }: { onClose: () => void; onChangeWorkspace: () => void }) {

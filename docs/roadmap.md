@@ -5,7 +5,7 @@
 - **FND-02** — Product hierarchy: epics, features and tasks.
 - **FND-03** — Readiness workflow, decisions and invariants.
 - **FND-04** — Optional local Git connections, read-only deterministic observations and immutable `forge-context-v1` Context Packages. No source scanning, remotes, network operations or delivery evidence.
-- **FND-05** — Agent runs, handoffs and delivery evidence.
+- **FND-05** — Agent runs, human-reported events, immutable handoff revisions and explicit review acknowledgements. No agent execution or delivery evidence is implemented.
 - **FND-06** — Workbench and release views grounded in real local evidence.
 
 Cloud accounts, automatic agent execution, external provider sync, authentication, multi-user collaboration and Electron remain outside the current foundation scope.
