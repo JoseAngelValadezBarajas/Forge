@@ -70,6 +70,412 @@ def digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def manifest_completeness_errors(manifest: dict[str, Any]) -> list[str]:
+    """Validate manifest structure and references without relying on its own digest."""
+    errors: list[str] = []
+    scope = manifest.get("scope")
+    candidate = manifest.get("candidate")
+    project = manifest.get("project")
+    if manifest.get("schema") != MANIFEST_SCHEMA:
+        errors.append("Unsupported or missing manifest schema.")
+    project_id = manifest.get("project_id")
+    if not isinstance(project_id, str) or not project_id or not isinstance(project, dict):
+        errors.append("Project identity is incomplete.")
+    elif project.get("id") != project_id or not isinstance(project.get("name"), str):
+        errors.append("Project identity references are inconsistent.")
+    if not isinstance(candidate, dict):
+        errors.append("Candidate identity is incomplete.")
+        candidate = {}
+    if (
+        not isinstance(candidate.get("id"), str)
+        or not candidate.get("id")
+        or not isinstance(candidate.get("key"), str)
+        or not candidate.get("key")
+        or candidate.get("project_id") != project_id
+        or candidate.get("schema_version") != CANDIDATE_SCHEMA
+        or candidate.get("status") != "FROZEN"
+        or type(candidate.get("revision")) is not int
+        or candidate.get("revision", 0) < 1
+        or not _is_sha256(candidate.get("fingerprint"))
+    ):
+        errors.append("Candidate revision and fingerprint are incomplete.")
+    if not isinstance(scope, dict):
+        errors.append("Candidate scope is incomplete.")
+        scope = {}
+
+    id_fields = {
+        "feature_ids": "features",
+        "context_package_ids": "context_packages",
+        "evidence_ids": "evidence_records",
+        "verification_ids": "verification_evaluations",
+        "handoff_revision_ids": "handoff_revisions",
+    }
+    expected_ids: dict[str, list[str]] = {}
+    for scope_key, record_key in id_fields.items():
+        selected = scope.get(scope_key)
+        if (
+            not isinstance(selected, list)
+            or any(not isinstance(value, str) or not value for value in selected)
+            or len(selected) != len(set(selected))
+        ):
+            errors.append(f"Candidate scope {scope_key} is invalid.")
+            expected_ids[record_key] = []
+        else:
+            expected_ids[record_key] = sorted(selected)
+        records = manifest.get(record_key)
+        if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
+            errors.append(f"Manifest {record_key} are incomplete.")
+            continue
+        actual_ids = [row.get("id") for row in records]
+        if any(not isinstance(value, str) or not value for value in actual_ids):
+            errors.append(f"Manifest {record_key} contain invalid identifiers.")
+        elif sorted(actual_ids) != expected_ids[record_key]:
+            errors.append(f"Manifest {record_key} do not match candidate scope.")
+
+    selected_features = set(expected_ids.get("features", []))
+    feature_records = (
+        manifest.get("features", []) if isinstance(manifest.get("features"), list) else []
+    )
+    for feature in feature_records:
+        if not isinstance(feature, dict):
+            continue
+        if (
+            feature.get("project_id") != project_id
+            or not isinstance(feature.get("key"), str)
+            or not isinstance(feature.get("title"), str)
+            or feature.get("status") is None
+        ):
+            errors.append("A selected Feature is missing project provenance or required fields.")
+            break
+
+    criteria = manifest.get("acceptance_criteria")
+    criterion_by_id: dict[str, dict[str, Any]] = {}
+    if not isinstance(criteria, list):
+        errors.append("Acceptance Criteria snapshot is missing.")
+    else:
+        for criterion in criteria:
+            if (
+                not isinstance(criterion, dict)
+                or not isinstance(criterion.get("id"), str)
+                or not isinstance(criterion.get("feature_id"), str)
+                or criterion.get("feature_id") not in selected_features
+                or not isinstance(criterion.get("description"), str)
+                or not isinstance(criterion.get("satisfied"), bool)
+                or not isinstance(criterion.get("position"), int)
+                or not isinstance(criterion.get("updated_at"), str)
+            ):
+                errors.append(
+                    "Acceptance Criteria snapshot contains incomplete or out-of-scope data."
+                )
+                break
+            criterion_by_id[criterion["id"]] = criterion
+        if len(criterion_by_id) != len(criteria):
+            errors.append("Acceptance Criteria identifiers are duplicated.")
+
+    context_by_id: dict[str, dict[str, Any]] = {}
+    for package in (
+        manifest.get("context_packages", [])
+        if isinstance(manifest.get("context_packages"), list)
+        else []
+    ):
+        if not isinstance(package, dict):
+            continue
+        if (
+            package.get("project_id") != project_id
+            or not isinstance(package.get("feature_id"), str)
+            or package.get("feature_id") not in selected_features
+            or not isinstance(package.get("schema_version"), str)
+            or not package.get("schema_version")
+            or not _is_sha256(package.get("fingerprint"))
+            or not _is_sha256(package.get("payload_digest"))
+            or package.get("payload_digest") != package.get("fingerprint")
+        ):
+            errors.append("A Context Package reference lacks valid identity or integrity metadata.")
+            break
+        context_by_id[package["id"]] = package
+
+    evidence_by_id: dict[str, dict[str, Any]] = {}
+    for evidence in (
+        manifest.get("evidence_records", [])
+        if isinstance(manifest.get("evidence_records"), list)
+        else []
+    ):
+        if not isinstance(evidence, dict):
+            continue
+        if (
+            evidence.get("project_id") != project_id
+            or (
+                evidence.get("feature_id") is not None
+                and not isinstance(evidence.get("feature_id"), str)
+            )
+            or evidence.get("feature_id") not in {None, *selected_features}
+            or not isinstance(evidence.get("provenance"), str)
+            or evidence.get("provenance") not in {"REPORTED", "OBSERVED"}
+            or not isinstance(evidence.get("status"), str)
+            or evidence.get("status") not in {"ACTIVE", "INVALIDATED"}
+            or not _is_sha256(evidence.get("record_fingerprint"))
+        ):
+            errors.append(
+                "An Evidence reference lacks valid scope, provenance, or integrity metadata."
+            )
+            break
+        criterion_id = evidence.get("acceptance_criterion_id")
+        if criterion_id is not None and (
+            not isinstance(criterion_id, str)
+            or criterion_id not in criterion_by_id
+            or criterion_by_id[criterion_id].get("feature_id") != evidence.get("feature_id")
+        ):
+            errors.append("Evidence criterion references do not match the frozen Feature scope.")
+            break
+        evidence_payload = {
+            key: value for key, value in evidence.items() if key != "record_fingerprint"
+        }
+        if digest(canonical_json(evidence_payload)) != evidence.get("record_fingerprint"):
+            errors.append("Evidence record fingerprint does not match its frozen content.")
+            break
+        evidence_by_id[evidence["id"]] = evidence
+
+    handoff_by_id: dict[str, dict[str, Any]] = {}
+    for handoff in (
+        manifest.get("handoff_revisions", [])
+        if isinstance(manifest.get("handoff_revisions"), list)
+        else []
+    ):
+        if not isinstance(handoff, dict):
+            continue
+        if (
+            handoff.get("project_id") != project_id
+            or not isinstance(handoff.get("feature_id"), str)
+            or handoff.get("feature_id") not in selected_features
+            or not isinstance(handoff.get("handoff_id"), str)
+            or not isinstance(handoff.get("revision"), int)
+            or not _is_sha256(handoff.get("fingerprint"))
+            or not _is_sha256(handoff.get("context_fingerprint"))
+        ):
+            errors.append("A Handoff revision lacks valid scope or integrity metadata.")
+            break
+        handoff_by_id[handoff["id"]] = handoff
+
+    for evaluation in (
+        manifest.get("verification_evaluations", [])
+        if isinstance(manifest.get("verification_evaluations"), list)
+        else []
+    ):
+        if not isinstance(evaluation, dict):
+            continue
+        subject = evaluation.get("subject")
+        if (
+            evaluation.get("project_id") != project_id
+            or (
+                evaluation.get("feature_id") is not None
+                and not isinstance(evaluation.get("feature_id"), str)
+            )
+            or evaluation.get("feature_id") not in {None, *selected_features}
+            or not isinstance(subject, dict)
+            or subject.get("project_id") != project_id
+            or subject.get("feature_id") != evaluation.get("feature_id")
+            or not isinstance(evaluation.get("rule_id"), str)
+            or evaluation.get("rule_id") not in {"V01", "V02", "V03", "V04"}
+            or not isinstance(evaluation.get("rule_version"), str)
+            or not evaluation.get("rule_version")
+            or not _is_sha256(evaluation.get("input_fingerprint"))
+            or not isinstance(evaluation.get("result"), str)
+            or evaluation.get("result") not in {"PASS", "FAIL", "BLOCKED"}
+            or not isinstance(evaluation.get("inputs"), dict)
+            or not isinstance(evaluation.get("verifier_version"), str)
+            or not evaluation.get("verifier_version")
+        ):
+            errors.append(
+                "A Verification reference lacks valid scope, rule, or integrity metadata."
+            )
+            break
+        inputs = evaluation["inputs"]
+        if evaluation["rule_id"] == "V02":
+            package_id = inputs.get("context_package_id")
+            package = context_by_id.get(package_id) if isinstance(package_id, str) else None
+            if package is None or package.get("feature_id") != subject.get("feature_id"):
+                errors.append(
+                    "V02 verification does not reference its selected Context Package subject."
+                )
+                break
+        elif evaluation["rule_id"] == "V03":
+            revision_id = inputs.get("handoff_revision_id")
+            handoff = handoff_by_id.get(revision_id) if isinstance(revision_id, str) else None
+            if handoff is None or handoff.get("feature_id") != subject.get("feature_id"):
+                errors.append("V03 verification does not reference its selected Handoff subject.")
+                break
+        elif evaluation["rule_id"] == "V04":
+            evidence_ids = inputs.get("evidence_ids")
+            trace = inputs.get("records")
+            if (
+                not isinstance(evidence_ids, list)
+                or not evidence_ids
+                or any(not isinstance(evidence_id, str) for evidence_id in evidence_ids)
+                or any(evidence_id not in evidence_by_id for evidence_id in evidence_ids)
+                or not isinstance(trace, list)
+                or any(
+                    not isinstance(row, dict) or not isinstance(row.get("id"), str) for row in trace
+                )
+                or {row["id"] for row in trace if isinstance(row, dict)} != set(evidence_ids)
+            ):
+                errors.append(
+                    "V04 verification does not reference complete selected Evidence inputs."
+                )
+                break
+            trace_inconsistent = False
+            for trace_row in trace:
+                trace_id = trace_row.get("id") if isinstance(trace_row, dict) else None
+                if not isinstance(trace_id, str):
+                    trace_inconsistent = True
+                    break
+                evidence = evidence_by_id.get(trace_id)
+                if evidence is None or any(
+                    trace_row.get(trace_key) != evidence.get(evidence_key)
+                    for trace_key, evidence_key in (
+                        ("feature_id", "feature_id"),
+                        ("criterion_id", "acceptance_criterion_id"),
+                        ("status", "status"),
+                        ("provenance", "provenance"),
+                    )
+                ):
+                    trace_inconsistent = True
+                    break
+                criterion_id = evidence.get("acceptance_criterion_id")
+                criterion = (
+                    criterion_by_id.get(criterion_id) if isinstance(criterion_id, str) else None
+                )
+                if trace_row.get("criterion_feature_id") != (
+                    criterion.get("feature_id") if criterion else None
+                ):
+                    trace_inconsistent = True
+                    break
+            if trace_inconsistent:
+                errors.append("V04 verification trace differs from frozen Evidence provenance.")
+                break
+        expected_fingerprint = VerificationEngine.input_fingerprint(
+            ruleset=VERIFICATION_RULESET,
+            rule_id=evaluation["rule_id"],
+            rule_version=evaluation["rule_version"],
+            subject=subject,
+            inputs=inputs,
+        )
+        if expected_fingerprint != evaluation["input_fingerprint"]:
+            errors.append("Verification input fingerprint does not match its frozen inputs.")
+            break
+
+    gate = manifest.get("gate_evaluation")
+    if (
+        manifest.get("ruleset_version") != RELEASE_RULESET
+        or not isinstance(gate, dict)
+        or gate.get("ruleset_version") != RELEASE_RULESET
+        or not isinstance(gate.get("result"), str)
+        or gate.get("result") not in {"READY_BY_DEFINED_GATES", "BLOCKED", "STALE"}
+    ):
+        errors.append("Release ruleset or gate outcome is missing or unsupported.")
+    else:
+        checks = gate.get("checks")
+        if not isinstance(checks, list):
+            errors.append("Gate checks are missing.")
+        else:
+            check_ids = [check.get("rule_id") for check in checks if isinstance(check, dict)]
+            expected_check_ids = {"G01", "G02", "G03", "G04", "G05"}
+            has_g06 = len(checks) == 6 and "G06" in check_ids
+            if has_g06:
+                expected_check_ids.add("G06")
+            if (
+                len(checks) not in {5, 6}
+                or any(not isinstance(rule_id, str) for rule_id in check_ids)
+                or set(check_ids) != expected_check_ids
+            ):
+                errors.append("The pre-manifest gate checks are incomplete or duplicated.")
+            if any(
+                not isinstance(check, dict)
+                or check.get("version") != "1.0"
+                or not isinstance(check.get("status"), str)
+                or check.get("status") not in {"PASS", "BLOCKED", "STALE"}
+                or not isinstance(check.get("blockers"), list)
+                or not isinstance(check.get("inputs"), list)
+                or (
+                    check.get("rule_id") == "G06" and not isinstance(check.get("limitations"), list)
+                )
+                for check in checks
+            ):
+                errors.append("A gate check has an invalid version, result, or input list.")
+            checks_by_id = {
+                check.get("rule_id"): check
+                for check in checks
+                if isinstance(check, dict) and isinstance(check.get("rule_id"), str)
+            }
+            for rule_id, scope_key in (
+                ("G01", "feature_ids"),
+                ("G02", "context_package_ids"),
+                ("G03", "evidence_ids"),
+                ("G04", "verification_ids"),
+            ):
+                if rule_id in checks_by_id and checks_by_id[rule_id].get("inputs") != scope.get(
+                    scope_key
+                ):
+                    errors.append(f"{rule_id} inputs do not match candidate scope.")
+            g05 = checks_by_id.get("G05")
+            if g05 is not None:
+                g05_inputs = g05.get("inputs")
+                if (
+                    not isinstance(g05_inputs, list)
+                    or len(g05_inputs) != 2
+                    or g05_inputs[0] != candidate.get("fingerprint")
+                    or not _is_sha256(g05_inputs[1])
+                ):
+                    errors.append("G05 freshness inputs lack frozen and current fingerprints.")
+            expected_result = (
+                "READY_BY_DEFINED_GATES"
+                if all(check.get("status") == "PASS" for check in checks if isinstance(check, dict))
+                else (
+                    "STALE"
+                    if any(
+                        check.get("status") == "STALE"
+                        for check in checks
+                        if isinstance(check, dict)
+                    )
+                    else "BLOCKED"
+                )
+            )
+            if gate.get("result") != expected_result:
+                errors.append("Manifest gate outcome does not agree with its check results.")
+            g06 = checks_by_id.get("G06")
+            if g06 is not None:
+                g06_inputs = g06.get("inputs")
+                if (
+                    not isinstance(g06.get("status"), str)
+                    or g06.get("status") not in {"PASS", "BLOCKED"}
+                    or not isinstance(g06_inputs, list)
+                    or len(g06_inputs) != 2
+                    or g06_inputs[0] != MANIFEST_SCHEMA
+                    or not _is_sha256(g06_inputs[1])
+                ):
+                    errors.append("G06 completeness result is malformed or lacks its input schema.")
+
+    provenance = manifest.get("provenance")
+    integrity = manifest.get("integrity")
+    if (
+        not isinstance(provenance, dict)
+        or not provenance.get("evidence_declarations")
+        or not provenance.get("verification")
+        or not isinstance(integrity, dict)
+        or integrity.get("algorithm") != "SHA-256"
+        or integrity.get("canonicalization") != "forge-canonical-json-v1"
+        or not _is_sha256(integrity.get("candidate_snapshot_fingerprint"))
+        or integrity.get("candidate_snapshot_fingerprint") != candidate.get("fingerprint")
+    ):
+        errors.append("Manifest integrity or provenance metadata is incomplete.")
+    if manifest.get("publication_status") != "NOT_PUBLISHED":
+        errors.append("Publication status must remain NOT_PUBLISHED.")
+    return errors
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -374,6 +780,16 @@ class DeliveryService:
         if rule_id not in {"V01", "V02", "V03", "V04"}:
             raise InvalidInput("Unknown verification rule")
         feature_id = values.get("feature_id")
+        requested_feature_id = feature_id
+        if feature_id is not None:
+            feature = self.session.scalar(
+                select(FeatureModel).where(
+                    FeatureModel.id == feature_id,
+                    FeatureModel.project_id == project_id,
+                )
+            )
+            if feature is None:
+                raise InvalidInput("Feature must belong to this Project")
         inputs: dict[str, Any] = {"rule_id": rule_id, "rule_version": "1.0"}
         evidence_ids: list[str] = []
         findings: list[str]
@@ -393,6 +809,19 @@ class DeliveryService:
             if package is None or package.project_id != project_id:
                 raise InvalidInput("Saved Context Package must belong to this Project")
             feature_id = package.feature_id
+            if requested_feature_id is not None and requested_feature_id != feature_id:
+                raise InvalidInput("Feature must match the Context Package subject")
+            if (
+                feature_id is not None
+                and self.session.scalar(
+                    select(FeatureModel.id).where(
+                        FeatureModel.id == feature_id,
+                        FeatureModel.project_id == project_id,
+                    )
+                )
+                is None
+            ):
+                raise InvalidInput("Context Package Feature must belong to this Project")
             payload = _json(package.payload_json)
             expected_digest = values.get("expected_digest") or package.fingerprint
             actual, matched = self.verifier.context_integrity(
@@ -423,6 +852,20 @@ class DeliveryService:
             handoff = self.session.get(HandoffModel, revision.handoff_id) if revision else None
             if revision is None or handoff is None or handoff.project_id != project_id:
                 raise InvalidInput("Saved Handoff revision must belong to this Project")
+            feature_id = handoff.feature_id
+            if requested_feature_id is not None and requested_feature_id != feature_id:
+                raise InvalidInput("Feature must match the Handoff revision subject")
+            if (
+                feature_id is not None
+                and self.session.scalar(
+                    select(FeatureModel.id).where(
+                        FeatureModel.id == feature_id,
+                        FeatureModel.project_id == project_id,
+                    )
+                )
+                is None
+            ):
+                raise InvalidInput("Handoff Feature must belong to this Project")
             payload = _json(revision.payload_json)
             actual, identities_match, matched = self.verifier.handoff_integrity(
                 payload,
@@ -437,7 +880,6 @@ class DeliveryService:
             )
             identities_match = identities_match and revision.schema_version == "forge-handoff-v1"
             matched = matched and identities_match
-            feature_id = handoff.feature_id
             inputs.update(
                 {
                     "handoff_id": handoff.id,
@@ -472,11 +914,13 @@ class DeliveryService:
             )
             if len(records) != len(evidence_ids):
                 raise InvalidInput("Every Evidence Record must belong to this Project")
-            features = {row.id for row in records if row.feature_id is not None}
-            if feature_id and any(row.feature_id not in {None, feature_id} for row in records):
-                raise InvalidInput("Evidence Records must belong to the selected Feature")
-            if not feature_id and len(features) == 1:
+            features = {row.feature_id for row in records if row.feature_id is not None}
+            if len(features) == 1:
                 feature_id = next(iter(features))
+            else:
+                feature_id = None
+            if requested_feature_id is not None and requested_feature_id != feature_id:
+                raise InvalidInput("Feature must match the selected Evidence subject")
             criteria = {
                 row.id: row.feature_id
                 for row in self.session.scalars(
@@ -843,13 +1287,37 @@ class DeliveryService:
         feature_records = [
             {
                 "id": row.id,
+                "project_id": row.project_id,
                 "key": row.readable_id,
                 "title": _portable_text(row.title),
                 "goal": _portable_text(row.goal),
                 "status": row.status,
-                "updated_at": row.updated_at.isoformat(),
             }
             for row in features
+        ]
+        criteria = (
+            list(
+                self.session.scalars(
+                    select(AcceptanceCriterionModel).where(
+                        AcceptanceCriterionModel.feature_id.in_(selection["feature_ids"])
+                    )
+                ).all()
+            )
+            if selection["feature_ids"]
+            else []
+        )
+        criterion_records = [
+            {
+                "id": row.id,
+                "feature_id": row.feature_id,
+                "description": _portable_text(row.description),
+                "satisfied": row.satisfied,
+                "position": row.position,
+                "updated_at": row.updated_at.isoformat(),
+            }
+            for row in sorted(
+                criteria, key=lambda value: (value.feature_id, value.position, value.id)
+            )
         ]
         contexts = (
             list(
@@ -865,6 +1333,7 @@ class DeliveryService:
         context_records = [
             {
                 "id": row.id,
+                "project_id": row.project_id,
                 "feature_id": row.feature_id,
                 "schema_version": row.schema_version,
                 "fingerprint": row.fingerprint,
@@ -883,9 +1352,11 @@ class DeliveryService:
             if selection["evidence_ids"]
             else []
         )
-        evidence_records = [
-            {
+        evidence_records: list[dict[str, Any]] = []
+        for row in sorted(evidences, key=lambda value: value.id):
+            evidence_payload = {
                 "id": row.id,
+                "project_id": row.project_id,
                 "feature_id": row.feature_id,
                 "acceptance_criterion_id": row.acceptance_criterion_id,
                 "title": _portable_text(row.title),
@@ -900,8 +1371,8 @@ class DeliveryService:
                 "status": row.status,
                 "version": row.version,
             }
-            for row in sorted(evidences, key=lambda value: value.id)
-        ]
+            evidence_payload["record_fingerprint"] = digest(canonical_json(evidence_payload))
+            evidence_records.append(evidence_payload)
         verification_rows = (
             list(
                 self.session.scalars(
@@ -916,11 +1387,16 @@ class DeliveryService:
         verifications = [
             {
                 "id": row.id,
+                "project_id": row.project_id,
+                "feature_id": row.feature_id,
                 "rule_id": row.rule_id,
                 "rule_version": row.rule_version,
                 "result": row.result,
                 "input_fingerprint": row.input_fingerprint,
                 "evidence_ids": _json(row.evidence_ids_json),
+                "subject": _json(row.subject_json),
+                "inputs": _json(row.input_json),
+                "verifier_version": row.verifier_version,
             }
             for row in sorted(verification_rows, key=lambda value: value.id)
         ]
@@ -935,16 +1411,20 @@ class DeliveryService:
             if selection["handoff_revision_ids"]
             else []
         )
-        handoffs = [
-            {
-                "id": row.id,
-                "handoff_id": row.handoff_id,
-                "revision": row.revision,
-                "fingerprint": row.fingerprint,
-                "context_fingerprint": row.context_fingerprint,
-            }
-            for row in sorted(handoff_rows, key=lambda value: value.id)
-        ]
+        handoffs: list[dict[str, Any]] = []
+        for handoff_revision in sorted(handoff_rows, key=lambda value: value.id):
+            parent = self.session.get(HandoffModel, handoff_revision.handoff_id)
+            handoffs.append(
+                {
+                    "id": handoff_revision.id,
+                    "handoff_id": handoff_revision.handoff_id,
+                    "revision": handoff_revision.revision,
+                    "fingerprint": handoff_revision.fingerprint,
+                    "context_fingerprint": handoff_revision.context_fingerprint,
+                    "project_id": parent.project_id if parent is not None else None,
+                    "feature_id": parent.feature_id if parent is not None else None,
+                }
+            )
         return {
             "schema_version": CANDIDATE_SCHEMA,
             "project_id": item.project_id,
@@ -956,6 +1436,7 @@ class DeliveryService:
             "intended_version": _portable_text(item.intended_version),
             "scope": selection,
             "features": feature_records,
+            "acceptance_criteria": criterion_records,
             "context_packages": context_records,
             "evidence_records": evidence_records,
             "verification_evaluations": verifications,
@@ -997,6 +1478,201 @@ class DeliveryService:
         self.session.refresh(item)
         return item
 
+    def _g04_result(self, item: ReleaseCandidateModel, snapshot: dict[str, Any]) -> dict[str, Any]:
+        selected = snapshot["scope"]
+        selected_contexts = set(selected["context_package_ids"])
+        selected_evidence = set(selected["evidence_ids"])
+        selected_handoffs = set(selected["handoff_revision_ids"])
+        selected_features = set(selected["feature_ids"])
+        artifact_evidence_ids = {
+            row["id"]
+            for row in snapshot["evidence_records"]
+            if row["evidence_type"] == "artifact_reference" or row["source_kind"] == "artifact"
+        }
+        context_features = {row["id"]: row["feature_id"] for row in snapshot["context_packages"]}
+        handoff_features = {row["id"]: row["feature_id"] for row in snapshot["handoff_revisions"]}
+        required = {
+            *(("V02", package_id) for package_id in selected_contexts),
+            *(("V04", evidence_id) for evidence_id in selected_evidence),
+            *(("V03", revision_id) for revision_id in selected_handoffs),
+            *(("V01", evidence_id) for evidence_id in artifact_evidence_ids),
+        }
+        evaluations = snapshot["verification_evaluations"]
+        evaluation_ids = [row["id"] for row in evaluations]
+        persisted_rows = (
+            list(
+                self.session.scalars(
+                    select(VerificationEvaluationModel).where(
+                        VerificationEvaluationModel.id.in_(evaluation_ids)
+                    )
+                ).all()
+            )
+            if evaluation_ids
+            else []
+        )
+        persisted_by_id = {row.id: row for row in persisted_rows}
+        covered: set[tuple[str, str]] = set()
+        blockers: list[str] = []
+        stale_ids: set[str] = set()
+
+        for evaluation in evaluations:
+            evaluation_id = evaluation["id"]
+            row = persisted_by_id.get(evaluation_id)
+            if row is None or row.project_id != item.project_id:
+                blockers.append(f"Verification {evaluation_id} is missing or outside this Project.")
+                continue
+            subject = evaluation.get("subject")
+            if not isinstance(subject, dict):
+                blockers.append(f"Verification {evaluation_id} has no valid frozen subject.")
+                continue
+            if (
+                evaluation.get("project_id") != item.project_id
+                or evaluation.get("feature_id") != row.feature_id
+                or subject.get("project_id") != item.project_id
+                or subject.get("feature_id") != row.feature_id
+                or row.feature_id not in {None, *selected_features}
+            ):
+                blockers.append(
+                    f"Verification {evaluation_id} is outside the frozen candidate scope."
+                )
+                continue
+            persisted_shape = {
+                "project_id": row.project_id,
+                "feature_id": row.feature_id,
+                "rule_id": row.rule_id,
+                "rule_version": row.rule_version,
+                "result": row.result,
+                "input_fingerprint": row.input_fingerprint,
+                "evidence_ids": _json(row.evidence_ids_json),
+                "subject": _json(row.subject_json),
+                "inputs": _json(row.input_json),
+                "verifier_version": row.verifier_version,
+            }
+            frozen_shape = {key: evaluation.get(key) for key in persisted_shape}
+            if canonical_json(frozen_shape) != canonical_json(persisted_shape):
+                blockers.append(f"Verification {evaluation_id} differs from its frozen record.")
+                continue
+            if row.rule_version != "1.0" or row.verifier_version != VERIFIER_VERSION:
+                blockers.append(
+                    f"Verification {evaluation_id} uses an unsupported rule or verifier version."
+                )
+                continue
+
+            inputs = evaluation.get("inputs")
+            if not isinstance(inputs, dict):
+                blockers.append(f"Verification {evaluation_id} has no valid frozen inputs.")
+                continue
+            if (
+                inputs.get("rule_id") != row.rule_id
+                or inputs.get("rule_version") != row.rule_version
+            ):
+                blockers.append(f"Verification {evaluation_id} rule metadata is inconsistent.")
+                continue
+            matched_requirements: set[tuple[str, str]] = set()
+            if row.rule_id == "V02":
+                package_id = inputs.get("context_package_id")
+                if (
+                    isinstance(package_id, str)
+                    and package_id in selected_contexts
+                    and subject.get("feature_id") == context_features.get(package_id)
+                ):
+                    matched_requirements.add(("V02", package_id))
+            elif row.rule_id == "V03":
+                revision_id = inputs.get("handoff_revision_id")
+                if (
+                    isinstance(revision_id, str)
+                    and revision_id in selected_handoffs
+                    and subject.get("feature_id") == handoff_features.get(revision_id)
+                ):
+                    matched_requirements.add(("V03", revision_id))
+            elif row.rule_id == "V04":
+                evidence_ids = inputs.get("evidence_ids")
+                trace = inputs.get("records")
+                evidence_id_values = evidence_ids if isinstance(evidence_ids, list) else []
+                trace_values = trace if isinstance(trace, list) else []
+                valid_evidence_ids = (
+                    bool(evidence_id_values)
+                    and all(isinstance(value, str) for value in evidence_id_values)
+                    and len(evidence_id_values) == len(set(evidence_id_values))
+                )
+                valid_trace = isinstance(trace, list) and all(
+                    isinstance(entry, dict) and isinstance(entry.get("id"), str)
+                    for entry in trace_values
+                )
+                trace_ids = {entry["id"] for entry in trace_values} if valid_trace else set()
+                if (
+                    valid_evidence_ids
+                    and valid_trace
+                    and set(evidence_id_values).issubset(selected_evidence)
+                    and trace_ids == set(evidence_id_values)
+                ):
+                    matched_requirements.update(
+                        ("V04", evidence_id) for evidence_id in evidence_id_values
+                    )
+            else:
+                blockers.append(
+                    f"Verification {evaluation_id} uses unsupported rule {row.rule_id}."
+                )
+                continue
+
+            if not matched_requirements:
+                blockers.append(
+                    f"Verification {evaluation_id} does not verify a selected candidate input."
+                )
+                continue
+
+            try:
+                project = self.session.get(ProjectModel, item.project_id)
+                if project is None:
+                    blockers.append("Candidate Project is unavailable for freshness validation.")
+                    continue
+                is_stale = self.verification_is_stale(project.workspace_id, item.project_id, row)
+            except (EntityNotFound, InvalidInput, KeyError, TypeError, ValueError):
+                is_stale = True
+            if is_stale:
+                stale_ids.add(evaluation_id)
+                blockers.append(
+                    f"Verification {evaluation_id} is stale against its current inputs."
+                )
+                continue
+            if row.result != "PASS":
+                blockers.append(f"Verification {evaluation_id} result is {row.result}, not PASS.")
+                continue
+            covered.update(matched_requirements)
+
+        missing = sorted(required - covered)
+        for rule_id, input_id in missing:
+            if rule_id == "V01":
+                blockers.append(
+                    "V01 is required for selected artifact evidence, but managed artifact bytes "
+                    f"are unavailable for input {input_id}."
+                )
+            else:
+                blockers.append(
+                    f"Required {rule_id} verification is missing or not current for "
+                    f"input {input_id}."
+                )
+        blockers = sorted(set(blockers))
+        status = "STALE" if stale_ids else ("PASS" if not blockers else "BLOCKED")
+        return {
+            "status": status,
+            "explanation": (
+                "Every selected Context Package, Evidence Record, and Handoff revision has a "
+                "current passing verification under the supported rule policy."
+                if status == "PASS"
+                else (
+                    "Required scoped verification coverage is absent, unsupported, failed, "
+                    "blocked, or stale."
+                )
+            ),
+            "inputs": selected["verification_ids"],
+            "blockers": blockers,
+            "limitations": [
+                "V02 checks Context Package integrity, V03 checks Handoff revision integrity, and "
+                "V04 checks Evidence traceability only; none proves functional acceptance."
+            ],
+        }
+
     def _gate_result(self, item: ReleaseCandidateModel) -> dict[str, Any]:
         if item.status != "FROZEN" or not item.snapshot_json:
             raise InvalidInput("Freeze the candidate before evaluating release gates")
@@ -1005,22 +1681,18 @@ class DeliveryService:
         current.pop("captured_at", None)
         historical = dict(snapshot)
         historical.pop("captured_at", None)
-        stale = digest(canonical_json(current)) != digest(canonical_json(historical))
+        frozen_dependency_fingerprint = digest(canonical_json(historical))
+        current_dependency_fingerprint = digest(canonical_json(current))
+        stale = current_dependency_fingerprint != frozen_dependency_fingerprint
         selected = snapshot["scope"]
         chosen_features = set(selected["feature_ids"])
         feature_ids = {row["id"] for row in snapshot["features"]}
-        context_by_feature = {row["feature_id"]: row for row in snapshot["context_packages"]}
-        criteria = (
-            list(
-                self.session.scalars(
-                    select(AcceptanceCriterionModel).where(
-                        AcceptanceCriterionModel.feature_id.in_(chosen_features)
-                    )
-                ).all()
-            )
-            if chosen_features
-            else []
-        )
+        selected_contexts = snapshot["context_packages"]
+        contexts_by_feature: dict[str, list[dict[str, Any]]] = {}
+        for context in selected_contexts:
+            contexts_by_feature.setdefault(context["feature_id"], []).append(context)
+        criteria_value = snapshot.get("acceptance_criteria")
+        criteria = criteria_value if isinstance(criteria_value, list) else []
         covered = {
             row["acceptance_criterion_id"]
             for row in snapshot["evidence_records"]
@@ -1046,48 +1718,40 @@ class DeliveryService:
                 "rule_id": "G02",
                 "version": "1.0",
                 "status": "PASS"
-                if all(
-                    feature_id in context_by_feature
-                    and context_by_feature[feature_id]["payload_digest"]
-                    == context_by_feature[feature_id]["fingerprint"]
-                    for feature_id in chosen_features
-                )
+                if all(feature_id in contexts_by_feature for feature_id in chosen_features)
+                and all(row["payload_digest"] == row["fingerprint"] for row in selected_contexts)
                 else "BLOCKED",
                 "explanation": "Each selected Feature has a pinned Context Package with a "
                 "matching canonical fingerprint."
-                if all(
-                    feature_id in context_by_feature
-                    and context_by_feature[feature_id]["payload_digest"]
-                    == context_by_feature[feature_id]["fingerprint"]
-                    for feature_id in chosen_features
-                )
+                if all(feature_id in contexts_by_feature for feature_id in chosen_features)
+                and all(row["payload_digest"] == row["fingerprint"] for row in selected_contexts)
                 else "One or more selected Features lack an intact pinned Context Package.",
                 "inputs": [row["id"] for row in snapshot["context_packages"]],
                 "blockers": []
-                if all(
-                    feature_id in context_by_feature
-                    and context_by_feature[feature_id]["payload_digest"]
-                    == context_by_feature[feature_id]["fingerprint"]
-                    for feature_id in chosen_features
-                )
+                if all(feature_id in contexts_by_feature for feature_id in chosen_features)
+                and all(row["payload_digest"] == row["fingerprint"] for row in selected_contexts)
                 else ["Pin a saved Context Package for every selected Feature."],
                 "limitations": ["Context integrity does not prove the plan was implemented."],
             },
             {
                 "rule_id": "G03",
                 "version": "1.0",
-                "status": "PASS" if all(row.id in covered for row in criteria) else "BLOCKED",
-                "explanation": "Every current acceptance criterion has selected active linked "
+                "status": "PASS"
+                if isinstance(criteria_value, list)
+                and all(row["id"] in covered for row in criteria)
+                else "BLOCKED",
+                "explanation": "Every frozen acceptance criterion has selected active linked "
                 "evidence."
-                if all(row.id in covered for row in criteria)
-                else "Some current acceptance criteria lack linked active evidence.",
+                if isinstance(criteria_value, list)
+                and all(row["id"] in covered for row in criteria)
+                else "Some frozen acceptance criteria lack linked active evidence.",
                 "inputs": selected["evidence_ids"],
                 "blockers": []
-                if all(row.id in covered for row in criteria)
+                if isinstance(criteria_value, list)
+                and all(row["id"] in covered for row in criteria)
                 else [
-                    f"Missing linked evidence for "
-                    f"{sum(row.id not in covered for row in criteria)} acceptance "
-                    "criterion/criteria."
+                    "Frozen Acceptance Criteria snapshot is unavailable or lacks linked active "
+                    "evidence."
                 ],
                 "limitations": [
                     "Linked evidence is documentary coverage, not independently verified "
@@ -1097,21 +1761,7 @@ class DeliveryService:
             {
                 "rule_id": "G04",
                 "version": "1.0",
-                "status": "PASS"
-                if snapshot["verification_evaluations"]
-                and all(row["result"] == "PASS" for row in snapshot["verification_evaluations"])
-                else "BLOCKED",
-                "explanation": "Selected deterministic verification evaluations passed."
-                if snapshot["verification_evaluations"]
-                and all(row["result"] == "PASS" for row in snapshot["verification_evaluations"])
-                else "No required successful deterministic evaluations are pinned, or a "
-                "selected evaluation did not pass.",
-                "inputs": selected["verification_ids"],
-                "blockers": []
-                if snapshot["verification_evaluations"]
-                and all(row["result"] == "PASS" for row in snapshot["verification_evaluations"])
-                else ["Pin at least one passing supported verification evaluation."],
-                "limitations": ["Only the explicit properties of the selected rules were checked."],
+                **self._g04_result(item, snapshot),
             },
             {
                 "rule_id": "G05",
@@ -1120,7 +1770,7 @@ class DeliveryService:
                 "explanation": "Current selected inputs still match the frozen snapshot."
                 if not stale
                 else "One or more selected inputs changed after candidate freeze.",
-                "inputs": [item.content_fingerprint],
+                "inputs": [item.content_fingerprint, current_dependency_fingerprint],
                 "blockers": ["Freeze a new candidate revision after reviewing changed inputs."]
                 if stale
                 else [],
@@ -1130,7 +1780,11 @@ class DeliveryService:
         pre_manifest_result = (
             "READY_BY_DEFINED_GATES"
             if all(check["status"] == "PASS" for check in checks)
-            else ("STALE" if stale else "BLOCKED")
+            else (
+                "STALE"
+                if stale or any(check["status"] == "STALE" for check in checks)
+                else "BLOCKED"
+            )
         )
         manifest = {
             "schema": MANIFEST_SCHEMA,
@@ -1139,15 +1793,20 @@ class DeliveryService:
             "candidate": {
                 "id": item.id,
                 "key": item.candidate_key,
+                "project_id": item.project_id,
+                "schema_version": snapshot["schema_version"],
+                "status": "FROZEN",
                 "revision": item.revision,
                 "fingerprint": item.content_fingerprint,
             },
             "scope": snapshot["scope"],
             "features": snapshot["features"],
+            "acceptance_criteria": snapshot.get("acceptance_criteria"),
             "context_packages": snapshot["context_packages"],
             "evidence_records": snapshot["evidence_records"],
             "verification_evaluations": snapshot["verification_evaluations"],
             "handoff_revisions": snapshot["handoff_revisions"],
+            "ruleset_version": RELEASE_RULESET,
             "gate_evaluation": {
                 "result": pre_manifest_result,
                 "ruleset_version": RELEASE_RULESET,
@@ -1164,26 +1823,30 @@ class DeliveryService:
                 "No claim of functional completeness, publication, deployment, or external CI "
                 "verification is made.",
             ],
+            "integrity": {
+                "algorithm": "SHA-256",
+                "canonicalization": "forge-canonical-json-v1",
+                "candidate_snapshot_fingerprint": digest(canonical_json(snapshot)),
+            },
             "publication_status": "NOT_PUBLISHED",
             "candidate_captured_at": snapshot["captured_at"],
         }
-        manifest_fingerprint = digest(canonical_json(manifest))
-        completeness = bool(
-            manifest.get("project_id")
-            and manifest.get("candidate", {}).get("id")
-            and manifest.get("candidate", {}).get("fingerprint")
-            and manifest_fingerprint
-        )
+        completeness_errors = manifest_completeness_errors(manifest)
+        completeness = not completeness_errors
         checks.append(
             {
                 "rule_id": "G06",
                 "version": "1.0",
                 "status": "PASS" if completeness else "BLOCKED",
-                "explanation": "Versioned manifest contains required identifiers and fingerprints."
+                "explanation": "Versioned manifest schema, identities, scope references, rules, "
+                "integrity and provenance are complete."
                 if completeness
-                else "Manifest is missing required identifiers or fingerprints.",
-                "inputs": [manifest_fingerprint],
-                "blockers": [] if completeness else ["Complete required manifest fields."],
+                else "Manifest schema or referenced data is incomplete or inconsistent.",
+                "inputs": [
+                    MANIFEST_SCHEMA,
+                    manifest["integrity"]["candidate_snapshot_fingerprint"],
+                ],
+                "blockers": completeness_errors,
                 "limitations": ["Manifest completeness does not mean publication occurred."],
             }
         )

@@ -119,6 +119,12 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   await page.getByRole("button", { name: "Evaluate release gates" }).click();
   await expect(page.getByRole("heading", { name: "Release gate evaluation" })).toBeVisible();
   await expect(page.locator(".fnd06-check-list .status-chip.blocked").first()).toBeVisible();
+  await expect(
+    page.getByText(/Required V02 verification is missing or not current for input/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Required V04 verification is missing or not current for input/),
+  ).toBeVisible();
   await page.screenshot({ path: "artifacts/fnd06/release-gates.png", fullPage: true });
   await page.getByRole("button", { name: "Generate & save manifest" }).click();
   await expect(page.getByText("NOT PUBLISHED", { exact: true })).toBeVisible();
