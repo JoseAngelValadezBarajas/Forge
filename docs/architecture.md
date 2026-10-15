@@ -22,6 +22,25 @@ FND-05 adds `AgentRun`, append-only `RunEvent` and structured `RunOutputReferenc
 
 FND-06 adds project-scoped Evidence Records, immutable verification snapshots, revisioned Release Candidates, gate evaluations and versioned manifests. `DeliveryService` preserves REPORTED versus OBSERVED evidence provenance; named deterministic verification rules cannot elevate the underlying declaration. Gates evaluate a frozen selection and return only `READY_BY_DEFINED_GATES`, `BLOCKED` or derived `STALE`. The canonical JSON manifest and escaped Markdown export identify exact scope and limitations and remain `NOT_PUBLISHED`. Artifact bytes are not imported, external URLs are not fetched, and no tests, CI, Git writes or deployments are run by this slice.
 
+### FND-06 Delivery backend boundaries
+
+The application import remains `from app.application.delivery import DeliveryService`, implemented as a compatibility package facade. The facade owns no use-case rules: it creates focused services over one request-scoped `DeliveryContext` and forwards calls to them.
+
+| Module | Responsibility |
+| --- | --- |
+| `delivery/evidence.py` | Evidence lifecycle, source ownership and provenance |
+| `delivery/verification.py` | Persisted V01–V04 preview/evaluate/history and staleness |
+| `delivery/candidates.py` | Candidate selection, revisioning, freezing and frozen snapshots |
+| `delivery/gates.py` | G01–G06 previews, persisted evaluations and historical status |
+| `delivery/manifests.py` | Manifest completeness, persistence and Markdown export |
+| `delivery/serialization.py` | Canonical JSON, SHA-256 helpers and API response mapping |
+| `delivery/validation.py` / `constants.py` | Shared safe input rules and versioned identifiers |
+| `delivery/base.py` | Shared SQLAlchemy session, project scope and common access checks |
+
+Dependencies flow from the facade to use-case services. Gates receive the candidate and verification services they need; manifest persistence receives candidate access. Pure deterministic verification algorithms stay in `domain/verification.py`; the application verification service loads and persists their inputs/results. No FastAPI transport code is imported into these services.
+
+The route layer creates the facade with its existing SQLAlchemy `Session`. The context and all use-case services share that exact session; the facade/context do not commit. Existing use-case commit, refresh and optimistic-check locations remain the transaction boundaries. Canonical JSON options, timestamp formatting, SHA-256 inputs, ruleset/schema versions and stored snapshot formats are unchanged. This is a code-only reorganization: no model field or Alembic migration changes are required. Future Delivery use cases belong in the matching responsibility module; a new boundary should be added only when it has a distinct owner and dependency need.
+
 The data model keeps `Workspace`, `Project`, planning records, `Repository` and `Integration` separate. The hierarchy is `Workspace > Project > Epic > Feature > Task/AcceptanceCriterion`; a feature may remain unassigned to an epic. Dependencies carry a project key and two feature keys, and are validated in the application layer before the unique database edge index is written. Archived projects are readable but planning mutations are rejected. There is no irreversible delete workflow for planning records.
 
 The frontend talks to the backend through the Vite `/api` proxy in development. It has no direct filesystem or Git access. Routing is local and uses React Router; the active workspace ID and theme are stored in browser local storage, while workspace/project truth stays in the backend SQLite database. Mutating API requests with an untrusted `Origin` are rejected; this is a localhost boundary, not an authentication system.
