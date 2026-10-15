@@ -610,9 +610,7 @@ class HandoffModel(Base):
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    acknowledged_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -668,5 +666,202 @@ Index(
     "uq_handoff_acknowledgements_revision",
     HandoffAcknowledgementModel.handoff_id,
     HandoffAcknowledgementModel.revision,
+    unique=True,
+)
+
+
+class EvidenceRecordModel(Base):
+    __tablename__ = "evidence_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="RESTRICT"), nullable=True
+    )
+    acceptance_criterion_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("acceptance_criteria.id", ondelete="RESTRICT"), nullable=True
+    )
+    run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("agent_runs.id", ondelete="RESTRICT"), nullable=True
+    )
+    handoff_revision_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("handoff_revisions.id", ondelete="RESTRICT"), nullable=True
+    )
+    context_package_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("context_packages.id", ondelete="RESTRICT"), nullable=True
+    )
+    git_observation_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("git_observations.id", ondelete="RESTRICT"), nullable=True
+    )
+    evidence_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    provenance: Mapped[str] = mapped_column(String(20), nullable=False, default="REPORTED")
+    declared_outcome: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ACTIVE")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index(
+    "ix_evidence_project_recorded", EvidenceRecordModel.project_id, EvidenceRecordModel.recorded_at
+)
+Index("ix_evidence_feature_status", EvidenceRecordModel.feature_id, EvidenceRecordModel.status)
+Index("ix_evidence_criterion", EvidenceRecordModel.acceptance_criterion_id)
+
+
+class VerificationEvaluationModel(Base):
+    __tablename__ = "verification_evaluations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("features.id", ondelete="RESTRICT"), nullable=True
+    )
+    rule_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    rule_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    subject_json: Mapped[str] = mapped_column(Text, nullable=False)
+    input_json: Mapped[str] = mapped_column(Text, nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[str] = mapped_column(String(24), nullable=False)
+    findings_json: Mapped[str] = mapped_column(Text, nullable=False)
+    limitations_json: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_ids_json: Mapped[str] = mapped_column(Text, nullable=False)
+    verifier_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "ix_verifications_project_date",
+    VerificationEvaluationModel.project_id,
+    VerificationEvaluationModel.evaluated_at,
+)
+Index(
+    "ix_verifications_feature_rule",
+    VerificationEvaluationModel.feature_id,
+    VerificationEvaluationModel.rule_id,
+)
+
+
+class ReleaseCandidateModel(Base):
+    __tablename__ = "release_candidates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    candidate_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    intended_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")
+    schema_version: Mapped[str] = mapped_column(
+        String(40), nullable=False, default="forge-release-candidate-v1"
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    content_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    selection_json: Mapped[str] = mapped_column(Text, nullable=False)
+    snapshot_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index(
+    "uq_release_candidates_project_key",
+    ReleaseCandidateModel.project_id,
+    ReleaseCandidateModel.candidate_key,
+    unique=True,
+)
+Index(
+    "ix_release_candidates_project_date",
+    ReleaseCandidateModel.project_id,
+    ReleaseCandidateModel.created_at,
+)
+
+
+class ReleaseCandidateRevisionModel(Base):
+    __tablename__ = "release_candidate_revisions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    candidate_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("release_candidates.id", ondelete="CASCADE"), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    content_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_release_candidate_revision",
+    ReleaseCandidateRevisionModel.candidate_id,
+    ReleaseCandidateRevisionModel.revision,
+    unique=True,
+)
+
+
+class ReleaseGateEvaluationModel(Base):
+    __tablename__ = "release_gate_evaluations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("release_candidates.id", ondelete="CASCADE"), nullable=False
+    )
+    candidate_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    ruleset_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[str] = mapped_column(String(32), nullable=False)
+    findings_json: Mapped[str] = mapped_column(Text, nullable=False)
+    limitations_json: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_json: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "ix_release_gates_candidate_date",
+    ReleaseGateEvaluationModel.candidate_id,
+    ReleaseGateEvaluationModel.evaluated_at,
+)
+
+
+class ReleaseManifestModel(Base):
+    __tablename__ = "release_manifests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    candidate_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("release_candidates.id", ondelete="CASCADE"), nullable=False
+    )
+    gate_evaluation_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("release_gate_evaluations.id", ondelete="RESTRICT"), nullable=False
+    )
+    schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+Index(
+    "uq_release_manifest_candidate_gate",
+    ReleaseManifestModel.candidate_id,
+    ReleaseManifestModel.gate_evaluation_id,
     unique=True,
 )

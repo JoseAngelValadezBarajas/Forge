@@ -10,6 +10,8 @@ The API contract is summarized in [`api-contracts.md`](api-contracts.md). Worksp
 
 FND-05 run and handoff behavior is documented in [`fnd05-runs-handoffs.md`](fnd05-runs-handoffs.md). Its migration is applied by `uv run alembic upgrade head`; do not create run records with `create_all`. The Workbench E2E suite starts an isolated backend with a temporary SQLite file. If port 8000 is occupied by another process, use aligned `FORGE_BACKEND_PORT` and `FORGE_FRONTEND_PORT` overrides; the runner fails safely rather than reusing or modifying an existing server.
 
+FND-06 evidence, provenance, verification rules, release gates and manifest limitations are documented in [`product/fnd06-evidence-and-releases.md`](product/fnd06-evidence-and-releases.md), with routes in [`product/fnd06-api-contracts.md`](product/fnd06-api-contracts.md). E2E uses a temporary SQLite database and never fetches references or reads artifact paths.
+
 ## Checks
 
 Use `scripts/test.ps1` for the full quality sequence. It validates migrations, starts both local services through the Playwright config, validates `/api/health` through Vite, checks navigation and keyboard-accessible palette behavior, and checks that theme switching does not emit browser console errors. Use `npm ci` and `uv sync --locked --dev` for reproducible installs.

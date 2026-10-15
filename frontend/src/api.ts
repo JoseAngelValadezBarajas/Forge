@@ -306,6 +306,37 @@ export type Handoff = {
   acknowledgements: HandoffAcknowledgement[];
 };
 
+export type EvidenceRecord = {
+  id: string; project_id: string; feature_id: string | null; acceptance_criterion_id: string | null;
+  run_id: string | null; handoff_revision_id: string | null; context_package_id: string | null;
+  git_observation_id: string | null; evidence_type: string; title: string; description: string;
+  source_kind: string; source_reference: string | null; provenance: "REPORTED" | "OBSERVED" | "VERIFIED" | "UNKNOWN";
+  declared_outcome: string | null; status: "ACTIVE" | "INVALIDATED" | "SUPERSEDED";
+  version: number; recorded_at: string; invalidated_at: string | null;
+};
+
+export type VerificationRule = { rule_id: string; version: string; title: string; available: boolean; required_inputs: string[]; limitation: string };
+export type VerificationEvaluation = {
+  id: string | null; project_id?: string | null; feature_id: string | null; rule_id: string; rule_version: string;
+  subject: Record<string, unknown>; inputs: Record<string, unknown>; input_fingerprint: string;
+  result: "PASS" | "FAIL" | "BLOCKED" | "NOT_EVALUATED" | "ERROR"; findings: string[]; limitations: string[];
+  evidence_ids: string[]; verifier_version: string; evaluated_at: string | null; stale: boolean;
+};
+export type ReleaseSelection = { feature_ids: string[]; context_package_ids: string[]; evidence_ids: string[]; verification_ids: string[]; handoff_revision_ids: string[] };
+export type ReleaseCandidateInput = { title: string; intended_version?: string; description: string; feature_ids: string[]; context_package_ids: string[]; evidence_ids: string[]; verification_ids: string[]; handoff_revision_ids: string[] };
+export type ReleaseCandidate = {
+  id: string; project_id: string; candidate_key: string; title: string; intended_version: string | null; description: string;
+  status: "DRAFT" | "FROZEN"; schema_version: string; revision: number; content_fingerprint: string;
+  selection: ReleaseSelection; snapshot: Record<string, unknown> | null; created_at: string; updated_at: string; frozen_at: string | null;
+};
+export type GateCheck = { rule_id: string; version: string; status: "PASS" | "BLOCKED" | "STALE"; explanation: string; inputs: string[]; blockers: string[]; limitations: string[] };
+export type GateEvaluation = {
+  id: string | null; project_id?: string | null; candidate_id: string; candidate_revision?: number; ruleset_version: string;
+  input_fingerprint: string; result: "READY_BY_DEFINED_GATES" | "BLOCKED" | "STALE"; stored_result?: string;
+  checks: GateCheck[]; limitations: string[]; manifest: Record<string, unknown>; manifest_fingerprint: string; evaluated_at: string | null; stale: boolean;
+};
+export type ReleaseManifest = { id: string; project_id: string; candidate_id: string; gate_evaluation_id: string; schema_version: string; fingerprint: string; payload: Record<string, unknown>; markdown: string; created_at: string };
+
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -521,6 +552,44 @@ export const forgeApi = {
     request<Handoff>(`/workspaces/${workspaceId}/projects/${projectId}/handoffs/${handoffId}/withdraw`, { method: "POST", body: JSON.stringify({ expected_version: expectedVersion }) }),
   listHandoffRevisions: (workspaceId: string, projectId: string, handoffId: string, signal?: AbortSignal) =>
     request<HandoffRevision[]>(`/workspaces/${workspaceId}/projects/${projectId}/handoffs/${handoffId}/revisions`, { signal }),
+  listEvidence: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<EvidenceRecord[]>(`/workspaces/${workspaceId}/projects/${projectId}/evidence`, { signal }),
+  getEvidence: (workspaceId: string, projectId: string, evidenceId: string, signal?: AbortSignal) =>
+    request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence/${evidenceId}`, { signal }),
+  createEvidence: (workspaceId: string, projectId: string, payload: { feature_id?: string; acceptance_criterion_id?: string; run_id?: string; evidence_type: string; title: string; description?: string; source_kind: string; source_reference?: string; declared_outcome?: string }) =>
+    request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence`, { method: "POST", body: JSON.stringify(payload) }),
+  invalidateEvidence: (workspaceId: string, projectId: string, evidenceId: string) =>
+    request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence/${evidenceId}/invalidate`, { method: "POST" }),
+  listVerificationRules: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<VerificationRule[]>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/rules`, { signal }),
+  listVerifications: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<VerificationEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/verifications`, { signal }),
+  previewVerification: (workspaceId: string, projectId: string, payload: { rule_id: string; feature_id?: string; context_package_id?: string; expected_digest?: string; handoff_revision_id?: string; evidence_ids?: string[] }, signal?: AbortSignal) =>
+    request<VerificationEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/preview`, { method: "POST", body: JSON.stringify(payload), signal }),
+  evaluateVerification: (workspaceId: string, projectId: string, payload: { rule_id: string; feature_id?: string; context_package_id?: string; expected_digest?: string; handoff_revision_id?: string; evidence_ids?: string[] }) =>
+    request<VerificationEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/evaluate`, { method: "POST", body: JSON.stringify(payload) }),
+  listReleaseCandidates: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
+    request<ReleaseCandidate[]>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates`, { signal }),
+  createReleaseCandidate: (workspaceId: string, projectId: string, payload: { title: string; intended_version?: string; description?: string; feature_ids: string[]; context_package_ids: string[]; evidence_ids: string[]; verification_ids: string[]; handoff_revision_ids: string[] }) =>
+    request<ReleaseCandidate>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates`, { method: "POST", body: JSON.stringify(payload) }),
+  getReleaseCandidate: (workspaceId: string, projectId: string, candidateId: string, signal?: AbortSignal) =>
+    request<ReleaseCandidate>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}`, { signal }),
+  updateReleaseCandidate: (workspaceId: string, projectId: string, candidateId: string, payload: ReleaseCandidateInput & { expected_revision: number }) =>
+    request<ReleaseCandidate>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  freezeReleaseCandidate: (workspaceId: string, projectId: string, candidateId: string, expectedRevision: number) =>
+    request<ReleaseCandidate>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/freeze`, { method: "POST", body: JSON.stringify({ expected_revision: expectedRevision }) }),
+  previewReleaseGates: (workspaceId: string, projectId: string, candidateId: string, signal?: AbortSignal) =>
+    request<GateEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/gates/preview`, { method: "POST", signal }),
+  evaluateReleaseGates: (workspaceId: string, projectId: string, candidateId: string) =>
+    request<GateEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/gates/evaluate`, { method: "POST" }),
+  listReleaseGateHistory: (workspaceId: string, projectId: string, candidateId: string, signal?: AbortSignal) =>
+    request<GateEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/gates`, { signal }),
+  listCandidateHistory: (workspaceId: string, projectId: string, candidateId: string, signal?: AbortSignal) =>
+    request<{ id: string; candidate_id: string; revision: number; status: string; content_fingerprint: string; snapshot: Record<string, unknown>; created_at: string }[]>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/revisions`, { signal }),
+  saveReleaseManifest: (workspaceId: string, projectId: string, candidateId: string, gateEvaluationId: string) =>
+    request<ReleaseManifest>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/manifest`, { method: "POST", body: JSON.stringify({ gate_evaluation_id: gateEvaluationId }) }),
+  getReleaseManifest: (workspaceId: string, projectId: string, candidateId: string, signal?: AbortSignal) =>
+    request<ReleaseManifest>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates/${candidateId}/manifest`, { signal }),
 };
 
 export type DecisionCreatePayload = {
