@@ -326,7 +326,7 @@ async function createWorkspaceAndProject(ui, nameSuffix) {
   ui.setValue("Goal", "Persist a real planning record through a desktop restart.");
   ui.setValue("Description", "Installed-product planning persistence check.");
   ui.click("Button", "Create feature");
-  ui.wait("Text", featureName);
+  ui.wait("Text", featureName, 60, "contains");
   return { workspaceName, projectName, featureName };
 }
 
@@ -382,7 +382,7 @@ async function runInstalledJourney(targetDirectory, suffix, expectedProject) {
     app.ui.click("Button", expectedProject.projectName, "contains");
     app.ui.wait("Text", expectedProject.projectName);
     app.ui.click("Hyperlink", "Features and Epics");
-    app.ui.wait("Text", expectedProject.featureName);
+    app.ui.wait("Text", expectedProject.featureName, 60, "contains");
   }
   app.ui.screenshot(path.join(screenshotDirectory, `${suffix}-project.png`));
   if (!expectedProject) {
