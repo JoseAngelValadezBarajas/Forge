@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str | None = None
     frontend_origin: str = "http://localhost:5173"
+    runtime_mode: Literal["development", "local"] = "development"
+    runtime_host: str = "127.0.0.1"
+    runtime_port: int = Field(default=8000, ge=1, le=65535)
+    frontend_dist_dir: Path = PROJECT_ROOT / "frontend" / "dist"
     log_level: str = "INFO"
     allowed_repository_roots: list[Path] = Field(
         default_factory=lambda: [Path.home(), PROJECT_ROOT]

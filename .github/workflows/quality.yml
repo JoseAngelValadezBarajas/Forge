@@ -110,6 +110,8 @@ jobs:
       - name: Install Chromium
         working-directory: frontend
         run: npx playwright install --with-deps chromium
+      - name: Single-origin distribution smoke
+        run: uv run python scripts/smoke_local_runtime.py
       - name: Run E2E smoke
         working-directory: frontend
         run: npm run e2e

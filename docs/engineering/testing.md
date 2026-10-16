@@ -13,6 +13,8 @@ uv run alembic upgrade head
 
 `pytest` includes application-boundary, API/OpenAPI/route registry, service and migration behavior tests. Run fresh and incremental Alembic checks against temporary SQLite files; do not use a personal database for certification.
 
+The opt-in production-serving path has an executable end-to-end smoke: `uv run python scripts/smoke_local_runtime.py`. It builds the real Vite output, applies Alembic to a temporary SQLite file, proves an occupied sentinel port is neither reused nor contacted, then starts only its own loopback FastAPI process on a free controlled port. It verifies root/assets/deep links/API/origin/path behavior and persisted Workspace/Project records, stops only that child and removes its temporary data. CI runs this smoke before the existing Vite-development Chromium suite.
+
 ## Frontend
 
 From `frontend/`:

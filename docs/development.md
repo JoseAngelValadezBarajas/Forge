@@ -6,6 +6,20 @@ For current module ownership and dependency rules, see the [architecture index](
 
 Run the backend on `127.0.0.1:8000` and the Vite frontend on `127.0.0.1:5173`. These values come from the tracked `forge.config.json`; Vite, Playwright and the Windows launcher read the same file. Vite proxies `/api` to the backend and E2E verifies health through that proxy. The backend defaults to the absolute repository path `.forge/data/forge.db`, independent of the current working directory, and reads `FORGE_` environment variables from the root or `backend/.env` when present.
 
+The opt-in local distribution mode serves the production frontend build and the same API from one HTTP origin. Build once, then start it with:
+
+```powershell
+Push-Location frontend
+npm run build
+Pop-Location
+$env:FORGE_RUNTIME_MODE = "local"
+uv run --directory backend python -m app.local_runtime
+```
+
+Open the printed/configured loopback origin (by default `http://127.0.0.1:8000`). This serving process does not start Vite or Node. `FORGE_RUNTIME_HOST` accepts only a literal loopback IP (`127.0.0.1` or `::1`); `FORGE_RUNTIME_PORT` selects its port, and `FORGE_FRONTEND_DIST_DIR` may point to a packaged build directory containing `index.html` and compiled `assets`. The frontend build is checked at startup. `/api` remains API-only; missing API routes and missing assets return 404, while the SPA fallback is reserved for browser document navigation. The development workflow and its Vite proxy are unchanged.
+
+Local runtime mutations accept only the exact configured same-origin `Origin`; an arbitrary `Host` header cannot authorize them. This is a browser-origin/CSRF guard, not authentication: other local processes can forge request headers or call loopback endpoints. Do not expose this mode to a network interface. The existing `.forge/data/forge.db` location, URL resolution and migration history are unchanged; migrations remain explicit and must be applied before first use. Do not point certification tests at a developer database.
+
 The migration infrastructure is in `backend/migrations` and `alembic.ini`. Run `uv run alembic upgrade head` followed by `uv run --directory backend python -m app.initialization` after a fresh checkout. The initializer is explicit and idempotent: it creates `Local Workspace` once, and does not run on module import.
 
 The API contract is summarized in [`api-contracts.md`](api-contracts.md). Workspace, project and planning IDs are opaque UUID strings; feature readable IDs are stable per project. Project names are unique case-insensitively within a workspace, archive is reversible, and an archived project is read-only for planning and FND-04 mutations. The Context Package schema is documented in [`context-schema.md`](context-schema.md).
