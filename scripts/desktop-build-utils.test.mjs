@@ -7,6 +7,8 @@ import {
   assertNoSourcePathLeak,
   assertTreeNoSourcePathLeak,
   assertBuildPrerequisites,
+  createInstalledWebViewEnvironment,
+  describeInstalledSmokeFailure,
   findNsiInstaller,
   resolveGeneratedPath,
   sha256File,
@@ -72,4 +74,32 @@ test("binary runtime files cannot embed the developer checkout path", async () =
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("installed WebView debugging is scoped to the launched app process", () => {
+  const parentEnvironment = {
+    PATH: "runner-path",
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--inherited-flag",
+    WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER: "\\\\.\\pipe\\inherited-debugger",
+  };
+
+  const childEnvironment = createInstalledWebViewEnvironment(parentEnvironment, "C:\\temp\\forge-profile", 43127);
+
+  assert.equal(childEnvironment.PATH, "runner-path");
+  assert.equal(childEnvironment.WEBVIEW2_USER_DATA_FOLDER, "C:\\temp\\forge-profile");
+  assert.equal(childEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--remote-debugging-port=43127 --remote-debugging-address=127.0.0.1");
+  assert.equal("WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER" in childEnvironment, false);
+  assert.equal(parentEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--inherited-flag");
+  assert.throws(() => createInstalledWebViewEnvironment(parentEnvironment, "C:\\temp\\forge-profile", 0), /valid loopback debug port/);
+});
+
+test("cleanup failures preserve the primary installed-app error and process diagnostics", () => {
+  assert.equal(
+    describeInstalledSmokeFailure(
+      new Error("Timed out waiting for WebView2 remote debugging endpoint"),
+      new Error("owned app-process cleanup failed"),
+      { pid: 2718, sidecar: "not started" },
+    ),
+    "Timed out waiting for WebView2 remote debugging endpoint; cleanup failure: owned app-process cleanup failed; installed process diagnostics={\"pid\":2718,\"sidecar\":\"not started\"}",
+  );
 });

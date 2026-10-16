@@ -22,6 +22,30 @@ export function assertBuildPrerequisites({ platform, architecture, requiredComma
   if (missing.length) throw new Error(`Missing desktop build prerequisites: ${missing.join(", ")}.`);
 }
 
+export function createInstalledWebViewEnvironment(parentEnvironment, userDataFolder, debugPort) {
+  if (!Number.isInteger(debugPort) || debugPort < 1 || debugPort > 65535) {
+    throw new Error("Installed WebView smoke requires a valid loopback debug port.");
+  }
+  if (typeof userDataFolder !== "string" || !userDataFolder.trim()) {
+    throw new Error("Installed WebView smoke requires an isolated user-data folder.");
+  }
+  const childEnvironment = {
+    ...parentEnvironment,
+    WEBVIEW2_USER_DATA_FOLDER: userDataFolder,
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`,
+  };
+  delete childEnvironment.WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER;
+  return childEnvironment;
+}
+
+export function describeInstalledSmokeFailure(primaryError, cleanupError, diagnostics) {
+  const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+  const cleanupMessage = cleanupError
+    ? `; cleanup failure: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+    : "";
+  return `${primaryMessage}${cleanupMessage}; installed process diagnostics=${JSON.stringify(diagnostics)}`;
+}
+
 export async function findNsiInstaller(bundleDirectory) {
   const files = [];
   async function visit(directory) {
