@@ -37,8 +37,8 @@ export function createInstalledAppEnvironment(parentEnvironment, userDataFolder)
 
 export function createInstalledDiagnosticPaths(installDirectory, localDataRoot) {
   return {
-    sidecar: path.join(installDirectory, "resources", "forge-sidecar", "forge-sidecar.exe"),
-    log: path.join(localDataRoot, "logs", "forge-desktop.log"),
+    sidecar: path.win32.join(installDirectory, "resources", "forge-sidecar", "forge-sidecar.exe"),
+    log: path.win32.join(localDataRoot, "logs", "forge-desktop.log"),
   };
 }
 
