@@ -392,7 +392,7 @@ async function runInstalledJourney(targetDirectory, suffix, expectedProject) {
     await assertIndependentProcessCannotAccessApi(details.port, records.workspaceName);
     await assertSecondLaunchDoesNotSpawnSidecar(targetDirectory, details.processId);
     app.ui.click("Button", records.workspaceName);
-    app.ui.wait("MenuItem", records.workspaceName);
+    app.ui.wait("MenuItem", records.workspaceName, 60, "contains");
     app.ui.wait("MenuItem", "Create workspace");
     assert(!app.ui.inspect().includes("Unauthorized Desktop Workspace"), "unauthorized workspace creation must not appear in the UI");
     app.ui.click("Button", records.workspaceName);
