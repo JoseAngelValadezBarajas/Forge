@@ -44,18 +44,14 @@ pub fn is_trusted_caller(label: &str, url: &Url) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_bundled_app_url, is_trusted_caller, Session};
+    use super::{Session, is_bundled_app_url, is_trusted_caller};
 
     #[test]
     fn caller_policy_requires_the_bundled_origin_and_main_label() {
         let app_url = "http://tauri.localhost/projects/p1".parse().expect("valid URL");
         let remote_url = "https://attacker.invalid/".parse().expect("valid URL");
-        let spoofed_user = "http://user@tauri.localhost/"
-            .parse()
-            .expect("valid URL");
-        let alternate_port = "http://tauri.localhost:8080/"
-            .parse()
-            .expect("valid URL");
+        let spoofed_user = "http://user@tauri.localhost/".parse().expect("valid URL");
+        let alternate_port = "http://tauri.localhost:8080/".parse().expect("valid URL");
 
         assert!(is_trusted_caller("main", &app_url));
         assert!(!is_trusted_caller("remote", &app_url));

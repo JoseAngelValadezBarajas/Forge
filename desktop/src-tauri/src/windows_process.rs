@@ -11,21 +11,18 @@ mod platform {
     use std::os::windows::io::AsRawHandle;
     use std::ptr::null;
     use windows_sys::Win32::Foundation::{
-        CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE,
+        CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE,
     };
     use windows_sys::Win32::System::JobObjects::{
-        CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
-        TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, TerminateJobObject,
     };
     use windows_sys::Win32::System::Threading::{AssignProcessToJobObject, CreateMutexW};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONINFORMATION, MB_OK, MessageBoxW};
 
     pub fn show_already_running() {
-        let title: Vec<u16> = OsStr::new("Forge")
-            .encode_wide()
-            .chain(once(0))
-            .collect();
+        let title: Vec<u16> = OsStr::new("Forge").encode_wide().chain(once(0)).collect();
         let message: Vec<u16> = OsStr::new("Forge is already running in this Windows session.")
             .encode_wide()
             .chain(once(0))
@@ -105,9 +102,8 @@ mod platform {
                 return Err(io::Error::last_os_error());
             }
             // SAFETY: Child owns a live process handle; the job handle is valid and configured.
-            let assigned = unsafe {
-                AssignProcessToJobObject(handle, child.as_raw_handle() as HANDLE)
-            };
+            let assigned =
+                unsafe { AssignProcessToJobObject(handle, child.as_raw_handle() as HANDLE) };
             if assigned == 0 {
                 // SAFETY: the handle was created above and is still owned here.
                 unsafe { CloseHandle(handle) };
@@ -139,7 +135,9 @@ mod platform {
 }
 
 #[cfg(windows)]
-pub use platform::{PlatformOwnedJob as OwnedJob, PlatformSingleInstanceLock as SingleInstanceLock};
+pub use platform::{
+    PlatformOwnedJob as OwnedJob, PlatformSingleInstanceLock as SingleInstanceLock,
+};
 
 #[cfg(windows)]
 pub use platform::show_already_running;

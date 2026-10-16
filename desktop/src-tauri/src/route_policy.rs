@@ -86,9 +86,7 @@ impl RouteManifest {
         if matching_routes.next().is_some() {
             return Err(ApiBridgeError::Route);
         }
-        let operation = route
-            .get(&normalized_method)
-            .ok_or(ApiBridgeError::Route)?;
+        let operation = route.get(&normalized_method).ok_or(ApiBridgeError::Route)?;
         let allowed_names: std::collections::BTreeSet<_> =
             operation.iter().map(String::as_str).collect();
         for (name, _) in form_urlencoded::parse(query.as_bytes()) {
@@ -140,13 +138,11 @@ mod tests {
 
     #[test]
     fn matches_path_parameters_without_wildcarding_other_segments() {
-        assert!(routes()
-            .validate_request(
-                "GET",
-                "/api/projects/p1/features/f1?include=criteria",
-                0,
-            )
-            .is_ok());
+        assert!(
+            routes()
+                .validate_request("GET", "/api/projects/p1/features/f1?include=criteria", 0,)
+                .is_ok()
+        );
         assert_eq!(
             routes().validate_request("GET", "/api/projects/p1/features", 0),
             Err(ApiBridgeError::Route)
@@ -155,8 +151,14 @@ mod tests {
 
     #[test]
     fn rejects_unknown_methods_routes_and_query_names() {
-        assert_eq!(routes().validate_request("OPTIONS", "/api/health", 0), Err(ApiBridgeError::Method));
-        assert_eq!(routes().validate_request("GET", "/api/unknown", 0), Err(ApiBridgeError::Route));
+        assert_eq!(
+            routes().validate_request("OPTIONS", "/api/health", 0),
+            Err(ApiBridgeError::Method)
+        );
+        assert_eq!(
+            routes().validate_request("GET", "/api/unknown", 0),
+            Err(ApiBridgeError::Route)
+        );
         assert_eq!(
             routes().validate_request("GET", "/api/workspaces?extra=x", 0),
             Err(ApiBridgeError::Query)
@@ -173,7 +175,10 @@ mod tests {
             "/api/a%5chealth",
             "/api/health\r\nHost: attacker.invalid",
         ] {
-            assert!(routes().validate_request("GET", path, 0).is_err(), "accepted {path:?}");
+            assert!(
+                routes().validate_request("GET", path, 0).is_err(),
+                "accepted {path:?}"
+            );
         }
     }
 

@@ -85,8 +85,8 @@ fn main() {
             let local_data_dir = app.path().local_data_dir()?;
             let data_root = local_data_dir.join("Forge");
             let resource_root = app.path().resource_dir()?;
-            let sidecar_paths = RuntimePaths::new(data_root, resource_root)
-                .map_err(io::Error::other)?;
+            let sidecar_paths =
+                RuntimePaths::new(data_root, resource_root).map_err(io::Error::other)?;
             let instance_lock = match windows_process::SingleInstanceLock::acquire() {
                 Ok(lock) => lock,
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
@@ -117,7 +117,9 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == "main" && matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
                 let runtime = window
                     .app_handle()
                     .state::<Arc<DesktopRuntime>>()

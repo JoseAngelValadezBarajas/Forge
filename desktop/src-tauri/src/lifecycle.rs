@@ -1,4 +1,4 @@
-use crate::api_bridge::{forward_request, validate_request_manifest, ApiRequest, ApiResponse};
+use crate::api_bridge::{ApiRequest, ApiResponse, forward_request, validate_request_manifest};
 use crate::route_policy::RouteManifest;
 use crate::session::Session;
 use crate::windows_process::{OwnedJob, SingleInstanceLock};
@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::sync::mpsc::{sync_channel, Receiver};
+use std::sync::mpsc::{Receiver, sync_channel};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -156,7 +156,11 @@ impl RequestState {
         true
     }
 
-    fn register(&mut self, request_id: String, cancellation: CancellationToken) -> Result<(), String> {
+    fn register(
+        &mut self,
+        request_id: String,
+        cancellation: CancellationToken,
+    ) -> Result<(), String> {
         if self.active.contains_key(&request_id) {
             return Err("duplicate request identifier".into());
         }
@@ -488,7 +492,8 @@ impl DesktopRuntime {
             let sidecar = core.sidecar.take();
             if !cancelled && core.phase != Phase::Stopping && core.phase != Phase::Stopped {
                 core.phase = Phase::Failed;
-                core.failure_message = Some("Forge could not start its local service. Retry or review the local log.");
+                core.failure_message =
+                    Some("Forge could not start its local service. Retry or review the local log.");
             }
             sidecar
         };
@@ -535,7 +540,9 @@ mod request_state_tests {
         let mut state = RequestState::default();
         assert!(state.cancel("req-1"));
         let token = CancellationToken::new();
-        state.register("req-1".into(), token.clone()).expect("register request");
+        state
+            .register("req-1".into(), token.clone())
+            .expect("register request");
         assert!(token.is_cancelled());
         assert!(state.cancelled_before_start.is_empty());
     }
@@ -544,7 +551,9 @@ mod request_state_tests {
     fn active_requests_are_cancelled_and_pending_cancellations_are_bounded() {
         let mut state = RequestState::default();
         let token = CancellationToken::new();
-        state.register("active".into(), token.clone()).expect("register request");
+        state
+            .register("active".into(), token.clone())
+            .expect("register request");
         assert!(state.cancel("active"));
         assert!(token.is_cancelled());
         for index in 0..32 {
@@ -560,7 +569,11 @@ struct BootstrapMessage<'a> {
     database_path: &'a str,
 }
 
-fn write_bootstrap(stdin: &mut ChildStdin, secret: &[u8; 32], database_path: &Path) -> io::Result<()> {
+fn write_bootstrap(
+    stdin: &mut ChildStdin,
+    secret: &[u8; 32],
+    database_path: &Path,
+) -> io::Result<()> {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut secret_hex = Zeroizing::new(String::with_capacity(64));
     for byte in secret {

@@ -1,8 +1,10 @@
 use crate::route_policy::{ApiBridgeError, RouteManifest};
-use crate::session::{Session, APP_ORIGIN};
-use base64::engine::general_purpose::STANDARD;
+use crate::session::{APP_ORIGIN, Session};
 use base64::Engine;
-use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE, HOST, ORIGIN};
+use base64::engine::general_purpose::STANDARD;
+use reqwest::header::{
+    ACCEPT, AUTHORIZATION, CONTENT_DISPOSITION, CONTENT_TYPE, HOST, HeaderValue, ORIGIN,
+};
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -250,14 +252,21 @@ mod tests {
 
         assert_eq!(response.status, 409);
         assert_eq!(response.content_type.as_deref(), Some("application/json"));
-        assert_eq!(response.content_disposition.as_deref(), Some("attachment; filename=report.json"));
+        assert_eq!(
+            response.content_disposition.as_deref(),
+            Some("attachment; filename=report.json")
+        );
         assert_eq!(
             STANDARD.decode(response.body_base64).expect("base64 body"),
             br#"{"detail":"expected conflict"}"#
         );
         let request = server.join().expect("mock backend thread");
         assert!(request.contains("POST /api/workspaces HTTP/1.1"));
-        assert!(request.to_ascii_lowercase().contains(&format!("host: 127.0.0.1:{port}")));
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains(&format!("host: 127.0.0.1:{port}"))
+        );
         assert!(request.contains(&format!("Authorization: Bearer {}", "ab".repeat(32))));
         assert!(request.contains("Origin: http://tauri.localhost"));
         assert!(request.ends_with(r#"{"name":"Example"}"#));
@@ -305,6 +314,9 @@ mod tests {
             cancellation,
         )
         .await;
-        assert_eq!(result.expect_err("cancelled request rejected"), "request cancelled");
+        assert_eq!(
+            result.expect_err("cancelled request rejected"),
+            "request cancelled"
+        );
     }
 }
