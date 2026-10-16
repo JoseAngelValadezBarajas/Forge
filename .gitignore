@@ -26,6 +26,7 @@ backend/.env
 node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/coverage/
 playwright-report/
 test-results/
 
