@@ -29,7 +29,7 @@ The exact import sequence is authoritative in `styles/index.css`: it retains the
 
 ## State and API access
 
-Workspace selection and theme preference are local-storage preferences. Projects, planning records, repositories, runs, handoffs and delivery records come from the backend. Components own transient form/filter state; feature hooks own feature-local loading and cancellation. `shared/api/client.ts` owns HTTP transport and error conversion; capability API modules own endpoint calls and DTOs. See [contract ownership](contracts.md).
+Workspace selection and theme preference are local-storage preferences. Projects, planning records, repositories, runs, handoffs and delivery records come from the backend. Components own transient form/filter state; feature hooks own feature-local loading and cancellation. `shared/api/client.ts` owns transport selection and error conversion; it preserves browser `fetch` and delegates desktop requests to the narrow `shared/api/desktopTransport.ts` Tauri IPC adapter. Capability API modules own endpoint calls and DTOs. The Rust adapter retains the session token and forwards only manifest-approved operations; it exposes no arbitrary URL or headers to React. See [contract ownership](contracts.md) and the [DESK-01 threat model](../desktop/desk-01-architecture.md).
 
 ## Adding a feature
 

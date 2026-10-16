@@ -10,6 +10,7 @@ import {
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
+import { DownloadLink } from "../../../../shared/ui/DownloadLink";
 import { formatDate } from "../../../../shared/utils/formatDate";
 import { type PaletteOpener } from "../../pages/types";
 import { errorMessage } from "../../utils";
@@ -198,22 +199,22 @@ export function HandoffDetailPage({
           </Link>
           {selected && (
             <>
-              <a
+              <DownloadLink
                 aria-label={`Download revision ${selected.revision} as JSON`}
                 className="button secondary"
                 download
                 href={`${downloadBase}?format=json`}
               >
                 Export JSON
-              </a>
-              <a
+              </DownloadLink>
+              <DownloadLink
                 aria-label={`Download revision ${selected.revision} as Markdown`}
                 className="button secondary"
                 download
                 href={`${downloadBase}?format=markdown`}
               >
                 Export Markdown
-              </a>
+              </DownloadLink>
             </>
           )}
           {canAcknowledge && (

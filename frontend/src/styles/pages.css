@@ -52,3 +52,17 @@
 .empty-orbit { align-items: center; border: 1px dashed var(--accent); border-radius: 50%; color: var(--accent); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 24px; height: 52px; justify-content: center; margin-bottom: 22px; width: 52px; }
 .projects-empty p, .workbench-placeholder p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0 auto 22px; max-width: 470px; }
 .placeholder-grid { background-image: linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px); background-size: 22px 22px; height: 105px; margin-bottom: 28px; mask-image: linear-gradient(to bottom, black, transparent); opacity: .55; width: 270px; }
+.desktop-startup {
+  align-items: flex-start;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  justify-content: center;
+  min-height: 100vh;
+  padding: clamp(24px, 8vw, 96px);
+}
+
+.desktop-startup h1 { font-size: 24px; margin: 0; }
+.desktop-startup p { color: var(--text-muted); margin: 0; }

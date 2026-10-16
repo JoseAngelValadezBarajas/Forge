@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type ContextPackage } from "../../../api";
+import { DownloadLink } from "../../../shared/ui/DownloadLink";
 import { contextSections, type ContextSectionId } from "./types";
 import { asRecord, asRecords } from "./format";
 import { ContextSectionContent } from "./ContextSectionContent";
@@ -41,18 +42,18 @@ export function PackagePreview({
         <div className="context-preview-actions">
           {saved ? (
             <>
-              <a
+              <DownloadLink
                 className="button ghost"
                 href={downloadBase(packageData.id!, "json")}
               >
                 Download JSON
-              </a>
-              <a
+              </DownloadLink>
+              <DownloadLink
                 className="button ghost"
                 href={downloadBase(packageData.id!, "markdown")}
               >
                 Download Markdown
-              </a>
+              </DownloadLink>
             </>
           ) : (
             <span className="planning-disclaimer">
