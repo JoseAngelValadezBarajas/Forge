@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.application.common import errors, validation
+from app.application.common import errors, serialization, validation
 from app.application.context_packages import ContextPackageService
 from app.application.git_context import (
     ContextPackageService as FacadeContextPackageService,
@@ -13,12 +13,31 @@ from app.application.git_context import (
     RepositoryService as FacadeRepositoryService,
 )
 from app.application.handoffs import HandoffService
+from app.application.handoffs.serialization import _handoff_payload
 from app.application.planning import PlanningService
 from app.application.projects import ProjectService
 from app.application.repositories import RepositoryService
 from app.application.runs import HandoffService as FacadeHandoffService
 from app.application.runs import RunService
+from app.application.runs import (
+    _canonical_json as facade_canonical_json,
+)
+from app.application.runs import (
+    _fingerprint as facade_fingerprint,
+)
+from app.application.runs import (
+    clean_optional as facade_clean_optional,
+)
+from app.application.runs import (
+    clean_required as facade_clean_required,
+)
 from app.application.runs.service import RunService as CanonicalRunService
+from app.application.runs.validation import (
+    clean_optional as canonical_clean_optional,
+)
+from app.application.runs.validation import (
+    clean_required as canonical_clean_required,
+)
 from app.application.services import (
     DuplicateName,
     EntityNotFound,
@@ -38,6 +57,7 @@ from app.application.services import (
 from app.application.services import ensure_local_workspace as facade_ensure_local_workspace
 from app.application.workspaces import WorkspaceService as CanonicalWorkspaceService
 from app.application.workspaces import ensure_local_workspace
+from app.persistence.models import ContextPackageModel, HandoffModel
 from architecture.check_application_boundaries import check_architecture
 
 
@@ -123,6 +143,20 @@ def test_checker_rejects_imported_compatibility_submodule_alias(tmp_path: Path) 
     assert any("compatibility facade app.application.services" in item for item in violations)
 
 
+def test_checker_rejects_shared_module_dependency_on_feature_service(tmp_path: Path) -> None:
+    app_root = tmp_path / "app"
+    _write_app(
+        app_root,
+        "application/common/errors.py",
+        "from app.application.workspaces import WorkspaceService\n",
+    )
+
+    violations = check_architecture(app_root)
+
+    assert len(violations) == 1
+    assert "shared application code cannot depend on feature module" in violations[0]
+
+
 def test_checker_rejects_application_dependency_on_api(tmp_path: Path) -> None:
     app_root = tmp_path / "app"
     _write_app(app_root, "application/use_case.py", "from app.api import router\n")
@@ -166,6 +200,10 @@ def test_compatibility_facades_reexport_canonical_identities() -> None:
     assert RevisionConflict is errors.RevisionConflict
     assert clean_name is validation.clean_name
     assert now is validation.now
+    assert facade_canonical_json is serialization._canonical_json
+    assert facade_fingerprint is serialization._fingerprint
+    assert facade_clean_optional is canonical_clean_optional
+    assert facade_clean_required is canonical_clean_required
     assert WorkspaceService is CanonicalWorkspaceService
     assert facade_ensure_local_workspace is ensure_local_workspace
     assert FacadeProjectService is ProjectService
@@ -174,3 +212,43 @@ def test_compatibility_facades_reexport_canonical_identities() -> None:
     assert FacadeHandoffService is HandoffService
     assert FacadeContextPackageService is ContextPackageService
     assert FacadeRepositoryService is RepositoryService
+
+
+def test_handoff_serialization_matches_pre_refactor_baseline_fixture() -> None:
+    # Captured from application/runs.py at the pre-refactor baseline 415055e.
+    handoff = HandoffModel(
+        id="handoff-001",
+        project_id="project-001",
+        feature_id="feature-001",
+        run_id="run-001",
+        title="Unsafe <handoff>",
+        summary="A reported summary",
+        outcomes="Done",
+        blockers="None",
+        questions="Open?",
+        next_actions="Review",
+        references="https://example.test",
+    )
+    package = ContextPackageModel(
+        id="context-001",
+        schema_version="forge-context-v1",
+        fingerprint="a" * 64,
+    )
+    payload = _handoff_payload(handoff, 7, package)
+    canonical = serialization._canonical_json(payload)
+
+    expected = (
+        '{"content":{"blockers":"None","next_actions":"Review","outcomes":"Done",'
+        '"questions":"Open?","references":"https://example.test",'
+        '"summary":"A reported summary","title":"Unsafe <handoff>"},'
+        '"feature_id":"feature-001","handoff_id":"handoff-001",'
+        '"project_id":"project-001","provenance":{"observed":false,"origin":"manual",'
+        '"reported":true,"verified":false},"revision":7,"run_id":"run-001",'
+        '"schema":"forge-handoff-v1","source_context":{"fingerprint":"'
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",'
+        '"package_id":"context-001","schema_version":"forge-context-v1"}}'
+    )
+    assert canonical == expected
+    assert serialization._fingerprint(payload) == (
+        "cf434e6b0f111c2e75d593b9d5022764c0be1ba276a44995a84c1cff453e31e5"
+    )

@@ -137,6 +137,16 @@ def check_architecture(source_root: Path) -> list[str]:
                             f"{path}:{node.lineno}: import canonical ownership instead of "
                             f"compatibility facade {imported}"
                         )
+                if (
+                    module.startswith("app.application.common")
+                    and imported.startswith("app.application")
+                    and imported != "app.application"
+                    and not imported.startswith("app.application.common")
+                ):
+                    violations.append(
+                        f"{path}:{node.lineno}: shared application code cannot depend on "
+                        f"feature module {imported}"
+                    )
 
     for cycle in _cycle_paths(graph):
         violations.append("Application import cycle: " + " -> ".join(cycle))

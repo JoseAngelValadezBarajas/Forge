@@ -39,21 +39,3 @@ def clean_text(value: str | None) -> str | None:
         return None
     text = value.strip()
     return text or None
-
-
-def clean_required(value: str, label: str, limit: int) -> str:
-    clean = value.strip()
-    if not clean:
-        raise InvalidInput(f"{label} is required")
-    if len(clean) > limit:
-        raise InvalidInput(f"{label} must be {limit} characters or fewer")
-    return clean
-
-
-def clean_optional(value: str | None, limit: int) -> str:
-    if value is None:
-        return ""
-    clean = value.strip()
-    if len(clean) > limit:
-        raise InvalidInput(f"Text must be {limit} characters or fewer")
-    return clean

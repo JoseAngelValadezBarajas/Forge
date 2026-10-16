@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.application.common.errors import EntityNotFound, InvalidInput, RevisionConflict
-from app.application.common.validation import clean_optional, clean_required, now
+from app.application.common.validation import now
 from app.application.handoffs.serialization import (
     HANDOFF_SCHEMA,
     _canonical_json,
@@ -17,6 +17,7 @@ from app.application.handoffs.serialization import (
     _handoff_payload,
 )
 from app.application.planning import PlanningService
+from app.application.runs.validation import clean_optional, clean_required
 from app.persistence.models import (
     AgentRunModel,
     ContextPackageModel,

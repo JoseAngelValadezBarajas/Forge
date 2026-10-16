@@ -4,7 +4,24 @@ import re
 from urllib.parse import urlsplit
 
 from app.application.common.errors import InvalidInput
-from app.application.common.validation import clean_optional
+
+
+def clean_required(value: str, label: str, limit: int) -> str:
+    clean = value.strip()
+    if not clean:
+        raise InvalidInput(f"{label} is required")
+    if len(clean) > limit:
+        raise InvalidInput(f"{label} must be {limit} characters or fewer")
+    return clean
+
+
+def clean_optional(value: str | None, limit: int) -> str:
+    if value is None:
+        return ""
+    clean = value.strip()
+    if len(clean) > limit:
+        raise InvalidInput(f"Text must be {limit} characters or fewer")
+    return clean
 
 
 def _validate_output_reference(reference_kind: str, reference_value: str | None) -> str | None:
