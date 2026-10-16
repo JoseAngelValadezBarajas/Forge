@@ -26,6 +26,12 @@ function runChecker() {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
+function expectOnlyIssue(output: string, code: string) {
+  const issues = output.match(/^ERROR [^\r\n]+$/gm) ?? [];
+  expect(issues).toHaveLength(1);
+  expect(issues[0]).toContain(code);
+}
+
 function validProject() {
   write(
     "shared/api/client.ts",
@@ -66,15 +72,34 @@ describe("frontend architecture boundary checker", () => {
     expect(result.output).toContain("Architecture boundaries pass");
   });
 
-  it("rejects shared-to-feature/app and feature-to-private-feature imports", () => {
-    sourceRoot = mkdtempSync(
-      path.join(tmpdir(), "forge-architecture-boundary-"),
-    );
+  it("rejects a shared module importing a feature implementation", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-shared-feature-boundary-"));
     validProject();
     write(
       "shared/ui/BadPanel.tsx",
-      "import '../../features/planning/pages/PlanningPage'; import '../../app/router';\n",
+      "import '../../features/planning/pages/PlanningPage';\n",
     );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(result.output, "shared-boundary");
+  });
+
+  it("rejects a shared module importing the app", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-shared-app-boundary-"));
+    validProject();
+    write("shared/ui/BadPanel.tsx", "import '../../app/router';\n");
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(result.output, "shared-boundary");
+  });
+
+  it("rejects a feature importing another feature's private implementation", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-private-feature-boundary-"));
+    validProject();
     write(
       "features/planning/pages/BadPage.tsx",
       "import '../../repositories/pages/RepositoriesPage';\n",
@@ -87,21 +112,12 @@ describe("frontend architecture boundary checker", () => {
     const result = runChecker();
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain("shared-boundary");
-    expect(result.output).toContain("private-feature-import");
+    expectOnlyIssue(result.output, "private-feature-import");
   });
 
-  it("rejects feature-to-app and React UI dependencies from feature APIs", () => {
+  it("rejects feature-to-app dependencies", () => {
     sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-api-"));
     validProject();
-    write(
-      "features/planning/api/bad.ts",
-      "import React from 'react'; import { PlanningPage } from '../pages/PlanningPage'; import { PageFrame } from '../../../shared/ui/PageFrame'; export const bad = [React, PlanningPage, PageFrame];\n",
-    );
-    write(
-      "shared/ui/PageFrame.tsx",
-      "export function PageFrame() { return null; }\n",
-    );
     write(
       "features/planning/pages/BadPage.tsx",
       "import App from '../../../app/App'; export const page = App;\n",
@@ -111,22 +127,112 @@ describe("frontend architecture boundary checker", () => {
     const result = runChecker();
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain("api-ui-import");
-    expect(result.output).toContain("feature-to-app");
+    expectOnlyIssue(result.output, "feature-to-app");
   });
 
-  it("rejects runtime cycles, root milestone modules and duplicate fetch transport", () => {
+  it.each([
+    ["react", "react"],
+    ["react subpath", "react/jsx-runtime"],
+    ["react-dom", "react-dom"],
+    ["react-dom subpath", "react-dom/client"],
+  ])("rejects a feature API runtime import of %s independently", (_label, specifier) => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-react-api-"));
+    validProject();
+    write(
+      "features/planning/api/bad.ts",
+      `import * as runtime from '${specifier}'; export const bad = runtime;\n`,
+    );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(
+      result.output,
+      `api-ui-import: features/planning/api/bad.ts imports UI dependency ${specifier}`,
+    );
+  });
+
+  it("allows type-only React references from a feature API", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-type-api-"));
+    validProject();
+    write(
+      "features/planning/api/types.ts",
+      "import type { ReactNode } from 'react'; export type ViewContent = ReactNode;\n",
+    );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("Architecture boundaries pass");
+  });
+
+  it("rejects a feature API import of a private UI implementation independently", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-private-ui-api-"));
+    validProject();
+    write(
+      "features/planning/api/bad.ts",
+      "import { PlanningPage } from '../pages/PlanningPage'; export const bad = PlanningPage;\n",
+    );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(
+      result.output,
+      "api-ui-import: features/planning/api/bad.ts",
+    );
+  });
+
+  it("does not treat type-only feature imports as runtime cycles", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-type-cycle-"));
+    validProject();
+    write(
+      "features/planning/index.ts",
+      "import type { ReadinessModel } from '../readiness'; export type PlanningModel = { readiness?: ReadinessModel };\n",
+    );
+    write(
+      "features/readiness/index.ts",
+      "import type { PlanningModel } from '../planning'; export type ReadinessModel = { planning?: PlanningModel };\n",
+    );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(0);
+    expect(result.output).not.toContain("runtime-cycle");
+  });
+
+  it("rejects runtime cycles", () => {
     sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-cycle-"));
     validProject();
     write(
       "features/planning/index.ts",
-      "import type { ReadinessType } from '../readiness'; import { readiness } from '../readiness'; export const planning = readiness as ReadinessType;\n",
+      "import { readiness } from '../readiness'; export const planning = readiness;\n",
     );
     write(
       "features/readiness/index.ts",
       "import { planning } from '../planning'; export const readiness = planning;\n",
     );
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(result.output, "runtime-cycle");
+  });
+
+  it("rejects obsolete root milestone modules", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-milestone-"));
+    validProject();
     write("fnd03.tsx", "export const legacy = true;\n");
+
+    const result = runChecker();
+
+    expect(result.status).toBe(1);
+    expectOnlyIssue(result.output, "milestone-module");
+  });
+
+  it("rejects duplicate fetch transport outside the shared API client", () => {
+    sourceRoot = mkdtempSync(path.join(tmpdir(), "forge-architecture-transport-"));
+    validProject();
     write(
       "features/delivery/pages/DeliveryPage.tsx",
       "export async function load() { return globalThis.fetch('/api/health'); }\n",
@@ -135,8 +241,6 @@ describe("frontend architecture boundary checker", () => {
     const result = runChecker();
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain("runtime-cycle");
-    expect(result.output).toContain("milestone-module");
-    expect(result.output).toContain("duplicate-transport");
+    expectOnlyIssue(result.output, "duplicate-transport");
   });
 });

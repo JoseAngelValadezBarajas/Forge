@@ -116,6 +116,12 @@ export function checkArchitecture(sourceRoot) {
     }
 
     for (const edge of moduleEdges(parsed)) {
+      const isFeatureApi = currentOwner.kind === "feature" && currentOwner.parts.includes("api");
+      const isReactPackage = /^(?:react|react-dom)(?:\/|$)/.test(edge.specifier);
+      if (isFeatureApi && edge.runtime && isReactPackage) {
+        addIssue(`api-ui-import: ${relative} imports UI dependency ${edge.specifier}`);
+      }
+
       const target = resolveSourceFile(absoluteRoot, file, edge.specifier);
       if (!target || !fileSet.has(target)) continue;
       const targetRelative = normalize(path.relative(absoluteRoot, target));
@@ -135,13 +141,12 @@ export function checkArchitecture(sourceRoot) {
         addIssue(`private-feature-import: ${relative} imports ${targetRelative}; use features/${targetOwner.name}/index`);
       }
 
-      if (currentOwner.kind === "feature" && currentOwner.parts.includes("api")) {
-        const isReactPackage = /^(?:react|react-dom)(?:\/|$)/.test(edge.specifier);
+      if (isFeatureApi) {
         const isUiFile =
           (targetOwner.kind === "feature" && targetOwner.name === currentOwner.name &&
             /(?:^|\/)(?:pages|components|hooks)(?:\/|$)/.test(targetRelative)) ||
           (targetOwner.kind === "shared" && /(?:^|\/)ui(?:\/|$)/.test(targetRelative));
-        if (isReactPackage || isUiFile) addIssue(`api-ui-import: ${relative} imports UI dependency ${edge.specifier}`);
+        if (isUiFile) addIssue(`api-ui-import: ${relative} imports UI dependency ${edge.specifier}`);
       }
 
       if (edge.runtime) graph.get(file).push(target);

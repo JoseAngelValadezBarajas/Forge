@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -54,11 +48,11 @@ const evidence = {
 const rules = [
   {
     rule_id: "V01",
-    version: "1",
-    title: "Saved context digest",
-    available: true,
-    required_inputs: [],
-    limitation: "Compares a declared digest with a saved context snapshot.",
+    version: "1.0",
+    title: "Artifact integrity",
+    available: false,
+    required_inputs: ["managed artifact bytes", "expected SHA-256"],
+    limitation: "Forge does not yet import or store artifact bytes.",
   },
   {
     rule_id: "V02",
@@ -80,8 +74,10 @@ const blockedEvaluation = {
   inputs: {},
   input_fingerprint: "b".repeat(64),
   result: "BLOCKED",
-  findings: ["A saved digest is required."],
-  limitations: ["This check does not validate implementation behavior."],
+  findings: ["No managed artifact bytes are available for hashing."],
+  limitations: [
+    "Artifact import is outside this FND-06 implementation; declared references are not read or fetched.",
+  ],
   evidence_ids: [],
   verifier_version: "forge-verifier-v1",
   evaluated_at: "2026-01-01T00:00:00Z",
@@ -176,16 +172,20 @@ describe("Delivery feature routes and provenance", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 
+    expect(await screen.findByText("RULE UNSUPPORTED")).toBeInTheDocument();
     expect(
-      await screen.findByText("A saved digest is required."),
+      await screen.findByText(
+        "No managed artifact bytes are available for hashing.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        "Compares a declared digest with a saved context snapshot.",
+        "Forge does not yet import or store artifact bytes.",
       ),
     ).toHaveLength(2);
-    await waitFor(() =>
-      expect(screen.getByText("BLOCKED")).toBeInTheDocument(),
-    );
+    expect(
+      screen.getByRole("button", { name: "Evaluate & Save" }),
+    ).toBeDisabled();
+    expect(screen.getAllByText("BLOCKED")).toHaveLength(2);
   });
 });
