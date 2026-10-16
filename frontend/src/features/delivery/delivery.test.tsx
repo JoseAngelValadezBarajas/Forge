@@ -259,7 +259,17 @@ describe("Delivery feature routes and provenance", () => {
       if (url.endsWith("/evidence") && init?.method === "POST") {
         const body = JSON.parse(String(init.body)) as Record<string, unknown>;
         submitted.push(body);
-        if (String(body.source_reference).startsWith("javascript:"))
+        let safeReference: boolean;
+        try {
+          const parsedReference = new URL(String(body.source_reference));
+          safeReference =
+            ["http:", "https:"].includes(parsedReference.protocol) &&
+            !parsedReference.username &&
+            !parsedReference.password;
+        } catch {
+          safeReference = false;
+        }
+        if (!safeReference)
           return response({ detail: "Evidence reference must use HTTPS." }, 422);
         const created = {
           ...evidence,
