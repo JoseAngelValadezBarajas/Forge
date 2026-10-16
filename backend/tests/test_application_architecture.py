@@ -5,6 +5,12 @@ from pathlib import Path
 import pytest
 
 from app.application.common import errors, serialization, validation
+from app.application.common.validation import (
+    clean_optional as canonical_clean_optional,
+)
+from app.application.common.validation import (
+    clean_required as canonical_clean_required,
+)
 from app.application.context_packages import ContextPackageService
 from app.application.git_context import (
     ContextPackageService as FacadeContextPackageService,
@@ -33,10 +39,10 @@ from app.application.runs import (
 )
 from app.application.runs.service import RunService as CanonicalRunService
 from app.application.runs.validation import (
-    clean_optional as canonical_clean_optional,
+    clean_optional as legacy_clean_optional,
 )
 from app.application.runs.validation import (
-    clean_required as canonical_clean_required,
+    clean_required as legacy_clean_required,
 )
 from app.application.services import (
     DuplicateName,
@@ -204,6 +210,8 @@ def test_compatibility_facades_reexport_canonical_identities() -> None:
     assert facade_fingerprint is serialization._fingerprint
     assert facade_clean_optional is canonical_clean_optional
     assert facade_clean_required is canonical_clean_required
+    assert legacy_clean_optional is canonical_clean_optional
+    assert legacy_clean_required is canonical_clean_required
     assert WorkspaceService is CanonicalWorkspaceService
     assert facade_ensure_local_workspace is ensure_local_workspace
     assert FacadeProjectService is ProjectService
@@ -212,6 +220,23 @@ def test_compatibility_facades_reexport_canonical_identities() -> None:
     assert FacadeHandoffService is HandoffService
     assert FacadeContextPackageService is ContextPackageService
     assert FacadeRepositoryService is RepositoryService
+
+
+def test_shared_validators_preserve_error_messages() -> None:
+    with pytest.raises(InvalidInput, match="^Field is required$"):
+        canonical_clean_required("  ", "Field", 10)
+    with pytest.raises(InvalidInput, match="^Field must be 3 characters or fewer$"):
+        canonical_clean_required("four", "Field", 3)
+    with pytest.raises(InvalidInput, match="^Text must be 3 characters or fewer$"):
+        canonical_clean_optional("four", 3)
+
+
+def test_historical_handoff_import_is_direct_canonical_export_without_cycles() -> None:
+    from app.application.handoffs.service import HandoffService as CanonicalHandoffService
+    from app.application.runs import HandoffService as HistoricalHandoffService
+
+    assert HistoricalHandoffService is CanonicalHandoffService
+    assert check_architecture(Path(__file__).resolve().parents[1] / "app") == []
 
 
 def test_handoff_serialization_matches_pre_refactor_baseline_fixture() -> None:

@@ -12,14 +12,15 @@ from typing import Any, Protocol
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import get_settings
 from app.context.packages import ContextPackageBuilder
 from app.db import Base, get_db
-from app.git.observer import GitObserver, _GitCommandError, _GitCommandResult
+from app.git.observer import GitObservation, GitObserver, _GitCommandError, _GitCommandResult
 from app.main import app
 
 
@@ -392,7 +393,7 @@ def test_git_observer_environment_does_not_inherit_git_selection_or_config(
 @pytest.fixture
 def fnd04_client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[tuple[TestClient, str, str, str]]:
+) -> Iterator[tuple[TestClient, str, str, str, Engine]]:
     approved_root = tmp_path / "approved"
     approved_root.mkdir()
     monkeypatch.setenv("FORGE_ALLOWED_REPOSITORY_ROOTS", json.dumps([str(approved_root)]))
@@ -417,7 +418,7 @@ def fnd04_client(
             f"/api/workspaces/{workspace['id']}/projects/{project['id']}/features",
             json={"title": "Context package", "goal": "Preserve planning context"},
         ).json()
-        yield client, workspace["id"], project["id"], feature["id"]
+        yield client, workspace["id"], project["id"], feature["id"], engine
     app.dependency_overrides.clear()
     engine.dispose()
     get_settings.cache_clear()
@@ -434,9 +435,9 @@ def test_fnd04_migration_models_exist() -> None:
 
 
 def test_repository_observation_and_deterministic_package_lifecycle(
-    fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path
 ) -> None:
-    client, workspace_id, project_id, feature_id = fnd04_client
+    client, workspace_id, project_id, feature_id, _engine = fnd04_client
     root = make_repo(tmp_path / "approved" / "forge local repo")
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
     connected = client.post(f"{base}/repositories", json={"root_path": str(root)})
@@ -496,9 +497,9 @@ def test_repository_observation_and_deterministic_package_lifecycle(
 
 
 def test_repository_connection_rejects_path_outside_approved_root(
-    fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path
 ) -> None:
-    client, workspace_id, project_id, _feature_id = fnd04_client
+    client, workspace_id, project_id, _feature_id, _engine = fnd04_client
     outside_repo = make_repo(tmp_path / "outside")
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
 
@@ -511,9 +512,9 @@ def test_repository_connection_rejects_path_outside_approved_root(
 
 
 def test_archived_project_keeps_reads_but_rejects_new_observations_and_packages(
-    fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path
 ) -> None:
-    client, workspace_id, project_id, feature_id = fnd04_client
+    client, workspace_id, project_id, feature_id, _engine = fnd04_client
     root = make_repo(tmp_path / "approved" / "repo")
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
     repository_id = client.post(f"{base}/repositories", json={"root_path": str(root)}).json()["id"]
@@ -532,4 +533,137 @@ def test_archived_project_keeps_reads_but_rejects_new_observations_and_packages(
     assert (
         client.get(f"{base}/features/{feature_id}/context/packages").json()[0]["id"]
         == saved.json()["id"]
+    )
+
+
+def _assert_rejected_observation_is_read_only(
+    *,
+    client: TestClient,
+    engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+    base: str,
+    repository_id: str,
+    original_observation_id: str,
+) -> None:
+    writes: list[str] = []
+
+    def record_write(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        operation = statement.lstrip().split(maxsplit=1)[0].upper()
+        if operation in {"INSERT", "UPDATE", "DELETE", "REPLACE"}:
+            writes.append(operation)
+
+    def unexpected_git_observation(_observer: GitObserver, _root: Path) -> GitObservation:
+        pytest.fail("GitObserver must not be called for a path outside current approved roots")
+
+    event.listen(engine, "before_cursor_execute", record_write)
+    monkeypatch.setattr(GitObserver, "observe", unexpected_git_observation)
+    try:
+        rejected = client.post(f"{base}/repositories/{repository_id}/observe")
+    finally:
+        event.remove(engine, "before_cursor_execute", record_write)
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"] == "Repository path must be within an approved local root"
+    assert writes == []
+
+    # Restricting future observations must not hide or mutate existing records.
+    connections = client.get(f"{base}/repositories")
+    observations = client.get(f"{base}/repositories/{repository_id}/observations")
+    assert connections.status_code == 200
+    assert any(item["id"] == repository_id for item in connections.json())
+    assert observations.status_code == 200
+    assert [item["id"] for item in observations.json()] == [original_observation_id]
+
+
+def test_existing_repository_observation_revalidates_stored_path_outside_roots(
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, workspace_id, project_id, _feature_id, engine = fnd04_client
+    base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+    root = make_repo(tmp_path / "approved" / "repo")
+    repository_id = client.post(f"{base}/repositories", json={"root_path": str(root)}).json()["id"]
+    initial = client.post(f"{base}/repositories/{repository_id}/observe")
+    assert initial.status_code == 200
+
+    outside_parent = tmp_path / "outside"
+    outside_parent.mkdir()
+    outside = make_repo(outside_parent / "repo")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "UPDATE repository_connections SET root_path = ? WHERE id = ?",
+            (str(outside), repository_id),
+        )
+
+    _assert_rejected_observation_is_read_only(
+        client=client,
+        engine=engine,
+        monkeypatch=monkeypatch,
+        base=base,
+        repository_id=repository_id,
+        original_observation_id=initial.json()["id"],
+    )
+
+
+def test_existing_repository_observation_uses_updated_allowed_roots(
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, workspace_id, project_id, _feature_id, engine = fnd04_client
+    base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+    root = make_repo(tmp_path / "approved" / "repo")
+    repository_id = client.post(f"{base}/repositories", json={"root_path": str(root)}).json()["id"]
+    initial = client.post(f"{base}/repositories/{repository_id}/observe")
+    assert initial.status_code == 200
+
+    new_root = tmp_path / "newly-approved"
+    new_root.mkdir()
+    monkeypatch.setenv("FORGE_ALLOWED_REPOSITORY_ROOTS", json.dumps([str(new_root)]))
+    get_settings.cache_clear()
+
+    _assert_rejected_observation_is_read_only(
+        client=client,
+        engine=engine,
+        monkeypatch=monkeypatch,
+        base=base,
+        repository_id=repository_id,
+        original_observation_id=initial.json()["id"],
+    )
+
+
+def test_existing_repository_observation_rejects_symlink_escape(
+    fnd04_client: tuple[TestClient, str, str, str, Engine], tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, workspace_id, project_id, _feature_id, engine = fnd04_client
+    base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+    root = make_repo(tmp_path / "approved" / "repo")
+    repository_id = client.post(f"{base}/repositories", json={"root_path": str(root)}).json()["id"]
+    initial = client.post(f"{base}/repositories/{repository_id}/observe")
+    assert initial.status_code == 200
+
+    outside_parent = tmp_path / "outside"
+    outside_parent.mkdir()
+    outside = make_repo(outside_parent / "repo")
+    moved_root = root.with_name("repo-original")
+    root.rename(moved_root)
+    try:
+        root.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"Directory symlinks are unavailable in this environment: {exc}")
+
+    _assert_rejected_observation_is_read_only(
+        client=client,
+        engine=engine,
+        monkeypatch=monkeypatch,
+        base=base,
+        repository_id=repository_id,
+        original_observation_id=initial.json()["id"],
     )

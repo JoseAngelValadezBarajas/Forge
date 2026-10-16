@@ -1,9 +1,8 @@
 """Compatibility exports for the historical application.runs module."""
 
-from typing import Any
-
 from app.application.common.serialization import _canonical_json, _fingerprint
 from app.application.common.validation import now
+from app.application.handoffs import HANDOFF_STATUSES, HandoffService
 from app.application.handoffs.serialization import (
     HANDOFF_SCHEMA,
     _handoff_markdown,
@@ -16,15 +15,6 @@ from app.application.runs.validation import (
     clean_optional,
     clean_required,
 )
-
-
-def __getattr__(name: str) -> Any:
-    if name in {"HANDOFF_STATUSES", "HandoffService"}:
-        from app.application.handoffs import service
-
-        return getattr(service, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 __all__ = [
     "HANDOFF_SCHEMA",

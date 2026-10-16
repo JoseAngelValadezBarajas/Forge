@@ -117,7 +117,13 @@ class RepositoryService:
         repository = self.get_connection(workspace_id, project.id, repository_id)
         if repository.status != "connected":
             raise InvalidInput("Disconnected repositories must be connected before observation")
-        observation = self.observer.observe(repository.root_path)
+        # Connections may outlive changes to the operator's trust policy or to
+        # the filesystem (including a path replaced by a symlink). Re-resolve
+        # the persisted path against the current allowlist before invoking Git.
+        resolved = self._normalized_path(
+            repository.root_path, get_settings().resolved_allowed_repository_roots
+        )
+        observation = self.observer.observe(resolved)
         stored = self._store_observation(repository, observation)
         return repository, stored
 
@@ -228,7 +234,7 @@ class RepositoryService:
 
     @staticmethod
     def _normalized_path(root_path: str, allowed_roots: tuple[Path, ...]) -> Path:
-        """Normalize and validate a user-supplied repository path.
+        """Normalize and validate a repository path against trusted roots.
 
         Security notes:
         - It checks the resolved path against the configured allowed_roots using
