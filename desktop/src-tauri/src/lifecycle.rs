@@ -333,7 +333,7 @@ impl DesktopRuntime {
             }
             core.sidecar.clone()
         };
-        if let Ok(requests) = self.requests.lock() {
+        if let Ok(mut requests) = self.requests.lock() {
             for cancellation in requests.active.values() {
                 cancellation.cancel();
             }
@@ -639,7 +639,7 @@ fn wait_ready_port(
         let exited = sidecar
             .lock()
             .ok()
-            .and_then(|process| process.child.try_wait().ok().flatten())
+            .and_then(|mut process| process.child.try_wait().ok().flatten())
             .is_some();
         if exited {
             return Err("Forge local service exited before readiness.");
