@@ -13,6 +13,10 @@ const installer = process.env.FORGE_DESKTOP_INSTALLER;
 if (!installer) throw new Error("FORGE_DESKTOP_INSTALLER must point to the built NSIS installer.");
 if (process.platform !== "win32") throw new Error("Installed Forge smoke requires Windows.");
 
+// Tauri keeps the Cargo binary target name for the installed executable; the
+// user-facing product and installer are named Forge.
+const installedExecutableName = "forge-desktop.exe";
+
 const runRoot = process.env.RUNNER_TEMP ?? process.env.TEMP;
 if (!runRoot) throw new Error("A disposable Windows runner temp directory is required.");
 const smokeRoot = path.join(runRoot, `forge-desk01-${process.env.GITHUB_RUN_ID ?? Date.now()}-${process.env.GITHUB_RUN_ATTEMPT ?? 1}`);
@@ -52,7 +56,7 @@ function assertStartMenuShortcut(targetDirectory) {
     "$start = [Environment]::GetFolderPath('Programs'); $shell = New-Object -ComObject WScript.Shell; $target = $env:FORGE_INSTALLED_EXE; " +
     "$found = Get-ChildItem -LiteralPath $start -Filter '*.lnk' -File -Recurse | Where-Object { $shell.CreateShortcut($_.FullName).TargetPath -ieq $target } | Select-Object -First 1; " +
     "if (-not $found) { throw 'Installed Forge Start-menu shortcut was not found.' }",
-    { FORGE_INSTALLED_EXE: path.join(targetDirectory, "Forge.exe") },
+    { FORGE_INSTALLED_EXE: path.join(targetDirectory, installedExecutableName) },
   );
 }
 
@@ -120,7 +124,7 @@ async function waitFor(predicate, description, timeoutMs = 30_000) {
 }
 
 async function startInstalledApp(targetDirectory, debugPort) {
-  const executable = path.join(targetDirectory, "Forge.exe");
+  const executable = path.join(targetDirectory, installedExecutableName);
   await access(executable);
   const process = spawn(executable, [], {
     stdio: "ignore",
@@ -226,7 +230,7 @@ async function assertForcedTerminationCleansSidecar(targetDirectory) {
 }
 
 async function assertSecondLaunchDoesNotSpawnSidecar(targetDirectory, originalSidecarPid) {
-  const executable = path.join(targetDirectory, "Forge.exe");
+  const executable = path.join(targetDirectory, installedExecutableName);
   const duplicate = spawn(executable, [], { stdio: "ignore", env: process.env });
   try {
     await delay(1_500);
