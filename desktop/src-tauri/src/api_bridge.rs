@@ -261,13 +261,11 @@ mod tests {
             br#"{"detail":"expected conflict"}"#
         );
         let request = server.join().expect("mock backend thread");
+        let request_lowercase = request.to_ascii_lowercase();
         assert!(request.contains("POST /api/workspaces HTTP/1.1"));
-        assert!(
-            request
-                .to_ascii_lowercase()
-                .contains(&format!("host: 127.0.0.1:{port}"))
-        );
-        assert!(request.contains(&format!("Authorization: Bearer {}", "ab".repeat(32))));
+        assert!(request_lowercase.contains(&format!("host: 127.0.0.1:{port}")));
+        let authorization = format!("authorization: bearer {}", "ab".repeat(32));
+        assert!(request_lowercase.contains(&authorization));
         assert!(request.contains("Origin: http://tauri.localhost"));
         assert!(request.ends_with(r#"{"name":"Example"}"#));
     }

@@ -195,12 +195,12 @@ mod tests {
         let manifest = RouteManifest::from_json(
             r#"{
               "/api/projects/{project_id}/features": {"get": []},
-              "/api/{workspace_id}/features": {"get": ["include"]}
+              "/api/projects/features/{feature_id}": {"get": ["include"]}
             }"#,
         )
         .expect("test manifest");
         assert_eq!(
-            manifest.validate_request("GET", "/api/projects/features", 0),
+            manifest.validate_request("GET", "/api/projects/features/features", 0),
             Err(ApiBridgeError::Route)
         );
     }
