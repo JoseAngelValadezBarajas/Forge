@@ -684,8 +684,7 @@ fn verify_authenticated_health(session: &Session, cancellation: CancellationToke
                 if response.status().as_u16() == 200 {
                     if let Ok(payload) = response.json::<serde_json::Value>().await
                         && payload.get("status").and_then(|value| value.as_str()) == Some("ok")
-                        && payload.get("service").and_then(|value| value.as_str())
-                            == Some("Forge")
+                        && payload.get("service").and_then(|value| value.as_str()) == Some("Forge")
                     {
                         return true;
                     }
