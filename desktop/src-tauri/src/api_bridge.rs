@@ -266,7 +266,7 @@ mod tests {
         assert!(request_lowercase.contains(&format!("host: 127.0.0.1:{port}")));
         let authorization = format!("authorization: bearer {}", "ab".repeat(32));
         assert!(request_lowercase.contains(&authorization));
-        assert!(request.contains("Origin: http://tauri.localhost"));
+        assert!(request_lowercase.contains("origin: http://tauri.localhost"));
         assert!(request.ends_with(r#"{"name":"Example"}"#));
     }
 
