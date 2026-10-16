@@ -165,8 +165,6 @@ try {
             $pattern = $null
             if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
                 ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
-            } elseif ($element.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$pattern)) {
-                ([System.Windows.Automation.LegacyIAccessiblePattern]$pattern).DoDefaultAction()
             } elseif ($element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$pattern)) {
                 $expandCollapse = [System.Windows.Automation.ExpandCollapsePattern]$pattern
                 if ($expandCollapse.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
