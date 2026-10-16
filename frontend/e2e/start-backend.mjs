@@ -17,6 +17,7 @@ const frontendPort = process.env.FORGE_FRONTEND_PORT ?? "5173";
 const env = {
   ...process.env,
   FORGE_DATABASE_URL: `sqlite:///${databasePath.replaceAll("\\", "/")}`,
+  FORGE_ALLOWED_REPOSITORY_ROOTS: JSON.stringify([tmpdir()]),
   FORGE_FRONTEND_ORIGIN: process.env.FORGE_FRONTEND_ORIGIN ?? `http://${host}:${frontendPort}`,
 };
 

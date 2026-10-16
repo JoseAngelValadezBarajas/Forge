@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +20,9 @@ class Settings(BaseSettings):
     database_url: str | None = None
     frontend_origin: str = "http://localhost:5173"
     log_level: str = "INFO"
+    allowed_repository_roots: list[Path] = Field(
+        default_factory=lambda: [Path.home(), PROJECT_ROOT]
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="FORGE_",
@@ -46,6 +50,25 @@ class Settings(BaseSettings):
         if self.database_url is not None:
             return self.database_url
         return sqlite_url(DEFAULT_DATABASE_PATH)
+
+    @property
+    def resolved_allowed_repository_roots(self) -> tuple[Path, ...]:
+        roots: list[Path] = []
+        for configured_root in self.allowed_repository_roots:
+            expanded_root = configured_root.expanduser()
+            if not expanded_root.is_absolute():
+                raise ValueError("Allowed repository roots must be absolute")
+            try:
+                root = expanded_root.resolve(strict=True)
+            except (OSError, RuntimeError) as exc:
+                raise ValueError("Allowed repository roots must exist") from exc
+            if not root.is_dir():
+                raise ValueError("Allowed repository roots must be directories")
+            if root not in roots:
+                roots.append(root)
+        if not roots:
+            raise ValueError("At least one allowed repository root must be configured")
+        return tuple(roots)
 
 
 @lru_cache

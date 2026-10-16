@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import io
+import json
 import os
 import subprocess
 from collections.abc import Iterator
@@ -15,6 +16,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import get_settings
 from app.context.packages import ContextPackageBuilder
 from app.db import Base, get_db
 from app.git.observer import GitObserver, _GitCommandError, _GitCommandResult
@@ -388,7 +390,13 @@ def test_git_observer_environment_does_not_inherit_git_selection_or_config(
 
 
 @pytest.fixture
-def fnd04_client() -> Iterator[tuple[TestClient, str, str, str]]:
+def fnd04_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[TestClient, str, str, str]]:
+    approved_root = tmp_path / "approved"
+    approved_root.mkdir()
+    monkeypatch.setenv("FORGE_ALLOWED_REPOSITORY_ROOTS", json.dumps([str(approved_root)]))
+    get_settings.cache_clear()
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -412,6 +420,7 @@ def fnd04_client() -> Iterator[tuple[TestClient, str, str, str]]:
         yield client, workspace["id"], project["id"], feature["id"]
     app.dependency_overrides.clear()
     engine.dispose()
+    get_settings.cache_clear()
 
 
 def test_fnd04_migration_models_exist() -> None:
@@ -428,7 +437,7 @@ def test_repository_observation_and_deterministic_package_lifecycle(
     fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
 ) -> None:
     client, workspace_id, project_id, feature_id = fnd04_client
-    root = make_repo(tmp_path / "forge local repo")
+    root = make_repo(tmp_path / "approved" / "forge local repo")
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
     connected = client.post(f"{base}/repositories", json={"root_path": str(root)})
     assert connected.status_code == 201
@@ -486,11 +495,26 @@ def test_repository_observation_and_deterministic_package_lifecycle(
     assert json_download.json()["schema"] == "forge-context-v1"
 
 
+def test_repository_connection_rejects_path_outside_approved_root(
+    fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
+) -> None:
+    client, workspace_id, project_id, _feature_id = fnd04_client
+    outside_repo = make_repo(tmp_path / "outside")
+    base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+
+    response = client.post(
+        f"{base}/repositories", json={"root_path": str(outside_repo)}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Repository path must be within an approved local root"
+
+
 def test_archived_project_keeps_reads_but_rejects_new_observations_and_packages(
     fnd04_client: tuple[TestClient, str, str, str], tmp_path: Path
 ) -> None:
     client, workspace_id, project_id, feature_id = fnd04_client
-    root = make_repo(tmp_path / "repo")
+    root = make_repo(tmp_path / "approved" / "repo")
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
     repository_id = client.post(f"{base}/repositories", json={"root_path": str(root)}).json()["id"]
     client.post(f"{base}/repositories/{repository_id}/observe")

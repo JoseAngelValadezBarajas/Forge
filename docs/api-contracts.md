@@ -47,7 +47,7 @@ Readiness outcomes are `READY_TO_START` or `NOT_READY`. R01 requires title and g
 
 ## Optional repositories and Context Packages
 
-- `GET|POST /api/workspaces/{workspace_id}/projects/{project_id}/repositories` lists or connects an absolute local Git working tree. Connection validates the repository without reading source content. Connections are project-scoped and duplicate roots return `409`.
+- `GET|POST /api/workspaces/{workspace_id}/projects/{project_id}/repositories` lists or connects an absolute local Git working tree beneath a configured approved root. Connection validates the repository without reading source content. Connections are project-scoped and duplicate roots return `409`.
 - `POST .../repositories/{repository_id}/observe` records one immutable, metadata-only Git observation. `GET .../repositories/{repository_id}/observations` reads its history. `POST .../repositories/{repository_id}/disconnect` marks a connection disconnected without deleting observations or packages.
 - `GET|POST .../features/{feature_id}/repositories` lists or links a repository to a Feature; `DELETE .../features/{feature_id}/repositories/{repository_id}` unlinks it. Cross-project links return `404`.
 - `POST .../features/{feature_id}/context/preview` builds a package without saving it. `GET|POST .../features/{feature_id}/context/packages` lists or immutably saves a `forge-context-v1` package. An identical Feature/schema/fingerprint is deduplicated. `GET .../context/packages/{package_id}` reads one snapshot and `/download?format=json|markdown` exports it.

@@ -1,5 +1,6 @@
 """Optional local repository application use cases."""
 
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.application.common.errors import EntityNotFound, InvalidInput, RevisionConflict
 from app.application.common.validation import now
 from app.application.planning import PlanningService
+from app.config import get_settings
 from app.git.observer import GitObservation, GitObserver
 from app.persistence.models import (
     FeatureModel,
@@ -55,7 +57,9 @@ class RepositoryService:
         self, workspace_id: str, project_id: str, root_path: str
     ) -> RepositoryConnectionModel:
         self.projects.writable_project(workspace_id, project_id)
-        resolved = self._normalized_path(root_path)
+        resolved = self._normalized_path(
+            root_path, get_settings().resolved_allowed_repository_roots
+        )
         observation = self.observer.observe(resolved)
         if observation.status != "ok":
             raise InvalidInput(self._connection_error(observation))
@@ -219,17 +223,27 @@ class RepositoryService:
         return feature
 
     @staticmethod
-    def _normalized_path(root_path: str) -> Path:
+    def _normalized_path(root_path: str, allowed_roots: tuple[Path, ...]) -> Path:
         value = root_path.strip()
         if not value:
             raise InvalidInput("Repository path is required")
-        path = Path(value).expanduser()
-        if not path.is_absolute():
+        supplied_path = Path(value).expanduser()
+        if not supplied_path.is_absolute():
             raise InvalidInput("Repository path must be absolute")
         try:
-            return path.resolve(strict=True)
-        except OSError as exc:
+            path = supplied_path.resolve(strict=True)
+        except (OSError, RuntimeError, ValueError) as exc:
             raise InvalidInput("Repository path does not exist") from exc
+
+        # Resolve both sides before checking the separator-delimited prefix so
+        # traversal and symlinks cannot escape a locally approved root.
+        normalized_path = os.path.normcase(str(path))
+        for allowed_root in allowed_roots:
+            normalized_root = os.path.normcase(str(allowed_root.resolve(strict=True)))
+            root_prefix = normalized_root.rstrip(os.sep) + os.sep
+            if normalized_path == normalized_root or normalized_path.startswith(root_prefix):
+                return path
+        raise InvalidInput("Repository path must be within an approved local root")
 
     @staticmethod
     def _connection_error(observation: GitObservation) -> str:
