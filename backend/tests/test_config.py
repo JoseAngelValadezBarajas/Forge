@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -30,3 +31,33 @@ def test_relative_sqlite_override_is_also_resolved_from_repository_root(
 
     assert settings.database_path == (repository_root / "custom" / "forge.db").resolve()
     assert settings.resolved_database_url == sqlite_url(repository_root / "custom" / "forge.db")
+
+
+def test_allowed_repository_roots_are_configurable_and_resolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approved_root = tmp_path / "approved"
+    approved_root.mkdir()
+    monkeypatch.setenv(
+        "FORGE_ALLOWED_REPOSITORY_ROOTS", json.dumps([str(approved_root)])
+    )
+
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.resolved_allowed_repository_roots == (approved_root.resolve(),)
+
+
+def test_default_repository_roots_are_bounded_to_local_trusted_directories() -> None:
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.resolved_allowed_repository_roots == (
+        Path.home().resolve(),
+        Path(__file__).resolve().parents[2],
+    )
+
+
+def test_allowed_repository_roots_must_be_absolute_directories() -> None:
+    settings = Settings(allowed_repository_roots=[Path(".")])
+
+    with pytest.raises(ValueError, match="must be absolute"):
+        _ = settings.resolved_allowed_repository_roots

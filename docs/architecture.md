@@ -172,3 +172,11 @@ To add a capability, place its UI, hooks, API contracts and domain-specific comp
 
 RFX-ORG-01 does not modularize global CSS, change backend services/routes or database schema, alter API behavior, introduce runtime dependencies, redesign screens, or begin RFX-ORG-02/RFX-ORG-03. Further CSS ownership or architecture evolution remains separately scoped.
 
+## Canonical backend application architecture (RFX-ORG-02)
+
+`backend/app/application/` is organized by use-case ownership. Shared application errors and normalization live in `common/`; Workspace, Project and planning operations live in `workspaces.py`, `projects.py` and `planning.py`. Run operations and output validation live under `runs/`; Handoff lifecycle operations and deterministic revision serialization live under `handoffs/`. Optional local repository operations and Context Package assembly are owned by `repositories.py` and `context_packages.py`. Decisions, Invariants, Readiness and Delivery retain their existing module boundaries.
+
+Application dependencies point inward to domain rules and persistence interfaces/models: application code may depend on `domain` and `persistence`, but `domain` and `persistence` do not depend on application or API modules. Application modules do not import FastAPI routes. New application code imports from the canonical owning module; `services.py`, the `runs` package entrypoint and `git_context.py` remain compatibility facades for existing API and external imports. Those facades re-export the same class and helper objects rather than defining duplicate behavior.
+
+`backend/architecture/check_application_boundaries.py` checks these layer rules, rejects imports of the compatibility facades from application implementations and reports application import cycles. Its isolated positive/negative tests run with `pytest`; GitHub Actions also runs the checker explicitly in the backend quality job. API route composition, request/response schemas, HTTP behavior, persistence models and migrations remain outside this refactor.
+

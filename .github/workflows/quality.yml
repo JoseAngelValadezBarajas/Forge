@@ -31,6 +31,8 @@ jobs:
         run: uv run alembic upgrade head
       - name: Lint
         run: uv run ruff check backend
+      - name: Application architecture boundaries
+        run: uv run python backend/architecture/check_application_boundaries.py
       - name: Type check
         run: uv run mypy backend
       - name: Unit tests

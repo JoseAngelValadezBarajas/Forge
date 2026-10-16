@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.application.services import EntityNotFound, InvalidInput
+from app.application.common.errors import EntityNotFound, InvalidInput
 from app.persistence.models import (
     ProjectModel,
     ReleaseCandidateModel,

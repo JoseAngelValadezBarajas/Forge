@@ -6,7 +6,7 @@ import re
 from typing import Any
 from urllib.parse import urlsplit
 
-from app.application.services import InvalidInput
+from app.application.common.errors import InvalidInput
 
 
 def _is_sha256(value: Any) -> bool:
