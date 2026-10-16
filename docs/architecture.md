@@ -77,3 +77,15 @@ The data model keeps `Workspace`, `Project`, planning records, `Repository` and 
 
 The frontend talks to the backend through the Vite `/api` proxy in development. It has no direct filesystem or Git access. Routing is local and uses React Router; the active workspace ID and theme are stored in browser local storage, while workspace/project truth stays in the backend SQLite database. Mutating API requests with an untrusted `Origin` are rejected; this is a localhost boundary, not an authentication system.
 
+### Frontend shell, routes and Command Palette (RFX-02B)
+
+`frontend/src/main.tsx` remains the Vite entrypoint and owns React root mounting, `BrowserRouter` and the global stylesheet. `frontend/src/app/App.tsx` owns the application shell, workspace initialization/selection, theme persistence, global keyboard shortcut and palette open/focus-restoration state. It composes the sidebar, route tree and Command Palette; feature page implementations and API contracts remain in their existing modules.
+
+`frontend/src/app/router.tsx` owns the existing 18 route declarations, their project/feature parameters, the nested Delivery path and the fallback route. It composes the current page exports from `pages.tsx`, `planning.tsx` and `fnd03.tsx`–`fnd06.tsx`; it does not own page data loading or change URL contracts.
+
+`frontend/src/app/command-palette/CommandPalette.tsx` owns the command list, project/feature-aware destination resolution, accessible dialog presentation, keyboard selection and local navigation. It receives close and workspace-change callbacks from the shell so focus restoration and workspace switching remain shell responsibilities. The palette does not call the backend directly.
+
+The dependency direction for this slice is `main.tsx → app/App.tsx → app/router.tsx → existing page modules`; `app/App.tsx` also composes the sidebar and Command Palette. Existing feature modules are not moved and continue to use the current flat API/UI modules. No compatibility `src/App.tsx` wrapper is retained because the entrypoint and tests import `app/App.tsx` directly.
+
+Later RFX-02 phases intentionally own feature-page decomposition, per-feature API/type boundaries, shared UI extraction, styling ownership and automated enforcement of module boundaries. This change adds no providers, state-management layer, runtime dependency, backend change or HTTP contract change.
+

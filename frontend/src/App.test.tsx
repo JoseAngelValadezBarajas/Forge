@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserRouter } from "react-router-dom";
 
-import App from "./App";
+import App from "./app/App";
 
 const workspaces = [
   { id: "ws-1", name: "Local Workspace", description: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
@@ -92,6 +92,48 @@ describe("Forge workspace and project shell", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     fireEvent.click(screen.getByRole("button", { name: "Light mode" }));
     expect(document.documentElement.dataset.theme).toBe("light");
+  });
+
+  it("directly resolves project and feature parameters for the context deep link", async () => {
+    window.history.pushState({}, "", "/projects/route-project/features/route-feature/context");
+    const requestedUrls: string[] = [];
+    vi.mocked(globalThis.fetch).mockImplementation((input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      return url.endsWith("/workspaces") ? jsonResponse([workspaces[0]]) : jsonResponse([]);
+    });
+
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Context package", level: 1 })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(requestedUrls).toEqual(expect.arrayContaining([
+        "/api/workspaces/ws-1/projects/route-project/repositories",
+        "/api/workspaces/ws-1/projects/route-project/features/route-feature/repositories",
+        "/api/workspaces/ws-1/projects/route-project/features/route-feature/context/packages",
+      ]));
+    });
+  });
+
+  it("directly resolves a nested Delivery route and its project parameter", async () => {
+    const project = {
+      id: "delivery-project", workspace_id: "ws-1", name: "Delivery route project", description: null,
+      status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null,
+    };
+    const requestedUrls: string[] = [];
+    window.history.pushState({}, "", "/projects/delivery-project/delivery/verifications/new");
+    vi.mocked(globalThis.fetch).mockImplementation((input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.endsWith("/workspaces")) return jsonResponse([workspaces[0]]);
+      if (url.endsWith("/projects/delivery-project")) return jsonResponse(project);
+      return jsonResponse([]);
+    });
+
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Verification center", level: 1 })).toBeInTheDocument();
+    expect(requestedUrls).toContain("/api/workspaces/ws-1/projects/delivery-project");
   });
 
   it("returns home and ignores an out-of-order project response after switching workspace", async () => {
