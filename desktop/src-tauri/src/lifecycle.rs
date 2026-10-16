@@ -339,10 +339,10 @@ impl DesktopRuntime {
             }
             requests.cancelled_before_start.clear();
         }
-        if let Some(sidecar) = sidecar {
-            if let Ok(mut process) = sidecar.lock() {
-                process.shutdown();
-            }
+        if let Some(sidecar) = sidecar
+            && let Ok(mut process) = sidecar.lock()
+        {
+            process.shutdown();
         }
         if let Ok(mut core) = self.core.lock() {
             core.sidecar = None;
@@ -467,10 +467,7 @@ impl DesktopRuntime {
             return Err("Forge startup was cancelled.");
         }
 
-        let port = match wait_ready_port(&sidecar, &receiver, &cancellation) {
-            Ok(port) => port,
-            Err(message) => return Err(message),
-        };
+        let port = wait_ready_port(&sidecar, &receiver, &cancellation)?;
         let session = Session::new(port, *secret);
         if !verify_authenticated_health(&session, cancellation.clone()) {
             return Err("Forge local service readiness verification failed.");
@@ -497,10 +494,10 @@ impl DesktopRuntime {
             }
             sidecar
         };
-        if let Some(sidecar) = sidecar {
-            if let Ok(mut process) = sidecar.lock() {
-                process.shutdown();
-            }
+        if let Some(sidecar) = sidecar
+            && let Ok(mut process) = sidecar.lock()
+        {
+            process.shutdown();
         }
     }
 }
@@ -685,13 +682,12 @@ fn verify_authenticated_health(session: &Session, cancellation: CancellationToke
             };
             if let Ok(response) = result {
                 if response.status().as_u16() == 200 {
-                    if let Ok(payload) = response.json::<serde_json::Value>().await {
-                        if payload.get("status").and_then(|value| value.as_str()) == Some("ok")
-                            && payload.get("service").and_then(|value| value.as_str())
-                                == Some("Forge")
-                        {
-                            return true;
-                        }
+                    if let Ok(payload) = response.json::<serde_json::Value>().await
+                        && payload.get("status").and_then(|value| value.as_str()) == Some("ok")
+                        && payload.get("service").and_then(|value| value.as_str())
+                            == Some("Forge")
+                    {
+                        return true;
                     }
                     return false;
                 }
