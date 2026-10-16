@@ -12,6 +12,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import { downloadFile, request } from "./client";
 import { ApiError } from "./errors";
+import { desktopApiFetch } from "./desktopTransport";
 
 function desktopResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
   return {
@@ -20,6 +21,29 @@ function desktopResponse(status: number, body: unknown, headers: Record<string, 
     contentDisposition: headers["content-disposition"] ?? null,
     bodyBase64: btoa(JSON.stringify(body)),
   };
+}
+
+async function captureDownloadedFilename(contentDisposition: string | null, fallback = "fallback.txt") {
+  vi.useFakeTimers();
+  invokeMock.mockResolvedValue({
+    status: 200,
+    contentType: "application/octet-stream",
+    contentDisposition,
+    bodyBase64: btoa("download bytes"),
+  });
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:forge-test") });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  let downloadedName = "";
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+    downloadedName = this.download;
+  });
+  try {
+    await downloadFile("/api/export", fallback);
+    return downloadedName;
+  } finally {
+    click.mockRestore();
+    vi.runOnlyPendingTimers();
+  }
 }
 
 beforeEach(() => {
@@ -55,6 +79,16 @@ describe("desktop API transport", () => {
     invokeMock.mockResolvedValue(desktopResponse(409, { detail: "Workspace conflict" }));
 
     await expect(request("/workspaces")).rejects.toEqual(new ApiError(409, "Workspace conflict"));
+  });
+
+  test("formats validation error arrays without losing the backend status", async () => {
+    invokeMock.mockResolvedValue(desktopResponse(422, {
+      detail: [{ msg: "name is required" }, { msg: "project is invalid" }],
+    }));
+
+    await expect(request("/workspaces")).rejects.toEqual(
+      new ApiError(422, "name is required; project is invalid"),
+    );
   });
 
   test("preserves no-content responses", async () => {
@@ -120,5 +154,72 @@ describe("desktop API transport", () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:forge-test");
     click.mockRestore();
     vi.useRealTimers();
+  });
+
+  test("uses the fallback filename when Content-Disposition is absent or has no filename", async () => {
+    await expect(captureDownloadedFilename(null)).resolves.toBe("fallback.txt");
+    await expect(captureDownloadedFilename("attachment")).resolves.toBe("fallback.txt");
+  });
+
+  test("decodes RFC 5987 filenames and sanitizes reserved Windows filenames", async () => {
+    await expect(captureDownloadedFilename("attachment; filename*=UTF-8''caf%C3%A9.txt"))
+      .resolves.toBe("café.txt");
+    await expect(captureDownloadedFilename('attachment; filename="CON.txt"'))
+      .resolves.toBe("_CON.txt");
+    await expect(captureDownloadedFilename('attachment; filename="report?.txt"'))
+      .resolves.toBe("report_.txt");
+  });
+
+  test("falls back for empty and dot-only filenames and bounds long names", async () => {
+    for (const filename of ["", ".", ".."]) {
+      await expect(captureDownloadedFilename(`attachment; filename="${filename}"`))
+        .resolves.toBe("fallback.txt");
+    }
+    await expect(captureDownloadedFilename(`attachment; filename=${"a".repeat(200)}`))
+      .resolves.toHaveLength(180);
+  });
+
+  test("preserves download error status and backend detail", async () => {
+    invokeMock.mockResolvedValue(desktopResponse(404, { detail: "Export was not found" }));
+
+    await expect(downloadFile("/api/export")).rejects.toEqual(
+      new ApiError(404, "Export was not found"),
+    );
+  });
+
+  test("rejects direct desktop transport outside Tauri", async () => {
+    isTauriMock.mockReturnValue(false);
+
+    await expect(desktopApiFetch("/api/workspaces")).rejects.toThrow(
+      "Desktop API transport is only available in Forge Desktop.",
+    );
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects an already-aborted desktop request before invoking Rust", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(desktopApiFetch("/api/workspaces", { signal: controller.signal }))
+      .rejects.toMatchObject({ name: "AbortError" });
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects non-JSON desktop request bodies", async () => {
+    await expect(desktopApiFetch("/api/workspaces", { body: new Blob(["not JSON"]) }))
+      .rejects.toThrow("Forge Desktop API requests must use a JSON string body.");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  test("does not invoke Rust if the signal aborts before IPC dispatch", async () => {
+    const signal = {
+      aborted: false,
+      addEventListener() { this.aborted = true; },
+      removeEventListener: vi.fn(),
+    } as unknown as AbortSignal;
+
+    await expect(desktopApiFetch("/api/workspaces", { signal }))
+      .rejects.toMatchObject({ name: "AbortError" });
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

@@ -57,7 +57,11 @@ jobs:
           rustup toolchain install 1.99.1-x86_64-pc-windows-msvc --profile minimal --component rustfmt --component clippy
           rustup target add x86_64-pc-windows-msvc --toolchain 1.99.1-x86_64-pc-windows-msvc
           rustup show active-toolchain
-          cl.exe /Bv
+          $probeSource = Join-Path $env:RUNNER_TEMP "forge-msvc-probe.c"
+          $probeObject = Join-Path $env:RUNNER_TEMP "forge-msvc-probe.obj"
+          Set-Content -LiteralPath $probeSource -Value "int forge_msvc_probe(void) { return 0; }" -Encoding ascii
+          cl.exe /Bv /nologo /c $probeSource "/Fo$probeObject"
+          if ($LASTEXITCODE -ne 0) { throw "MSVC compiler probe failed." }
 
       - name: Ensure NSIS is available
         shell: pwsh
@@ -126,7 +130,7 @@ jobs:
             ${{ runner.temp }}/forge-desktop-evidence/*.png
 
       - name: Export Cargo lockfile for bootstrap review
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: forge-desktop-cargo-lock-${{ github.sha }}
