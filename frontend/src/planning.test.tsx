@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserRouter, MemoryRouter, Route, Routes } from "react-router-dom";
 
-import App from "./App";
+import App from "./app/App";
 import { FeatureDetailPage } from "./planning";
 
 const workspace = { id: "ws-1", name: "Local Workspace", description: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
