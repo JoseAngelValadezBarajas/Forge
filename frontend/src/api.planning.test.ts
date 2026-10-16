@@ -1,0 +1,24 @@
+import { forgeApi } from "./api";
+import { characterizeApiContracts, jsonBody, signal } from "./test/api-contract-harness";
+
+characterizeApiContracts("planning", [
+  { name: "listEpics forwards cancellation", invoke: () => forgeApi.listEpics("w1", "p1", signal), url: "/api/workspaces/w1/projects/p1/epics", signal },
+  { name: "createEpic posts its request DTO", invoke: () => forgeApi.createEpic("w1", "p1", { title: "Foundation", description: "Setup" }), url: "/api/workspaces/w1/projects/p1/epics", method: "POST", body: jsonBody({ title: "Foundation", description: "Setup" }) },
+  { name: "updateEpic patches status and content", invoke: () => forgeApi.updateEpic("w1", "p1", "e1", { title: "Updated", status: "archived" }), url: "/api/workspaces/w1/projects/p1/epics/e1", method: "PATCH", body: jsonBody({ title: "Updated", status: "archived" }) },
+  { name: "listFeatures serializes trimmed filters in API order", invoke: () => forgeApi.listFeatures("w1", "p1", { search: "  polish & ship ", status: "ready", priority: "high", epicId: "e 1" }, signal), url: "/api/workspaces/w1/projects/p1/features?search=polish+%26+ship&status=ready&priority=high&epic_id=e+1", signal },
+  { name: "listFeatures omits an empty query suffix by default", invoke: () => forgeApi.listFeatures("w1", "p1"), url: "/api/workspaces/w1/projects/p1/features" },
+  { name: "createFeature serializes optional planning fields", invoke: () => forgeApi.createFeature("w1", "p1", { title: "Search", goal: "Find work", priority: "critical", epic_id: "e1" }), url: "/api/workspaces/w1/projects/p1/features", method: "POST", body: jsonBody({ title: "Search", goal: "Find work", priority: "critical", epic_id: "e1" }) },
+  { name: "getFeature forwards cancellation", invoke: () => forgeApi.getFeature("w1", "p1", "f1", signal), url: "/api/workspaces/w1/projects/p1/features/f1", signal },
+  { name: "updateFeature preserves explicit false and clear_epic", invoke: () => forgeApi.updateFeature("w1", "p1", "f1", { clear_epic: false, status: "in_progress" }), url: "/api/workspaces/w1/projects/p1/features/f1", method: "PATCH", body: jsonBody({ clear_epic: false, status: "in_progress" }) },
+  { name: "listTasks forwards cancellation", invoke: () => forgeApi.listTasks("w1", "p1", "f1", signal), url: "/api/workspaces/w1/projects/p1/features/f1/tasks", signal },
+  { name: "createTask serializes position and status", invoke: () => forgeApi.createTask("w1", "p1", "f1", { title: "Implement", status: "todo", position: 2 }), url: "/api/workspaces/w1/projects/p1/features/f1/tasks", method: "POST", body: jsonBody({ title: "Implement", status: "todo", position: 2 }) },
+  { name: "updateTask addresses the selected task", invoke: () => forgeApi.updateTask("w1", "p1", "f1", "t1", { status: "done" }), url: "/api/workspaces/w1/projects/p1/features/f1/tasks/t1", method: "PATCH", body: jsonBody({ status: "done" }) },
+  { name: "reorderTasks posts IDs as an object", invoke: () => forgeApi.reorderTasks("w1", "p1", "f1", ["t2", "t1"]), url: "/api/workspaces/w1/projects/p1/features/f1/tasks/reorder", method: "POST", body: jsonBody({ ids: ["t2", "t1"] }) },
+  { name: "listCriteria forwards cancellation", invoke: () => forgeApi.listCriteria("w1", "p1", "f1", signal), url: "/api/workspaces/w1/projects/p1/features/f1/acceptance-criteria", signal },
+  { name: "createCriterion preserves false satisfaction", invoke: () => forgeApi.createCriterion("w1", "p1", "f1", { description: "Visible", satisfied: false, position: 0 }), url: "/api/workspaces/w1/projects/p1/features/f1/acceptance-criteria", method: "POST", body: jsonBody({ description: "Visible", satisfied: false, position: 0 }) },
+  { name: "updateCriterion patches the addressed criterion", invoke: () => forgeApi.updateCriterion("w1", "p1", "f1", "c1", { description: "Verified" }), url: "/api/workspaces/w1/projects/p1/features/f1/acceptance-criteria/c1", method: "PATCH", body: jsonBody({ description: "Verified" }) },
+  { name: "reorderCriteria posts the ordered IDs", invoke: () => forgeApi.reorderCriteria("w1", "p1", "f1", ["c2", "c1"]), url: "/api/workspaces/w1/projects/p1/features/f1/acceptance-criteria/reorder", method: "POST", body: jsonBody({ ids: ["c2", "c1"] }) },
+  { name: "listDependencies forwards cancellation", invoke: () => forgeApi.listDependencies("w1", "p1", signal), url: "/api/workspaces/w1/projects/p1/dependencies", signal },
+  { name: "createDependency serializes blocking direction", invoke: () => forgeApi.createDependency("w1", "p1", { blocking_feature_id: "f1", blocked_feature_id: "f2" }), url: "/api/workspaces/w1/projects/p1/dependencies", method: "POST", body: jsonBody({ blocking_feature_id: "f1", blocked_feature_id: "f2" }) },
+  { name: "deleteDependency uses DELETE without a body", invoke: () => forgeApi.deleteDependency("w1", "p1", "d1"), url: "/api/workspaces/w1/projects/p1/dependencies/d1", method: "DELETE" },
+]);
