@@ -231,7 +231,6 @@ class RepositoryService:
         """Normalize and validate a user-supplied repository path.
 
         Security notes:
-        - The function requires an absolute path and strictly resolves symlinks (Path.resolve(strict=True)).
         - It checks the resolved path against the configured allowed_roots using
           a separator-delimited prefix check so that traversal or symlink escape is
           rejected (prevents paths like "../outside" or symlinks that resolve outside
