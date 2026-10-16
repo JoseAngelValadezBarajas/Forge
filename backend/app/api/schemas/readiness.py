@@ -1,19 +1,19 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ReadinessReference(BaseModel):
     kind: str
     id: str
-    label: str | None = None
+    label: str | None
 
 
 class ReadinessBlocker(BaseModel):
     code: str
     message: str
-    references: list[ReadinessReference] = Field(default_factory=list)
+    references: list[ReadinessReference]
 
 
 class ReadinessRuleResult(BaseModel):
@@ -21,8 +21,8 @@ class ReadinessRuleResult(BaseModel):
     rule_version: str
     result: Literal["passed", "failed"]
     explanation: str
-    blockers: list[ReadinessBlocker] = Field(default_factory=list)
-    references: list[ReadinessReference] = Field(default_factory=list)
+    blockers: list[ReadinessBlocker]
+    references: list[ReadinessReference]
 
 
 class ReadinessEvaluationResponse(BaseModel):
@@ -36,4 +36,4 @@ class ReadinessEvaluationResponse(BaseModel):
     failed_checks: list[str]
     blockers: list[ReadinessBlocker]
     results: list[ReadinessRuleResult]
-    stale: bool = False
+    stale: bool

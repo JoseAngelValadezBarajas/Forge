@@ -1,0 +1,66 @@
+{
+  "required_additions": {
+    "GateEvaluationResponse": ["id", "project_id", "candidate_revision", "stored_result", "evaluated_at", "stale"],
+    "HandoffResponse": ["published_revision", "acknowledgement", "acknowledgements"],
+    "ReadinessBlocker": ["references"],
+    "ReadinessEvaluationResponse": ["stale"],
+    "ReadinessReference": ["label"],
+    "ReadinessRuleResult": ["blockers", "references"],
+    "VerificationResponse": ["id", "project_id", "feature_id", "evaluated_at", "stale"]
+  },
+  "required_order_overrides": {
+    "GateEvaluationResponse": ["id", "project_id", "candidate_id", "candidate_revision", "ruleset_version", "input_fingerprint", "result", "stored_result", "checks", "limitations", "manifest", "manifest_fingerprint", "evaluated_at", "stale"],
+    "VerificationResponse": ["id", "project_id", "feature_id", "rule_id", "rule_version", "subject", "inputs", "input_fingerprint", "result", "findings", "limitations", "evidence_ids", "verifier_version", "evaluated_at", "stale"]
+  },
+  "remove_defaults": {
+    "GateEvaluationResponse": ["stale"],
+    "ReadinessEvaluationResponse": ["stale"],
+    "VerificationResponse": ["stale"]
+  },
+  "property_replacements": {
+    "CandidateResponse": {
+      "selection": {"$ref": "#/components/schemas/CandidateSelectionResponse"}
+    },
+    "GateEvaluationResponse": {
+      "project_id": {"title": "Project Id", "type": "string"}
+    },
+    "VerificationResponse": {
+      "project_id": {"title": "Project Id", "type": "string"},
+      "rule_id": {"enum": ["V01", "V02", "V03", "V04"], "title": "Rule Id", "type": "string"}
+    }
+  },
+  "components": {
+    "CandidateSelectionResponse": {
+      "properties": {
+        "feature_ids": {"items": {"type": "string"}, "title": "Feature Ids", "type": "array"},
+        "context_package_ids": {"items": {"type": "string"}, "title": "Context Package Ids", "type": "array"},
+        "evidence_ids": {"items": {"type": "string"}, "title": "Evidence Ids", "type": "array"},
+        "verification_ids": {"items": {"type": "string"}, "title": "Verification Ids", "type": "array"},
+        "handoff_revision_ids": {"items": {"type": "string"}, "title": "Handoff Revision Ids", "type": "array"}
+      },
+      "required": ["feature_ids", "context_package_ids", "evidence_ids", "verification_ids", "handoff_revision_ids"],
+      "title": "CandidateSelectionResponse",
+      "type": "object"
+    },
+    "VerificationRuleResponse": {
+      "properties": {
+        "available": {"title": "Available", "type": "boolean"},
+        "limitation": {"title": "Limitation", "type": "string"},
+        "required_inputs": {"items": {"type": "string"}, "title": "Required Inputs", "type": "array"},
+        "rule_id": {"enum": ["V01", "V02", "V03", "V04"], "title": "Rule Id", "type": "string"},
+        "title": {"title": "Title", "type": "string"},
+        "version": {"title": "Version", "type": "string"}
+      },
+      "required": ["rule_id", "version", "title", "available", "required_inputs", "limitation"],
+      "title": "VerificationRuleResponse",
+      "type": "object"
+    }
+  },
+  "response_schema_replacements": {
+    "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/rules#get#200": {
+      "items": {"$ref": "#/components/schemas/VerificationRuleResponse"},
+      "title": "Response List Verification Rules Api Workspaces  Workspace Id  Projects  Project Id  Verifications Rules Get",
+      "type": "array"
+    }
+  }
+}

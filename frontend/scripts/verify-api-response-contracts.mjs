@@ -1,17 +1,81 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { readFileSync, readdirSync, mkdtempSync, rmSync } from "node:fs";
 import { Console } from "node:console";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import ts from "typescript";
+import {
+  checkSuccessResponses,
+  compareRequestTypes,
+  matchOpenApiRoute,
+  normalizeOpenApiSchema,
+  normalizeTypeScriptExpression,
+  normalizeTypeScriptNode,
+} from "./api-contract-verifier.mjs";
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = path.resolve(frontendRoot, "..");
+const backendRoot = path.join(repositoryRoot, "backend");
 const logger = new Console({ stdout: process.stdout, stderr: process.stderr });
-const openApiPath = path.join(repositoryRoot, "backend/tests/fixtures/rfx01b-openapi-baseline.json");
-const openApi = JSON.parse(readFileSync(openApiPath, "utf8"));
 const baselinePath = path.join(frontendRoot, "tests/fixtures/rfx02d-api-response-baseline.json");
 const baselineSnapshot = JSON.parse(readFileSync(baselinePath, "utf8"));
+const correctionsPath = path.join(frontendRoot, "tests/fixtures/rfx-org-03a-contract-corrections.json");
+const corrections = JSON.parse(readFileSync(correctionsPath, "utf8"));
+
+function generateCurrentOpenApi() {
+  const isolatedDirectory = mkdtempSync(path.join(os.tmpdir(), "forge-openapi-contract-"));
+  const isolatedDatabase = path.join(isolatedDirectory, "openapi.db").replaceAll("\\", "/");
+  const python = "import json; from app.main import app; print(json.dumps(app.openapi(), separators=(',', ':')))";
+  try {
+    const result = spawnSync(
+      process.platform === "win32" ? "uv.exe" : "uv",
+      ["run", "--locked", "--project", backendRoot, "python", "-c", python],
+      {
+        cwd: backendRoot,
+        encoding: "utf8",
+        env: { ...process.env, FORGE_DATABASE_URL: `sqlite:///${isolatedDatabase}`, FORGE_ENVIRONMENT: "test" },
+        maxBuffer: 16 * 1024 * 1024,
+      },
+    );
+    if (result.error) throw new Error(`Could not start isolated OpenAPI generation: ${result.error.message}`);
+    if (result.status !== 0) {
+      throw new Error(`Isolated OpenAPI generation failed (${result.status}): ${result.stderr.trim()}`);
+    }
+    try {
+      return JSON.parse(result.stdout.trim());
+    } catch (error) {
+      throw new Error(`Isolated OpenAPI generation returned invalid JSON: ${String(error)}`, { cause: error });
+    }
+  } finally {
+    rmSync(isolatedDirectory, { recursive: true, force: true });
+  }
+}
+
+function sourceFiles(directory) {
+  const result = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const filename = path.join(directory, entry.name);
+    if (entry.isDirectory()) result.push(...sourceFiles(filename));
+    else if (filename.endsWith(".ts") && !filename.endsWith(".d.ts")) result.push(filename);
+  }
+  return result;
+}
+
+const configPath = path.join(frontendRoot, "tsconfig.app.json");
+const configRead = ts.readConfigFile(configPath, ts.sys.readFile);
+if (configRead.error) throw new Error(ts.flattenDiagnosticMessageText(configRead.error.messageText, "\n"));
+const parsedConfig = ts.parseJsonConfigFileContent(configRead.config, ts.sys, frontendRoot, undefined, configPath);
+const program = ts.createProgram({ rootNames: parsedConfig.fileNames, options: parsedConfig.options });
+const checker = program.getTypeChecker();
+const openApi = generateCurrentOpenApi();
+
+function identifierPropertyName(property) {
+  return property.name && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) || ts.isNumericLiteral(property.name))
+    ? property.name.text
+    : undefined;
+}
 
 function apiObject(sourceFile, variableName) {
   const declaration = sourceFile.statements
@@ -20,12 +84,6 @@ function apiObject(sourceFile, variableName) {
     .find((item) => ts.isIdentifier(item.name) && item.name.text === variableName);
   return declaration?.initializer && ts.isObjectLiteralExpression(declaration.initializer)
     ? declaration.initializer
-    : undefined;
-}
-
-function propertyName(property) {
-  return property.name && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
-    ? property.name.text
     : undefined;
 }
 
@@ -54,75 +112,96 @@ function routePattern(argument) {
   return pattern.split("?")[0];
 }
 
+function requestBodyNode(call) {
+  const options = call.arguments[1];
+  if (!options || !ts.isObjectLiteralExpression(options)) return undefined;
+  const body = options.properties.find((item) => identifierPropertyName(item) === "body");
+  if (!body || !ts.isPropertyAssignment(body) || !ts.isCallExpression(body.initializer)) return undefined;
+  const serializer = body.initializer;
+  if (!ts.isPropertyAccessExpression(serializer.expression) || serializer.expression.name.text !== "stringify") return undefined;
+  return serializer.arguments[0];
+}
+
+function literalArgument(node) {
+  return node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : undefined;
+}
+
+function queryTypeNodes(methodNode) {
+  const result = new Map();
+  function add(name, value) {
+    if (name && value) result.set(name, value);
+  }
+  function visit(node) {
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "URLSearchParams") {
+      const input = node.arguments?.[0];
+      if (input && ts.isObjectLiteralExpression(input)) {
+        for (const item of input.properties) {
+          if (ts.isPropertyAssignment(item)) add(identifierPropertyName(item), item.initializer);
+        }
+      }
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const method = node.expression.name.text;
+      const name = literalArgument(node.arguments[0]);
+      if ((method === "set" || method === "append") && name && node.arguments[1]) add(name, node.arguments[1]);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(methodNode);
+  return result;
+}
+
 function apiMethods(sourceFile, objectName) {
   const object = apiObject(sourceFile, objectName);
   if (!object) return new Map();
   const result = new Map();
   for (const property of object.properties) {
-    const name = propertyName(property);
+    const name = identifierPropertyName(property);
     if (!name) continue;
     const call = findRequestCall(property);
-    if (!call?.typeArguments?.[0] || !call.arguments[0] || !ts.isObjectLiteralExpression(call.arguments[1] ?? ts.factory.createObjectLiteralExpression())) {
-      if (!call?.typeArguments?.[0] || !call.arguments[0]) throw new Error(`Missing typed request call for ${name}`);
-    }
-    const pathPattern = routePattern(call.arguments[0]);
+    if (!call?.typeArguments?.[0] || !call.arguments[0]) throw new Error(`Missing typed request call for ${name}`);
     const options = call.arguments[1] && ts.isObjectLiteralExpression(call.arguments[1]) ? call.arguments[1] : undefined;
-    const methodProperty = options?.properties.find((item) => propertyName(item) === "method");
+    const methodProperty = options?.properties.find((item) => identifierPropertyName(item) === "method");
     const method = methodProperty && ts.isPropertyAssignment(methodProperty) && ts.isStringLiteral(methodProperty.initializer)
       ? methodProperty.initializer.text.toLowerCase()
       : "get";
-    result.set(name, { path: `/api${pathPattern}`, method, responseType: call.typeArguments[0] });
+    result.set(name, {
+      path: `/api${routePattern(call.arguments[0])}`,
+      method,
+      responseTypeNode: call.typeArguments[0],
+      bodyTypeNode: requestBodyNode(call),
+      queryTypeNodes: queryTypeNodes(property),
+    });
   }
   return result;
 }
 
-function findFeatureModules(directory) {
-  const result = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) result.push(...findFeatureModules(entryPath));
-    else if (entry.name === "index.ts" && path.basename(directory) === "api") result.push(entryPath);
-  }
-  return result;
+function findFeatureApiFiles() {
+  return sourceFiles(path.join(frontendRoot, "src/features"))
+    .filter((filename) => path.basename(filename) === "index.ts" && path.basename(path.dirname(filename)) === "api");
 }
 
 const currentMethods = new Map();
-const currentTypeAliases = new Map();
-for (const modulePath of findFeatureModules(path.join(frontendRoot, "src/features"))) {
-  const sourceFile = ts.createSourceFile(modulePath, readFileSync(modulePath, "utf8"), ts.ScriptTarget.Latest, true);
+for (const filename of findFeatureApiFiles()) {
+  const sourceFile = program.getSourceFile(filename);
+  if (!sourceFile) throw new Error(`TypeScript program did not load ${filename}`);
   const apiVariable = sourceFile.statements
     .filter(ts.isVariableStatement)
     .flatMap((statement) => statement.declarationList.declarations)
     .find((item) => ts.isIdentifier(item.name) && item.name.text.endsWith("Api"));
-  if (!apiVariable || !ts.isIdentifier(apiVariable.name)) throw new Error(`Missing API object in ${modulePath}`);
-  for (const [name, operation] of apiMethods(sourceFile, apiVariable.name.text)) currentMethods.set(name, operation);
-
-  const contractPath = path.join(path.dirname(modulePath), "contracts.ts");
-  const contracts = ts.createSourceFile(contractPath, readFileSync(contractPath, "utf8"), ts.ScriptTarget.Latest, true);
-  for (const declaration of contracts.statements.filter(ts.isTypeAliasDeclaration)) {
-    currentTypeAliases.set(declaration.name.text, declaration);
+  if (!apiVariable || !ts.isIdentifier(apiVariable.name)) throw new Error(`Missing API object in ${filename}`);
+  for (const [name, operation] of apiMethods(sourceFile, apiVariable.name.text)) {
+    if (currentMethods.has(name)) throw new Error(`Duplicate frontend API operation ${name}`);
+    currentMethods.set(name, operation);
   }
 }
 
-function matchingRoute(pathPattern, method) {
-  const expected = pathPattern.split("/");
-  return Object.entries(openApi.paths).find(([template]) => {
-    const actual = template.split("/");
-    return actual.length === expected.length && actual.every((segment, index) =>
-      (segment.startsWith("{") && segment.endsWith("}")) || segment === expected[index] ||
-      (expected[index].startsWith("{") && expected[index].endsWith("}")),
-    ) && Boolean(openApi.paths[template][method]);
-  });
-}
-
 function objectProperty(object, name) {
-  return object.properties.find((property) => propertyName(property) === name);
+  return object.properties.find((property) => identifierPropertyName(property) === name);
 }
 
 function literalString(property) {
-  return property && ts.isPropertyAssignment(property) && ts.isStringLiteral(property.initializer)
-    ? property.initializer.text
-    : undefined;
+  return property && ts.isPropertyAssignment(property) ? literalArgument(property.initializer) : undefined;
 }
 
 function serializedBodyFields(property) {
@@ -132,7 +211,7 @@ function serializedBodyFields(property) {
   const fields = [];
   for (const member of call.arguments[0].properties) {
     if (!ts.isPropertyAssignment(member)) throw new Error(`Unsupported body fixture expression: ${member.getText()}`);
-    if (member.initializer.getText() !== "undefined") fields.push(propertyName(member));
+    if (member.initializer.getText() !== "undefined") fields.push(identifierPropertyName(member));
   }
   return fields;
 }
@@ -142,7 +221,7 @@ function readRequestContractCases() {
   const result = [];
   for (const filename of readdirSync(sourceDirectory).filter((name) => /^api\..*\.test\.ts$/.test(name))) {
     const filePath = path.join(sourceDirectory, filename);
-    const source = ts.createSourceFile(filePath, readFileSync(filePath, "utf8"), ts.ScriptTarget.Latest, true);
+    const source = program.getSourceFile(filePath) ?? ts.createSourceFile(filePath, readFileSync(filePath, "utf8"), ts.ScriptTarget.Latest, true);
     function visit(node) {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "characterizeApiContracts") {
         const cases = node.arguments[1];
@@ -164,173 +243,181 @@ function readRequestContractCases() {
   return result;
 }
 
-function verifyRequestContracts(cases) {
+function pathMatchesOperation(concretePath, pathPattern) {
+  const concrete = concretePath.split("/");
+  const expected = pathPattern.split("/");
+  return concrete.length === expected.length && expected.every((segment, index) =>
+    /^\{[^{}]+\}$/.test(segment) || segment === concrete[index],
+  );
+}
+
+function requestContractFailures(cases) {
   const failures = [];
+  const seenNames = new Set();
   for (const contract of cases) {
-    const [pathPattern, query = ""] = contract.url.split("?", 2);
-    const route = matchingRoute(pathPattern, contract.method);
-    const operation = route?.[1][contract.method];
-    if (!operation) {
-      failures.push(`${contract.name}: ${contract.method.toUpperCase()} ${pathPattern} is absent from backend OpenAPI`);
+    const current = currentMethods.get(contract.name);
+    if (!current) {
+      failures.push(`${contract.name}: characterized request has no frontend API method`);
       continue;
     }
-    if (!Object.keys(operation.responses ?? {}).some((status) => status.startsWith("2"))) {
-      failures.push(`${contract.name}: backend operation has no successful response`);
+    seenNames.add(contract.name);
+    const [pathPattern, query = ""] = contract.url.split("?", 2);
+    if (contract.method !== current.method) failures.push(`${contract.name}: fixture method ${contract.method} differs from API method ${current.method}`);
+    if (!pathMatchesOperation(pathPattern, current.path)) failures.push(`${contract.name}: fixture path ${pathPattern} does not match API path ${current.path}`);
+
+    const route = matchOpenApiRoute(current.path, current.method, openApi.paths);
+    const operation = route?.[1][current.method];
+    if (!operation) {
+      failures.push(`${contract.name}: no ${current.method.toUpperCase()} ${current.path} in current backend OpenAPI`);
+      continue;
     }
-    const queryParameters = new Set((operation.parameters ?? [])
-      .filter((parameter) => parameter.in === "query")
-      .map((parameter) => parameter.name));
-    for (const name of new URLSearchParams(query).keys()) {
-      if (!queryParameters.has(name)) failures.push(`${contract.name}: query parameter ${name} is absent from backend OpenAPI`);
+    const parameters = (operation.parameters ?? []).filter((parameter) => parameter.in === "query");
+    const parametersByName = new Map(parameters.map((parameter) => [parameter.name, parameter]));
+    const fixtureQueryNames = new Set([...new URLSearchParams(query).keys()]);
+    for (const name of fixtureQueryNames) {
+      if (!parametersByName.has(name)) failures.push(`${contract.name}: query parameter ${name} is absent from backend OpenAPI`);
     }
-    if (contract.bodyFields) {
-      const requestSchema = resolveOpenApiSchema(operation.requestBody?.content?.["application/json"]?.schema);
-      if (!requestSchema) {
-        failures.push(`${contract.name}: JSON request body is absent from backend OpenAPI`);
-        continue;
+    for (const parameter of parameters) {
+      const valueNode = current.queryTypeNodes.get(parameter.name);
+      if (parameter.required && !valueNode) failures.push(`${contract.name}: required query parameter ${parameter.name} is not supplied by the frontend API`);
+      if (valueNode) {
+        try {
+          const frontend = normalizeTypeScriptExpression(valueNode, checker);
+          const backend = normalizeOpenApiSchema(parameter.schema, openApi.components?.schemas ?? {});
+          const diffs = compareRequestTypes(frontend, backend);
+          for (const diff of diffs) failures.push(`${contract.name}: query ${parameter.name} ${diff}`);
+        } catch (error) {
+          failures.push(`${contract.name}: query ${parameter.name} could not be verified: ${String(error)}`);
+        }
       }
-      const properties = new Set(Object.keys(requestSchema.properties ?? {}));
-      const required = new Set(requestSchema.required ?? []);
-      for (const field of contract.bodyFields) {
-        if (!properties.has(field)) failures.push(`${contract.name}: request field ${field} is absent from backend OpenAPI`);
+    }
+
+    if (current.bodyTypeNode) {
+      try {
+        const schema = operation.requestBody?.content?.["application/json"]?.schema;
+        if (!schema) {
+          failures.push(`${contract.name}: frontend serializes a JSON body but backend OpenAPI has none`);
+        } else {
+          const frontend = normalizeTypeScriptExpression(current.bodyTypeNode, checker);
+          const backend = normalizeOpenApiSchema(schema, openApi.components?.schemas ?? {});
+          for (const diff of compareRequestTypes(frontend, backend)) failures.push(`${contract.name}: request body ${diff}`);
+          const required = new Set(backendRequiredFields(schema, openApi.components?.schemas ?? {}));
+          for (const field of required) {
+            if (contract.bodyFields && !contract.bodyFields.includes(field)) failures.push(`${contract.name}: required request field ${field} is absent from its characterization fixture`);
+          }
+          for (const field of contract.bodyFields ?? []) {
+            if (!Object.hasOwn(backend.properties ?? {}, field) && backend.additionalProperties?.kind !== "unknown") {
+              failures.push(`${contract.name}: fixture request field ${field} is absent from backend OpenAPI`);
+            }
+          }
+        }
+      } catch (error) {
+        failures.push(`${contract.name}: request body schema could not be verified: ${String(error)}`);
       }
-      for (const field of required) {
-        if (!contract.bodyFields.includes(field)) failures.push(`${contract.name}: required request field ${field} is absent from its fixture`);
-      }
+    } else if (contract.bodyFields?.length) {
+      failures.push(`${contract.name}: characterization sends a body but the API method does not serialize one`);
     }
   }
-  const methodNames = new Set(cases.map(({ name }) => name));
-  if (methodNames.size !== 94) failures.push(`characterized operation count is ${methodNames.size}, expected 94`);
-  for (const failure of failures) logger.error(`- ${failure}`);
-  if (failures.length) process.exit(1);
-  logger.log(`Request contracts checked: ${methodNames.size}/94 operations against backend routes, methods, query parameters and request DTO fields.`);
+  if (seenNames.size !== 94 || currentMethods.size !== 94) {
+    failures.push(`operation count mismatch: characterized=${seenNames.size}, frontend=${currentMethods.size}, expected=94`);
+  }
+  for (const name of currentMethods.keys()) if (!seenNames.has(name)) failures.push(`${name}: no request characterization fixture`);
+  return failures;
 }
 
-function resolveOpenApiSchema(schema, seen = new Set()) {
-  if (!schema) return undefined;
-  if (schema.$ref) {
+function backendRequiredFields(schema, components, visited = new Set()) {
+  if (schema?.$ref) {
     const name = schema.$ref.split("/").at(-1);
-    if (!name || seen.has(name)) return undefined;
-    seen.add(name);
-    return resolveOpenApiSchema(openApi.components.schemas[name], seen);
+    if (!name || visited.has(name) || !components[name]) return [];
+    return backendRequiredFields(components[name], components, new Set([...visited, name]));
   }
-  const branches = [...(schema.allOf ?? []), ...(schema.oneOf ?? []), ...(schema.anyOf ?? [])]
-    .map((item) => resolveOpenApiSchema(item, seen))
-    .filter(Boolean);
-  const properties = { ...(schema.properties ?? {}) };
-  const required = new Set(schema.required ?? []);
-  for (const branch of branches) {
-    Object.assign(properties, branch.properties ?? {});
-    for (const key of branch.required ?? []) required.add(key);
-  }
-  return { ...schema, properties, required: [...required] };
+  return [...new Set([...(schema?.required ?? []), ...(schema?.allOf ?? []).flatMap((item) => backendRequiredFields(item, components, new Set(visited)))])];
 }
 
-function typeProperties(typeNode, aliases, seen = new Set()) {
-  if (ts.isParenthesizedTypeNode(typeNode)) return typeProperties(typeNode.type, aliases, seen);
-  if (ts.isArrayTypeNode(typeNode)) return { isArray: true, item: typeProperties(typeNode.elementType, aliases, seen) };
-  if (ts.isIntersectionTypeNode(typeNode)) {
-    const shapes = typeNode.types.map((item) => typeProperties(item, aliases, seen));
-    const properties = new Map(shapes.flatMap((shape) => [...(shape.properties ?? [])]));
-    return { isArray: false, properties };
+function historicalShape(type) {
+  if (type.kind === "array") return { isArray: true, item: historicalShape(type.items) };
+  if (type.kind === "object") {
+    return {
+      isArray: false,
+      properties: Object.entries(type.properties).map(([name, property]) => [name, property.optional]).sort(([left], [right]) => left.localeCompare(right)),
+    };
   }
-  if (ts.isTypeLiteralNode(typeNode)) {
-    const properties = new Map();
-    for (const member of typeNode.members) {
-      if (!ts.isPropertySignature(member) || !member.type) continue;
-      const name = propertyName(member);
-      if (name) properties.set(name, { optional: Boolean(member.questionToken), type: member.type });
+  return { isArray: false, properties: [] };
+}
+
+function historicalShapeDifferences(current, baseline, prefix = "") {
+  if (current.isArray !== baseline.isArray) return [`${prefix || "<root>"}[]`];
+  if (current.isArray) return historicalShapeDifferences(current.item, baseline.item, `${prefix}[]`);
+  const currentProperties = new Map(current.properties);
+  const baselineProperties = new Map(baseline.properties);
+  const names = new Set([...currentProperties.keys(), ...baselineProperties.keys()]);
+  return [...names].filter((name) => currentProperties.get(name) !== baselineProperties.get(name)).sort();
+}
+
+function checkResponseContracts() {
+  const failures = [];
+  const usedExceptions = new Set();
+  for (const [name, current] of currentMethods) {
+    const baseline = baselineSnapshot.operations[name];
+    if (!baseline) {
+      failures.push(`${name}: missing from the historical frontend API baseline`);
+      continue;
     }
-    return { isArray: false, properties };
+    if (current.responseTypeNode.getText() !== baseline.responseType) {
+      failures.push(`${name}: response type changed from ${baseline.responseType} to ${current.responseTypeNode.getText()}`);
+    }
+    let currentShape;
+    try {
+      currentShape = historicalShape(normalizeTypeScriptNode(current.responseTypeNode, checker));
+    } catch (error) {
+      failures.push(`${name}: unsupported frontend response type: ${String(error)}`);
+      continue;
+    }
+    const baselineShape = baselineSnapshot.shapes[baseline.shape_id];
+    const shapeDifferences = historicalShapeDifferences(currentShape, baselineShape);
+    if (shapeDifferences.length) {
+      const correction = corrections.historical_frontend_shape_changes[name];
+      if (!correction) {
+        failures.push(`${name}: frontend DTO shape changed without a documented correction`);
+      } else {
+        const expected = [...correction.fields].sort();
+        if (JSON.stringify(shapeDifferences) !== JSON.stringify(expected)) {
+          failures.push(`${name}: documented DTO correction fields ${expected.join(", ")} do not match actual changes ${shapeDifferences.join(", ")}`);
+        }
+        usedExceptions.add(name);
+      }
+    }
+    const route = matchOpenApiRoute(current.path, current.method, openApi.paths);
+    const operation = route?.[1][current.method];
+    if (!operation) {
+      failures.push(`${name}: no ${current.method.toUpperCase()} ${current.path} in current backend OpenAPI`);
+      continue;
+    }
+    const responseType = normalizeTypeScriptNode(current.responseTypeNode, checker);
+    for (const mismatch of checkSuccessResponses(responseType, operation.responses, openApi.components?.schemas ?? {})) {
+      failures.push(`${name}: ${mismatch}`);
+    }
   }
-  if (ts.isTypeReferenceNode(typeNode) && ts.isIdentifier(typeNode.typeName)) {
-    const name = typeNode.typeName.text;
-    const alias = aliases.get(name);
-    if (!alias || seen.has(name)) return { isArray: false, properties: new Map() };
-    seen.add(name);
-    return typeProperties(alias.type, aliases, seen);
+  for (const exception of Object.keys(corrections.historical_frontend_shape_changes)) {
+    if (!usedExceptions.has(exception)) failures.push(`${exception}: obsolete historical DTO correction entry`);
   }
-  if (ts.isUnionTypeNode(typeNode)) {
-    const objectTypes = typeNode.types.filter((item) => !ts.isLiteralTypeNode(item) || item.literal.kind !== ts.SyntaxKind.NullKeyword);
-    return objectTypes.length === 1 ? typeProperties(objectTypes[0], aliases, seen) : { isArray: false, properties: new Map() };
+  if (Object.keys(baselineSnapshot.operations).length !== 94 || currentMethods.size !== 94) {
+    failures.push(`frontend API operation count mismatch: current=${currentMethods.size}, historical=${Object.keys(baselineSnapshot.operations).length}, expected=94`);
   }
-  return { isArray: false, properties: new Map() };
+  return failures;
 }
 
-function normalizedTypeShape(typeNode, aliases) {
-  const shape = typeProperties(typeNode, aliases);
-  if (shape.isArray) return { isArray: true, item: normalizedTypeShapeFromShape(shape.item) };
-  return { isArray: false, properties: [...(shape.properties ?? new Map()).entries()]
-    .map(([name, value]) => [name, Boolean(value.optional)])
-    .sort(([left], [right]) => left.localeCompare(right)) };
-}
+const failures = [
+  ...requestContractFailures(readRequestContractCases()),
+  ...checkResponseContracts(),
+];
 
-function normalizedTypeShapeFromShape(shape) {
-  if (shape?.isArray) return { isArray: true, item: normalizedTypeShapeFromShape(shape.item) };
-  return { isArray: false, properties: [...(shape?.properties ?? new Map()).entries()]
-    .map(([name, value]) => [name, Boolean(value.optional)])
-    .sort(([left], [right]) => left.localeCompare(right)) };
-}
-
-function normalizedOpenApiShape(schema) {
-  if (schema?.type === "array") return { isArray: true, item: normalizedOpenApiShape(resolveOpenApiSchema(schema.items)) };
-  return { isArray: false, properties: Object.keys(schema?.properties ?? {}).sort().map((name) => [name, !(schema.required ?? []).includes(name)]) };
-}
-
-const failures = [];
-const preexistingMismatches = [];
-const requestCases = readRequestContractCases();
-verifyRequestContracts(requestCases);
-for (const [name, current] of currentMethods) {
-  const baseline = baselineSnapshot.operations[name];
-  if (!baseline) {
-    failures.push(`${name}: missing from the baseline forgeApi`);
-    continue;
-  }
-  const baselineResponseType = baseline.responseType;
-  const baselineShape = baselineSnapshot.shapes[baseline.shape_id];
-  if (current.responseType.getText() !== baselineResponseType) {
-    failures.push(`${name}: response type changed from ${baselineResponseType} to ${current.responseType.getText()}`);
-  }
-  const currentShape = normalizedTypeShape(current.responseType, currentTypeAliases);
-  if (JSON.stringify(currentShape) !== JSON.stringify(baselineShape)) failures.push(`${name}: response DTO shape changed during extraction`);
-  const route = matchingRoute(current.path, current.method);
-  const operation = route?.[1][current.method];
-  if (!operation) {
-    failures.push(`${name}: no ${current.method.toUpperCase()} ${current.path} in backend OpenAPI`);
-    continue;
-  }
-  const responseEntry = Object.entries(operation.responses ?? {}).find(([status, response]) =>
-    status.startsWith("2") && response.content?.["application/json"]?.schema,
-  );
-  const declaredVoid = current.responseType.kind === ts.SyntaxKind.VoidKeyword;
-  if (!responseEntry && !declaredVoid) {
-    failures.push(`${name}: backend has no JSON success schema for frontend response ${current.responseType.getText()}`);
-    continue;
-  }
-  if (!responseEntry) continue;
-
-  const openApiSchema = resolveOpenApiSchema(responseEntry[1].content["application/json"].schema);
-  const backendShape = normalizedOpenApiShape(openApiSchema);
-  if (JSON.stringify(currentShape) !== JSON.stringify(backendShape)) {
-    preexistingMismatches.push({ name, frontend: currentShape, backend: backendShape });
-  }
-}
-
-const baselineOperationCount = Object.keys(baselineSnapshot.operations).length;
-if (currentMethods.size !== 94 || baselineOperationCount !== 94) {
-  failures.push(`operation count mismatch: current=${currentMethods.size}, baseline=${baselineOperationCount}, expected=94`);
-}
-
-logger.log(`Response contracts checked: ${currentMethods.size}/94 operations against the frozen backend OpenAPI baseline.`);
-if (preexistingMismatches.length) {
-  logger.warn(`Preexisting top-level response DTO property/requiredness discrepancies in ${preexistingMismatches.length} operations (unchanged by RFX-02D): ${preexistingMismatches.map(({ name }) => name).join(", ")}`);
-  if (process.argv.includes("--verbose")) {
-    for (const mismatch of preexistingMismatches) logger.warn(`- ${mismatch.name}: frontend ${JSON.stringify(mismatch.frontend)}; backend ${JSON.stringify(mismatch.backend)}`);
-  }
-}
+logger.log(`Current application OpenAPI generated with an isolated temporary SQLite URL.`);
+logger.log(`Request contracts checked: ${currentMethods.size}/94 operations (routes, methods, query and JSON bodies).`);
+logger.log(`Response contracts checked: ${currentMethods.size}/94 operations (all successful status/body schemas).`);
 if (failures.length) {
   for (const failure of failures) logger.error(`- ${failure}`);
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  logger.log("No unexplained frontend/backend API contract mismatches.");
 }
-logger.log("No response DTO changes or backend route regressions were introduced by the refactor.");

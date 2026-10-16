@@ -1,12 +1,17 @@
 import json
+from typing import cast
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import _service_error
-from app.api.schemas import ReadinessEvaluationResponse
-from app.application.readiness import ReadinessEngine
+from app.api.schemas import (
+    ReadinessBlocker,
+    ReadinessEvaluationResponse,
+    ReadinessRuleResult,
+)
+from app.application.readiness import ReadinessEngine, ReadinessEvaluation
 from app.application.services import EntityNotFound, InvalidInput, PlanningService
 from app.db import get_db
 from app.domain.entities import ProjectStatus, ReadinessOutcome
@@ -16,22 +21,53 @@ router = APIRouter()
 
 
 def _readiness_response(
-    evaluation: object,
+    evaluation: ReadinessEvaluation,
     evaluation_id: str | None = None,
     stale: bool = False,
 ) -> ReadinessEvaluationResponse:
     data = evaluation
+
+    def normalize_references(items: list[dict[str, object]]) -> list[dict[str, object]]:
+        return [{**item, "label": item.get("label")} for item in items]
+
+    blockers = [
+        {
+            **item,
+            "references": normalize_references(
+                cast(list[dict[str, object]], item.get("references", []))
+            ),
+        }
+        for item in data.blockers
+    ]
+    results = [
+        {
+            **item,
+            "blockers": [
+                {
+                    **blocker,
+                    "references": normalize_references(
+                        cast(list[dict[str, object]], blocker.get("references", []))
+                    ),
+                }
+                for blocker in cast(list[dict[str, object]], item.get("blockers", []))
+            ],
+            "references": normalize_references(
+                cast(list[dict[str, object]], item.get("references", []))
+            ),
+        }
+        for item in data.results
+    ]
     return ReadinessEvaluationResponse(
         evaluation_id=evaluation_id,
-        feature_id=data.feature_id,  # type: ignore[attr-defined]
-        evaluated_at=data.evaluated_at,  # type: ignore[attr-defined]
-        rule_set_version=data.rule_set_version,  # type: ignore[attr-defined]
-        input_fingerprint=data.input_fingerprint,  # type: ignore[attr-defined]
-        outcome=data.outcome.value,  # type: ignore[attr-defined]
-        passed_checks=data.passed_checks,  # type: ignore[attr-defined]
-        failed_checks=data.failed_checks,  # type: ignore[attr-defined]
-        blockers=data.blockers,  # type: ignore[attr-defined]
-        results=data.results,  # type: ignore[attr-defined]
+        feature_id=data.feature_id,
+        evaluated_at=data.evaluated_at,
+        rule_set_version=data.rule_set_version,
+        input_fingerprint=data.input_fingerprint,
+        outcome=data.outcome.value,
+        passed_checks=data.passed_checks,
+        failed_checks=data.failed_checks,
+        blockers=[ReadinessBlocker.model_validate(item) for item in blockers],
+        results=[ReadinessRuleResult.model_validate(item) for item in results],
         stale=stale,
     )
 

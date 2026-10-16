@@ -71,10 +71,10 @@ class VerificationRequest(BaseModel):
 
 
 class VerificationResponse(BaseModel):
-    id: str | None = None
-    project_id: str | None = None
-    feature_id: str | None = None
-    rule_id: str
+    id: str | None
+    project_id: str
+    feature_id: str | None
+    rule_id: Literal["V01", "V02", "V03", "V04"]
     rule_version: str
     subject: dict[str, Any]
     inputs: dict[str, Any]
@@ -84,8 +84,17 @@ class VerificationResponse(BaseModel):
     limitations: list[str]
     evidence_ids: list[str]
     verifier_version: str
-    evaluated_at: datetime | None = None
-    stale: bool = False
+    evaluated_at: datetime | None
+    stale: bool
+
+
+class VerificationRuleResponse(BaseModel):
+    rule_id: Literal["V01", "V02", "V03", "V04"]
+    version: str
+    title: str
+    available: bool
+    required_inputs: list[str]
+    limitation: str
 
 
 class CandidateCreate(BaseModel):
@@ -114,6 +123,14 @@ class CandidateFreezeRequest(BaseModel):
     expected_revision: int = Field(gt=0)
 
 
+class CandidateSelectionResponse(BaseModel):
+    feature_ids: list[str]
+    context_package_ids: list[str]
+    evidence_ids: list[str]
+    verification_ids: list[str]
+    handoff_revision_ids: list[str]
+
+
 class CandidateResponse(BaseModel):
     id: str
     project_id: str
@@ -125,7 +142,7 @@ class CandidateResponse(BaseModel):
     schema_version: str
     revision: int
     content_fingerprint: str
-    selection: dict[str, Any]
+    selection: CandidateSelectionResponse
     snapshot: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
@@ -143,20 +160,20 @@ class GateCheckResponse(BaseModel):
 
 
 class GateEvaluationResponse(BaseModel):
-    id: str | None = None
-    project_id: str | None = None
+    id: str | None
+    project_id: str
     candidate_id: str
-    candidate_revision: int | None = None
+    candidate_revision: int | None
     ruleset_version: str
     input_fingerprint: str
     result: Literal["READY_BY_DEFINED_GATES", "BLOCKED", "STALE"]
-    stored_result: str | None = None
+    stored_result: str | None
     checks: list[GateCheckResponse]
     limitations: list[str]
     manifest: dict[str, Any]
     manifest_fingerprint: str
-    evaluated_at: datetime | None = None
-    stale: bool = False
+    evaluated_at: datetime | None
+    stale: bool
 
 
 class CandidateHistoryResponse(BaseModel):

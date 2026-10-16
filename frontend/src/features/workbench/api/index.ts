@@ -1,5 +1,5 @@
 import { request } from "../../../shared/api/client";
-import type { RunStatus, AgentRun, RunEvent, RunOutputReference, HandoffStatus, HandoffRevision, HandoffAcknowledgement, Handoff } from "./contracts";
+import type { RunStatus, RunEventType, RunOutputReferenceKind, AgentRun, RunEvent, RunOutputReference, HandoffStatus, HandoffRevision, HandoffAcknowledgement, Handoff } from "./contracts";
 
 export const workbenchApi = {
   listRuns: (workspaceId: string, options: { projectId?: string; featureId?: string; status?: RunStatus; search?: string } = {}, signal?: AbortSignal) => {
@@ -19,11 +19,11 @@ export const workbenchApi = {
     request<AgentRun>(`/workspaces/${workspaceId}/projects/${projectId}/runs/${runId}/status`, { method: "POST", body: JSON.stringify({ status, expected_version: expectedVersion }) }),
   listRunEvents: (workspaceId: string, projectId: string, runId: string, signal?: AbortSignal) =>
     request<RunEvent[]>(`/workspaces/${workspaceId}/projects/${projectId}/runs/${runId}/events`, { signal }),
-  addRunEvent: (workspaceId: string, projectId: string, runId: string, payload: { event_type: string; title: string; description: string; expected_version: number; supersedes_event_id?: string }) =>
+  addRunEvent: (workspaceId: string, projectId: string, runId: string, payload: { event_type: RunEventType; title: string; description: string; expected_version: number; supersedes_event_id?: string }) =>
     request<RunEvent>(`/workspaces/${workspaceId}/projects/${projectId}/runs/${runId}/events`, { method: "POST", body: JSON.stringify(payload) }),
   listRunOutputs: (workspaceId: string, projectId: string, runId: string, signal?: AbortSignal) =>
     request<RunOutputReference[]>(`/workspaces/${workspaceId}/projects/${projectId}/runs/${runId}/outputs`, { signal }),
-  addRunOutput: (workspaceId: string, projectId: string, runId: string, payload: { label: string; summary: string; reference_kind?: string; reference_value?: string; provenance: string; expected_version: number }) =>
+  addRunOutput: (workspaceId: string, projectId: string, runId: string, payload: { label: string; summary: string; reference_kind?: RunOutputReferenceKind; reference_value?: string; provenance: string; expected_version: number }) =>
     request<RunOutputReference>(`/workspaces/${workspaceId}/projects/${projectId}/runs/${runId}/outputs`, { method: "POST", body: JSON.stringify(payload) }),
   listHandoffs: (workspaceId: string, projectId: string, options: { status?: HandoffStatus; search?: string } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();

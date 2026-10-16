@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { EvidenceRecord, VerificationEvaluation } from "../../../api";
+import type { VerificationRequestPayload, VerificationRuleId } from "../api/contracts";
 import { type Loaded } from "../types";
 import { MultiSelect } from "../components/MultiSelect";
 
@@ -17,24 +18,10 @@ export function VerificationForm({
   pending: boolean;
   error: string;
   success: string;
-  onPreview: (payload: {
-    rule_id: string;
-    feature_id?: string;
-    context_package_id?: string;
-    expected_digest?: string;
-    handoff_revision_id?: string;
-    evidence_ids?: string[];
-  }) => Promise<VerificationEvaluation>;
-  onEvaluate: (payload: {
-    rule_id: string;
-    feature_id?: string;
-    context_package_id?: string;
-    expected_digest?: string;
-    handoff_revision_id?: string;
-    evidence_ids?: string[];
-  }) => void;
+  onPreview: (payload: VerificationRequestPayload) => Promise<VerificationEvaluation>;
+  onEvaluate: (payload: VerificationRequestPayload) => void;
 }) {
-  const [ruleId, setRuleId] = useState("V02");
+  const [ruleId, setRuleId] = useState<VerificationRuleId>("V02");
   const [featureId, setFeatureId] = useState("");
   const [contextId, setContextId] = useState("");
   const [handoffId, setHandoffId] = useState("");
@@ -62,7 +49,7 @@ export function VerificationForm({
         Rule
         <select
           onChange={(event) => {
-            setRuleId(event.target.value);
+            setRuleId(event.target.value as VerificationRuleId);
             setContextId("");
             setHandoffId("");
             setEvidenceIds([]);

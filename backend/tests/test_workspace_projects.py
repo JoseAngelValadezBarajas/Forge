@@ -144,6 +144,40 @@ def test_migration_creates_schema_on_empty_sqlite(
     get_settings.cache_clear()
 
 
+def test_incremental_migrations_upgrade_existing_sqlite_to_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database_path = tmp_path / "incremental.db"
+    monkeypatch.setenv("FORGE_DATABASE_URL", sqlite_url(database_path))
+    get_settings.cache_clear()
+    config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
+
+    command.upgrade(config, "20261013_0001")
+    engine = create_engine(sqlite_url(database_path))
+    with engine.connect() as connection:
+        assert (
+            connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
+            == "20261013_0001"
+        )
+        assert {"workspaces", "projects"}.issubset(set(inspect(connection).get_table_names()))
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(sqlite_url(database_path))
+    with engine.connect() as connection:
+        assert (
+            connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
+            == "20261014_0007"
+        )
+        assert {
+            "workspaces", "projects", "decisions", "readiness_evaluations",
+            "repository_connections", "agent_runs", "handoffs", "evidence_records",
+            "release_candidates",
+        }.issubset(set(inspect(connection).get_table_names()))
+    engine.dispose()
+    get_settings.cache_clear()
+
+
 def test_workspace_index_rejects_case_only_duplicate(database: tuple[Engine, Session]) -> None:
     engine, session = database
     session.add(WorkspaceModel(name="Case Space"))

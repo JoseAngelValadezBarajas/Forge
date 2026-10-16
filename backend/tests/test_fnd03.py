@@ -64,11 +64,20 @@ def test_readiness_preview_save_stale_and_history(
     client, path, _project_id, feature_id = root(fnd03_client)
     preview = client.post(f"{path}/features/{feature_id}/readiness/preview")
     assert preview.status_code == 200
-    assert preview.json()["outcome"] == "NOT_READY"
-    assert {item["rule_id"] for item in preview.json()["results"]} == {
+    preview_body = preview.json()
+    assert preview_body["outcome"] == "NOT_READY"
+    assert "stale" in preview_body
+    assert {item["rule_id"] for item in preview_body["results"]} == {
         "R01", "R02", "R03", "R04", "R05", "R06"
     }
-    assert "R02" in preview.json()["failed_checks"]
+    assert "R02" in preview_body["failed_checks"]
+    for result in preview_body["results"]:
+        assert {"blockers", "references"}.issubset(result)
+        for reference in result["references"]:
+            assert "label" in reference
+        for blocker in result["blockers"]:
+            assert "references" in blocker
+            assert all("label" in reference for reference in blocker["references"])
 
     criterion = client.post(
         f"{path}/features/{feature_id}/acceptance-criteria",
@@ -152,6 +161,10 @@ def test_decision_revisions_supersession_and_cross_project_isolation(
     assert updated.json()["revision"] == 2
     revisions = client.get(f"{path}/decisions/{decision['id']}/revisions").json()
     assert [item["revision"] for item in revisions] == [2, 1]
+    assert set(revisions[0]) == {
+        "id", "decision_id", "revision", "title", "context", "decision", "rationale",
+        "alternatives_considered", "tradeoffs", "status", "superseded_by_id", "created_at",
+    }
     successor = client.post(
         f"{path}/decisions/{decision['id']}/supersede",
         json={
@@ -188,6 +201,11 @@ def test_invariant_revision_invalidates_acknowledgement(
         f"{path}/invariants/{invariant['id']}", json={"rationale": "Changed context"}
     ).json()
     assert changed["revision"] == 2
+    revisions = client.get(f"{path}/invariants/{invariant['id']}/revisions").json()
+    assert set(revisions[0]) == {
+        "id", "invariant_id", "revision", "title", "statement", "rationale", "status",
+        "feature_id", "created_at",
+    }
     applicable = client.get(f"{path}/features/{feature_id}/invariants").json()
     assert applicable[0]["needs_acknowledgement"] is True
 

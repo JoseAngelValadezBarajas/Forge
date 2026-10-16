@@ -1,0 +1,36 @@
+{
+  "historical_frontend_shape_changes": {
+    "listDecisionRevisions": {
+      "fields": ["project_id", "updated_at"],
+      "reason": "DecisionRevision now matches the immutable revision response instead of inheriting mutable Decision fields."
+    },
+    "listInvariantRevisions": {
+      "fields": ["project_id", "updated_at"],
+      "reason": "InvariantRevision now matches the immutable revision response instead of inheriting mutable Invariant fields."
+    },
+    "listVerifications": {
+      "fields": ["project_id"],
+      "reason": "Verification project_id is always emitted by the API and is now represented as required in the DTO."
+    },
+    "previewVerification": {
+      "fields": ["project_id"],
+      "reason": "Verification project_id is always emitted by the API and is now represented as required in the DTO."
+    },
+    "evaluateVerification": {
+      "fields": ["project_id"],
+      "reason": "Verification project_id is always emitted by the API and is now represented as required in the DTO."
+    },
+    "previewReleaseGates": {
+      "fields": ["project_id", "candidate_revision", "stored_result"],
+      "reason": "Gate previews serialize these keys with their explicit nullable values; the DTO now preserves that response shape."
+    },
+    "evaluateReleaseGates": {
+      "fields": ["project_id", "candidate_revision", "stored_result"],
+      "reason": "Gate evaluations serialize these keys with their explicit nullable values; the DTO now preserves that response shape."
+    },
+    "listReleaseGateHistory": {
+      "fields": ["project_id", "candidate_revision", "stored_result"],
+      "reason": "Gate history serializes these keys with their explicit nullable values; the DTO now preserves that response shape."
+    }
+  }
+}

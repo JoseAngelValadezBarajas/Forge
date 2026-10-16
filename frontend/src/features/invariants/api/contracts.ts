@@ -19,7 +19,17 @@ export type ApplicableInvariant = Invariant & {
   needs_acknowledgement: boolean;
 };
 
-export type InvariantRevision = Invariant & { invariant_id: string };
+export type InvariantRevision = {
+  id: string;
+  invariant_id: string;
+  revision: number;
+  title: string;
+  statement: string;
+  rationale: string;
+  status: InvariantStatus;
+  feature_id: string | null;
+  created_at: string;
+};
 
 export type InvariantAcknowledgement = {
   id: string;
@@ -35,3 +45,5 @@ export type InvariantCreatePayload = {
   rationale: string;
   feature_id?: string;
 };
+
+export type InvariantUpdatePayload = Partial<Omit<InvariantCreatePayload, "feature_id">>;

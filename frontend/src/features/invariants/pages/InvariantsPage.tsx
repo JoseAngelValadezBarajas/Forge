@@ -74,11 +74,16 @@ export function InvariantsPage({
   const update = (payload: InvariantCreatePayload) =>
     mutate(async () => {
       if (!workspace || !projectId || !editing) return;
+      const updatePayload = {
+        title: payload.title,
+        statement: payload.statement,
+        rationale: payload.rationale,
+      };
       await forgeApi.updateInvariant(
         workspace.id,
         projectId,
         editing.id,
-        payload,
+        updatePayload,
       );
       setEditing(null);
     }, "Could not update invariant.");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
+import type { EvidenceCreatePayload, EvidenceSourceKind, EvidenceType } from "../api/contracts";
 import { type Loaded } from "../types";
 
 export function EvidenceForm({
@@ -16,21 +17,12 @@ export function EvidenceForm({
   pending: boolean;
   error: string;
   success: string;
-  onSubmit: (payload: {
-    feature_id?: string;
-    acceptance_criterion_id?: string;
-    evidence_type: string;
-    title: string;
-    description: string;
-    source_kind: string;
-    source_reference?: string;
-    declared_outcome?: string;
-  }) => void;
+  onSubmit: (payload: EvidenceCreatePayload) => void;
 }) {
   const [featureId, setFeatureId] = useState("");
   const [criterionId, setCriterionId] = useState("");
-  const [type, setType] = useState("document_reference");
-  const [kind, setKind] = useState("safe_link");
+  const [type, setType] = useState<EvidenceType>("document_reference");
+  const [kind, setKind] = useState<EvidenceSourceKind>("safe_link");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [reference, setReference] = useState("");
@@ -91,7 +83,7 @@ export function EvidenceForm({
       </label>
       <label>
         Evidence type
-        <select onChange={(event) => setType(event.target.value)} value={type}>
+        <select onChange={(event) => setType(event.target.value as EvidenceType)} value={type}>
           {[
             "reported_test_result",
             "document_reference",
@@ -129,7 +121,7 @@ export function EvidenceForm({
         Source kind
         <select
           onChange={(event) => {
-            setKind(event.target.value);
+            setKind(event.target.value as EvidenceSourceKind);
             setReference("");
           }}
           value={kind}

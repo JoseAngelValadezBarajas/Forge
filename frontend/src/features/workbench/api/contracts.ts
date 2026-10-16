@@ -6,6 +6,9 @@ export type RunStatus =
   | "FAILED"
   | "CANCELLED";
 
+export type RunEventType = "progress" | "blocker" | "decision_note" | "output_reported" | "general_note";
+export type RunOutputReferenceKind = "label" | "safe_link" | "commit" | "artifact";
+
 export type AgentRun = {
   id: string;
   project_id: string;

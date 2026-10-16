@@ -9,6 +9,7 @@ from app.api.schemas.delivery import (
     CandidateFreezeRequest,
     CandidateHistoryResponse,
     CandidateResponse,
+    CandidateSelectionResponse,
     CandidateUpdate,
     EvidenceCreate,
     EvidenceResponse,
@@ -18,6 +19,7 @@ from app.api.schemas.delivery import (
     ManifestSaveRequest,
     VerificationRequest,
     VerificationResponse,
+    VerificationRuleResponse,
 )
 from app.api.schemas.handoffs import (
     HandoffAcknowledgementResponse,
@@ -96,6 +98,7 @@ __all__ = [
     "CandidateFreezeRequest",
     "CandidateHistoryResponse",
     "CandidateResponse",
+    "CandidateSelectionResponse",
     "CandidateUpdate",
     "ContextPackageResponse",
     "DecisionCreate",
@@ -155,6 +158,7 @@ __all__ = [
     "TaskUpdate",
     "VerificationRequest",
     "VerificationResponse",
+    "VerificationRuleResponse",
     "WorkspaceCreate",
     "WorkspaceResponse",
     "WorkspaceUpdate",

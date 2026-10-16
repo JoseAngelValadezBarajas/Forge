@@ -84,6 +84,13 @@ def _candidate(
     )
     assert response.status_code == 201, response.text
     candidate = response.json()
+    assert set(candidate["selection"]) == {
+        "feature_ids",
+        "context_package_ids",
+        "evidence_ids",
+        "verification_ids",
+        "handoff_revision_ids",
+    }
     frozen = client.post(
         f"{base}/release-candidates/{candidate['id']}/freeze",
         json={"expected_revision": candidate["revision"]},
@@ -164,8 +171,18 @@ def test_context_verification_is_deterministic_historical_and_stale() -> None:
     fixture = _fixture()
     client, workspace_id, project_id, feature_id, _criterion_id, package_id, _ = fixture
     base = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+    catalog = client.get(f"{base}/verifications/rules")
+    assert catalog.status_code == 200
+    assert {item["rule_id"] for item in catalog.json()} == {"V01", "V02", "V03", "V04"}
+    assert all(
+        set(item) == {"rule_id", "version", "title", "available", "required_inputs", "limitation"}
+        for item in catalog.json()
+    )
     request = {"rule_id": "V02", "feature_id": feature_id, "context_package_id": package_id}
     preview_a = client.post(f"{base}/verifications/preview", json=request).json()
+    assert {"id", "project_id", "feature_id", "evaluated_at", "stale"}.issubset(preview_a)
+    assert preview_a["project_id"] == project_id
+    assert preview_a["feature_id"] == feature_id
     preview_b = client.post(f"{base}/verifications/preview", json=request).json()
     assert preview_a["input_fingerprint"] == preview_b["input_fingerprint"]
     assert preview_a["result"] == "PASS"
@@ -251,6 +268,15 @@ def test_handoff_revision_integrity_uses_its_unicode_canonicalization() -> None:
         handoff_revision_ids=[revision_id],
     )
     gate = client.post(f"{base}/release-candidates/{candidate['id']}/gates/preview").json()
+    assert {
+        "id",
+        "project_id",
+        "candidate_revision",
+        "stored_result",
+        "evaluated_at",
+        "stale",
+    }.issubset(gate)
+    assert gate["project_id"] == project_id
     assert next(check for check in gate["checks"] if check["rule_id"] == "G04")["status"] == "PASS"
     _close(fixture)
 

@@ -36,7 +36,7 @@ def test_delivery_openapi_contract_is_frozen() -> None:
         },
         "/evidence/{evidence_id}": {"get": _operation("200", "EvidenceResponse")},
         "/evidence/{evidence_id}/invalidate": {"post": _operation("200", "EvidenceResponse")},
-        "/verifications/rules": {"get": _operation("200", None)},
+        "/verifications/rules": {"get": _operation("200", "list[VerificationRuleResponse]")},
         "/verifications": {"get": _operation("200", "list[VerificationResponse]")},
         "/verifications/preview": {
             "post": _operation("200", "VerificationResponse", "VerificationRequest")

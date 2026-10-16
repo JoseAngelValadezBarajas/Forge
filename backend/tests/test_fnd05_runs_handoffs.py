@@ -149,6 +149,10 @@ def test_events_outputs_handoff_revisions_and_acknowledgement() -> None:
     assert handoff.status_code == 201
     item = handoff.json()
     assert item["status"] == "DRAFT"
+    assert {"published_revision", "acknowledgement", "acknowledgements"}.issubset(item)
+    assert item["published_revision"] is None
+    assert item["acknowledgement"] is None
+    assert item["acknowledgements"] == []
     item = client.patch(
         f"{base}/handoffs/{item['id']}",
         json={"expected_version": item["version"], "summary": "Updated summary"},
