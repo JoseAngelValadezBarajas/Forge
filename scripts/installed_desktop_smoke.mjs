@@ -73,9 +73,9 @@ function freeLoopbackPort() {
   });
 }
 
-function diagnoseInstalledApp(appPid, debugPort) {
+function diagnoseInstalledApp(appPid, debugPort, targetDirectory) {
   const output = powershell(
-    "$parent = [int]$env:FORGE_APP_PID; $debug = [int]$env:FORGE_DEBUG_PORT; " +
+    "$parent = [int]$env:FORGE_APP_PID; $debug = [int]$env:FORGE_DEBUG_PORT; $install = $env:FORGE_INSTALL_DIR; " +
     "$all = @(Get-CimInstance Win32_Process); $queue = [System.Collections.Generic.Queue[int]]::new(); $queue.Enqueue($parent); " +
     "$seen = [System.Collections.Generic.HashSet[int]]::new(); [void]$seen.Add($parent); $children = [System.Collections.Generic.List[object]]::new(); " +
     "while ($queue.Count -gt 0) { $current = $queue.Dequeue(); foreach ($child in $all | Where-Object { $_.ParentProcessId -eq $current }) { " +
@@ -84,9 +84,15 @@ function diagnoseInstalledApp(appPid, debugPort) {
     "$owned = @($all | Where-Object { $seen.Contains([int]$_.ProcessId) }); $ownedIds = @($owned | ForEach-Object { [int]$_.ProcessId }); " +
     "$listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ownedIds -contains [int]$_.OwningProcess } | Select-Object LocalAddress,LocalPort,OwningProcess); " +
     "$debugListeners = @(Get-NetTCPConnection -State Listen -LocalPort $debug -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess); " +
-    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners }; " +
+    "$webviews = @($owned | Where-Object { $_.Name -ieq 'msedgewebview2.exe' }); " +
+    "$debugArgumentPresent = @($webviews | Where-Object { $_.CommandLine -match [regex]::Escape('--remote-debugging-port=' + $debug) }).Count -gt 0; " +
+    "$sidecarPath = Join-Path $install 'resources\forge-sidecar\forge-sidecar.exe'; " +
+    "$logPath = Join-Path $env:LOCALAPPDATA 'Forge\logs\forge-desktop.log'; " +
+    "$knownFailures = @('Forge''s bundled local service is missing.', 'Forge could not launch its bundled local service.', 'Forge could not establish local service process ownership.', 'Forge local service exited before readiness.', 'Forge local service startup timed out.', 'Forge local service readiness was invalid.', 'Forge local service readiness verification failed.', 'Forge sidecar startup failed; see the local Forge log for details.'); " +
+    "$startupFailure = $null; foreach ($line in @(Get-Content -LiteralPath $logPath -Tail 50 -ErrorAction SilentlyContinue)) { foreach ($known in $knownFailures) { if ($line.Contains($known)) { $startupFailure = $known; break } }; if ($startupFailure) { break } }; " +
+    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners; RemoteDebuggingArgumentPresent=$debugArgumentPresent; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); StartupFailure=$startupFailure }; " +
     "$result | ConvertTo-Json -Compress -Depth 4",
-    { FORGE_APP_PID: String(appPid), FORGE_DEBUG_PORT: String(debugPort) },
+    { FORGE_APP_PID: String(appPid), FORGE_DEBUG_PORT: String(debugPort), FORGE_INSTALL_DIR: targetDirectory },
   );
   return JSON.parse(output);
 }
@@ -174,7 +180,7 @@ async function startInstalledApp(targetDirectory, debugPort) {
   } catch (error) {
     let diagnostics;
     try {
-      diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort);
+      diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort, targetDirectory);
     } catch (diagnosticError) {
       diagnostics = { diagnosticError: String(diagnosticError) };
     }
