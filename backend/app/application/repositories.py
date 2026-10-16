@@ -57,6 +57,10 @@ class RepositoryService:
         self, workspace_id: str, project_id: str, root_path: str
     ) -> RepositoryConnectionModel:
         self.projects.writable_project(workspace_id, project_id)
+        # Enforce allowed roots configured in settings before observing the path.
+        # This mitigates uncontrolled-path CodeQL findings by resolving the
+        # user-supplied path and ensuring it is contained beneath one of the
+        # pre-resolved, trusted roots returned by get_settings().resolved_allowed_repository_roots.
         resolved = self._normalized_path(
             root_path, get_settings().resolved_allowed_repository_roots
         )
@@ -224,6 +228,16 @@ class RepositoryService:
 
     @staticmethod
     def _normalized_path(root_path: str, allowed_roots: tuple[Path, ...]) -> Path:
+        """Normalize and validate a user-supplied repository path.
+
+        Security notes:
+        - The function requires an absolute path and strictly resolves symlinks (Path.resolve(strict=True)).
+        - It checks the resolved path against the configured allowed_roots using
+          a separator-delimited prefix check so that traversal or symlink escape is
+          rejected (prevents paths like "../outside" or symlinks that resolve outside
+          the trusted roots).
+        - allowed_roots MUST be a pre-resolved, trusted collection (see app.config).
+        """
         value = root_path.strip()
         if not value:
             raise InvalidInput("Repository path is required")
