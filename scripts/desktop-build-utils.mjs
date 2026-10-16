@@ -35,6 +35,13 @@ export function createInstalledAppEnvironment(parentEnvironment, userDataFolder)
   return childEnvironment;
 }
 
+export function createInstalledDiagnosticPaths(installDirectory, localDataRoot) {
+  return {
+    sidecar: path.join(installDirectory, "resources", "forge-sidecar", "forge-sidecar.exe"),
+    log: path.join(localDataRoot, "logs", "forge-desktop.log"),
+  };
+}
+
 export function describeInstalledSmokeFailure(primaryError, cleanupError, diagnostics) {
   const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
   const cleanupMessage = cleanupError

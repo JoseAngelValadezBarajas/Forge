@@ -8,6 +8,7 @@ import {
   assertTreeNoSourcePathLeak,
   assertBuildPrerequisites,
   createInstalledAppEnvironment,
+  createInstalledDiagnosticPaths,
   describeInstalledSmokeFailure,
   findNsiInstaller,
   resolveGeneratedPath,
@@ -92,6 +93,15 @@ test("installed smoke launches the production app without WebView debugging over
   assert.equal(parentEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--remote-debugging-port=43127");
   assert.equal(parentEnvironment.WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER, "\\\\.\\pipe\\inherited-debugger");
   assert.throws(() => createInstalledAppEnvironment(parentEnvironment, "  "), /isolated WebView user-data folder/);
+});
+
+test("installed diagnostics build exact Windows sidecar and local log paths", () => {
+  const paths = createInstalledDiagnosticPaths("D:\\temp\\forge\\install-1", "C:\\Users\\runner\\AppData\\Local\\Forge");
+
+  assert.deepEqual(paths, {
+    sidecar: path.win32.join("D:\\temp\\forge\\install-1", "resources", "forge-sidecar", "forge-sidecar.exe"),
+    log: path.win32.join("C:\\Users\\runner\\AppData\\Local", "Forge", "logs", "forge-desktop.log"),
+  });
 });
 
 test("cleanup failures preserve the primary installed-app error and process diagnostics", () => {

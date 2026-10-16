@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   createInstalledAppEnvironment,
+  createInstalledDiagnosticPaths,
   describeInstalledSmokeFailure,
   sha256File,
 } from "./desktop-build-utils.mjs";
@@ -98,6 +99,7 @@ function createUiAutomation(processId) {
 }
 
 function diagnoseInstalledApp(appPid, targetDirectory) {
+  const diagnosticPaths = createInstalledDiagnosticPaths(targetDirectory, localDataRoot);
   const output = powershell(
     "$parent = [int]$env:FORGE_APP_PID; $install = $env:FORGE_INSTALL_DIR; " +
     "$all = @(Get-CimInstance Win32_Process); $queue = [System.Collections.Generic.Queue[int]]::new(); $queue.Enqueue($parent); " +
@@ -107,14 +109,20 @@ function diagnoseInstalledApp(appPid, targetDirectory) {
     "$main = Get-Process -Id $parent -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle; " +
     "$owned = @($all | Where-Object { $seen.Contains([int]$_.ProcessId) }); $ownedIds = @($owned | ForEach-Object { [int]$_.ProcessId }); " +
     "$listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ownedIds -contains [int]$_.OwningProcess } | Select-Object LocalAddress,LocalPort,OwningProcess); " +
-    "$sidecarPath = Join-Path $install 'resources\forge-sidecar\forge-sidecar.exe'; " +
-    "$sidecarMatches = @(Get-ChildItem -LiteralPath $install -Filter 'forge-sidecar.exe' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($install.Length).TrimStart('\') }); " +
-    "$logPath = Join-Path $env:LOCALAPPDATA 'Forge\logs\forge-desktop.log'; " +
+    "$sidecarPath = $env:FORGE_EXPECTED_SIDECAR; " +
+    "$sidecarMatches = @(Get-ChildItem -LiteralPath $install -Filter 'forge-sidecar.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName); " +
+    "$logPath = $env:FORGE_EXPECTED_LOG; " +
     "$knownFailures = @('Forge''s bundled local service is missing.', 'Forge could not launch its bundled local service.', 'Forge could not establish local service process ownership.', 'Forge local service exited before readiness.', 'Forge local service startup timed out.', 'Forge local service readiness was invalid.', 'Forge local service readiness verification failed.', 'Forge sidecar startup failed; see the local Forge log for details.'); " +
     "$startupFailure = $null; foreach ($line in @(Get-Content -LiteralPath $logPath -Tail 50 -ErrorAction SilentlyContinue)) { foreach ($known in $knownFailures) { if ($line.Contains($known)) { $startupFailure = $known; break } }; if ($startupFailure) { break } }; " +
-    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); BundledSidecarMatches=$sidecarMatches; StartupLogExists=(Test-Path -LiteralPath $logPath -PathType Leaf); StartupFailure=$startupFailure }; " +
+    "$appExecutable = ($all | Where-Object { $_.ProcessId -eq $parent } | Select-Object -First 1 -ExpandProperty ExecutablePath); " +
+    "$result = [pscustomobject]@{ MainWindow=$main; AppExecutablePath=$appExecutable; ExecutableDirectory=(Split-Path -Parent $appExecutable); InstallRoot=$install; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; ExpectedSidecarPath=$sidecarPath; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); BundledSidecarMatches=$sidecarMatches; ExpectedLogPath=$logPath; StartupLogExists=(Test-Path -LiteralPath $logPath -PathType Leaf); StartupFailure=$startupFailure }; " +
     "$result | ConvertTo-Json -Compress -Depth 4",
-    { FORGE_APP_PID: String(appPid), FORGE_INSTALL_DIR: targetDirectory },
+    {
+      FORGE_APP_PID: String(appPid),
+      FORGE_INSTALL_DIR: targetDirectory,
+      FORGE_EXPECTED_SIDECAR: diagnosticPaths.sidecar,
+      FORGE_EXPECTED_LOG: diagnosticPaths.log,
+    },
   );
   return JSON.parse(output);
 }
