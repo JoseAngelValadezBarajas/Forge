@@ -79,6 +79,101 @@ describe("Forge workspace and project shell", () => {
     expect(screen.getByRole("heading", { name: "Create project" })).toBeInTheDocument();
   });
 
+  it("loads projects, reports API errors, and recovers when retried", async () => {
+    window.history.pushState({}, "", "/projects");
+    const failedLoad = deferred<Response>();
+    let projectListCalls = 0;
+    const recoveredProject = {
+      id: "recovered-project", workspace_id: "ws-1", name: "Recovered Project", description: null,
+      status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null,
+    };
+    vi.mocked(globalThis.fetch).mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/workspaces") && !init?.method) return jsonResponse([workspaces[0]]);
+      if (url.includes("/workspaces/ws-1/projects?status=active")) {
+        projectListCalls += 1;
+        return projectListCalls === 1 ? failedLoad.promise : jsonResponse([recoveredProject]);
+      }
+      return jsonResponse([]);
+    });
+
+    renderApp();
+    expect(await screen.findByText("Loading projects...")).toBeInTheDocument();
+    failedLoad.resolve(new Response(JSON.stringify({ detail: "temporary project service failure" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("temporary project service failure");
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("heading", { name: "Recovered Project", level: 3 })).toBeInTheDocument();
+    expect(projectListCalls).toBe(2);
+  });
+
+  it("filters the project inventory by active and archived status", async () => {
+    window.history.pushState({}, "", "/projects");
+    const activeProject = {
+      id: "active-project", workspace_id: "ws-1", name: "Active Project", description: null,
+      status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null,
+    };
+    const archivedProject = {
+      id: "archived-project", workspace_id: "ws-1", name: "Archived Project", description: null,
+      status: "archived", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", archived_at: "2026-01-02T00:00:00Z",
+    };
+    const requestedUrls: string[] = [];
+    vi.mocked(globalThis.fetch).mockImplementation((input, init) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.endsWith("/workspaces") && !init?.method) return jsonResponse([workspaces[0]]);
+      if (url.includes("status=active")) return jsonResponse([activeProject]);
+      if (url.includes("status=archived")) return jsonResponse([archivedProject]);
+      return jsonResponse([]);
+    });
+
+    renderApp();
+    expect(await screen.findByRole("heading", { name: "Active Project", level: 3 })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Project status" }), { target: { value: "archived" } });
+    expect(await screen.findByRole("heading", { name: "Archived Project", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Active Project", level: 3 })).not.toBeInTheDocument();
+    expect(requestedUrls).toEqual(expect.arrayContaining([
+      "/api/workspaces/ws-1/projects?status=active",
+      "/api/workspaces/ws-1/projects?status=archived",
+    ]));
+  });
+
+  it("creates a project through the API and navigates to its detail", async () => {
+    window.history.pushState({}, "", "/projects?create=1");
+    const createdProject = {
+      id: "created-project", workspace_id: "ws-1", name: "Created Project", description: "Project description",
+      status: "active", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", archived_at: null,
+    };
+    let submittedBody: Record<string, unknown> | null = null;
+    const requestedUrls: string[] = [];
+    vi.mocked(globalThis.fetch).mockImplementation((input, init) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.endsWith("/workspaces") && !init?.method) return jsonResponse([workspaces[0]]);
+      if (init?.method === "POST" && url.endsWith("/workspaces/ws-1/projects")) {
+        submittedBody = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse(createdProject, 201);
+      }
+      if (url.endsWith("/workspaces/ws-1/projects/created-project")) return jsonResponse(createdProject);
+      if (url.endsWith("/planning/overview")) return jsonResponse({ epics: 0, features: 0, tasks: 0, acceptance_criteria: 0, satisfied_criteria: 0, dependencies: 0 });
+      return jsonResponse([]);
+    });
+
+    renderApp();
+    expect(await screen.findByRole("heading", { name: "Create project" })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Project name" }), { target: { value: "Created Project" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Project description" }), { target: { value: "Project description" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(await screen.findByRole("heading", { name: "Created Project", level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/projects/created-project");
+    expect(submittedBody).toEqual({ name: "Created Project", description: "Project description" });
+    expect(requestedUrls).toContain("/api/workspaces/ws-1/projects/created-project");
+  });
+
   it("supports keyboard navigation, focus restoration and themes", async () => {
     renderApp();
     await screen.findByRole("heading", { name: "Workspace" });

@@ -8,8 +8,10 @@ import type {
   GitObservation, Handoff, HandoffRevision, Project, ReleaseCandidate, ReleaseManifest, RepositoryConnection,
   VerificationEvaluation, VerificationRule, Workspace,
 } from "./api";
-import { ErrorPanel, LoadingPanel, PageFrame } from "./pages";
-import { formatDate } from "./components";
+import { ErrorPanel } from "./shared/ui/ErrorPanel";
+import { LoadingPanel } from "./shared/ui/LoadingPanel";
+import { PageFrame } from "./shared/ui/PageFrame";
+import { formatDate } from "./shared/utils/formatDate";
 
 type Opener = (button: HTMLButtonElement) => void;
 type Loaded = {
