@@ -58,6 +58,20 @@ Pop-Location
 
 Open `http://127.0.0.1:5173`. The API health check is available at `http://127.0.0.1:8000/api/health`.
 
+### Optional single-origin local runtime
+
+To serve the production frontend build and FastAPI from one loopback origin, build the frontend and start the local runtime:
+
+```powershell
+Push-Location frontend
+npm run build
+Pop-Location
+$env:FORGE_RUNTIME_MODE = "local"
+uv run --directory backend python -m app.local_runtime
+```
+
+Open `http://127.0.0.1:8000`. Node is needed to build the assets, not to serve them. The runtime binds only to a literal loopback IP, validates the compiled build before startup, accepts only the configured loopback `Host` and port, and requires the configured same-origin `Origin` for browser mutations. Host validation helps prevent DNS rebinding; it is not authentication against arbitrary local processes, which can call loopback APIs directly. Do not expose this mode to a network. This mode does not relocate the database or run migrations automatically; migrate the selected database explicitly first. See [runtime/platform boundaries](docs/architecture/README.md#runtime-modes-and-platform-boundaries) for future DESK-01 and WEB-01 responsibilities.
+
 Or use the Windows helper, which starts both processes:
 
 ```powershell
