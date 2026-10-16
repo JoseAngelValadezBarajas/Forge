@@ -126,7 +126,7 @@ async function waitFor(predicate, description, timeoutMs = 30_000) {
 async function startInstalledApp(targetDirectory, debugPort) {
   const executable = path.join(targetDirectory, installedExecutableName);
   await access(executable);
-  const process = spawn(executable, [], {
+  const appProcess = spawn(executable, [], {
     stdio: "ignore",
     env: {
       ...process.env,
@@ -134,10 +134,10 @@ async function startInstalledApp(targetDirectory, debugPort) {
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`,
     },
   });
-  process.once("error", (error) => { throw error; });
+  appProcess.once("error", (error) => { throw error; });
   try {
     await waitFor(async () => {
-      if (process.exitCode !== null) throw new Error(`Forge exited early with ${process.exitCode}.`);
+      if (appProcess.exitCode !== null) throw new Error(`Forge exited early with ${appProcess.exitCode}.`);
       const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`).catch(() => null);
       return response?.ok;
     }, "WebView2 remote debugging endpoint", 120_000);
@@ -152,10 +152,10 @@ async function startInstalledApp(targetDirectory, debugPort) {
     });
     await page.waitForURL(/^http:\/\/tauri\.localhost(?:\/|$)/, { timeout: 60_000 });
     await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor({ timeout: 60_000 });
-    return { process, browser, page, consoleErrors, loopbackRequests };
+    return { process: appProcess, browser, page, consoleErrors, loopbackRequests };
   } catch (error) {
-    if (process.exitCode === null) process.kill();
-    await once(process, "exit").catch(() => undefined);
+    if (appProcess.exitCode === null) appProcess.kill();
+    await once(appProcess, "exit").catch(() => undefined);
     throw error;
   }
 }
