@@ -137,7 +137,7 @@ pub async fn forward_request(
 
 #[cfg(test)]
 mod tests {
-    use super::{forward_request, validate_request_manifest, ApiRequest};
+    use super::{ApiRequest, forward_request, validate_request_manifest};
     use crate::route_policy::RouteManifest;
     use crate::session::Session;
     use base64::engine::general_purpose::STANDARD;

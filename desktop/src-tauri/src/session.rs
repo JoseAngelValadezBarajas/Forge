@@ -48,7 +48,9 @@ mod tests {
 
     #[test]
     fn caller_policy_requires_the_bundled_origin_and_main_label() {
-        let app_url = "http://tauri.localhost/projects/p1".parse().expect("valid URL");
+        let app_url = "http://tauri.localhost/projects/p1"
+            .parse()
+            .expect("valid URL");
         let remote_url = "https://attacker.invalid/".parse().expect("valid URL");
         let spoofed_user = "http://user@tauri.localhost/".parse().expect("valid URL");
         let alternate_port = "http://tauri.localhost:8080/".parse().expect("valid URL");
