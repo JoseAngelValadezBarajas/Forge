@@ -87,10 +87,11 @@ function diagnoseInstalledApp(appPid, debugPort, targetDirectory) {
     "$webviews = @($owned | Where-Object { $_.Name -ieq 'msedgewebview2.exe' }); " +
     "$debugArgumentPresent = @($webviews | Where-Object { $_.CommandLine -match [regex]::Escape('--remote-debugging-port=' + $debug) }).Count -gt 0; " +
     "$sidecarPath = Join-Path $install 'resources\forge-sidecar\forge-sidecar.exe'; " +
+    "$sidecarMatches = @(Get-ChildItem -LiteralPath $install -Filter 'forge-sidecar.exe' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($install.Length).TrimStart('\') }); " +
     "$logPath = Join-Path $env:LOCALAPPDATA 'Forge\logs\forge-desktop.log'; " +
     "$knownFailures = @('Forge''s bundled local service is missing.', 'Forge could not launch its bundled local service.', 'Forge could not establish local service process ownership.', 'Forge local service exited before readiness.', 'Forge local service startup timed out.', 'Forge local service readiness was invalid.', 'Forge local service readiness verification failed.', 'Forge sidecar startup failed; see the local Forge log for details.'); " +
     "$startupFailure = $null; foreach ($line in @(Get-Content -LiteralPath $logPath -Tail 50 -ErrorAction SilentlyContinue)) { foreach ($known in $knownFailures) { if ($line.Contains($known)) { $startupFailure = $known; break } }; if ($startupFailure) { break } }; " +
-    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners; RemoteDebuggingArgumentPresent=$debugArgumentPresent; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); StartupFailure=$startupFailure }; " +
+    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners; RemoteDebuggingArgumentPresent=$debugArgumentPresent; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); BundledSidecarMatches=$sidecarMatches; StartupLogExists=(Test-Path -LiteralPath $logPath -PathType Leaf); StartupFailure=$startupFailure }; " +
     "$result | ConvertTo-Json -Compress -Depth 4",
     { FORGE_APP_PID: String(appPid), FORGE_DEBUG_PORT: String(debugPort), FORGE_INSTALL_DIR: targetDirectory },
   );
