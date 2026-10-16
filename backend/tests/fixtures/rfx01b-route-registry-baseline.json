@@ -1,0 +1,2280 @@
+[
+  {
+    "body_parameters": [],
+    "dependencies": [],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "health",
+    "index": 0,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/health",
+    "response_model": "builtins.dict",
+    "route_name": "health",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_workspaces",
+    "index": 1,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces",
+    "response_model": "builtins.list",
+    "route_name": "list_workspaces",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_workspace",
+    "index": 2,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces",
+    "response_model": "app.api.schemas.WorkspaceResponse",
+    "route_name": "create_workspace",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_workspace",
+    "index": 3,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}",
+    "response_model": "app.api.schemas.WorkspaceResponse",
+    "route_name": "get_workspace",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_workspace",
+    "index": 4,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}",
+    "response_model": "app.api.schemas.WorkspaceResponse",
+    "route_name": "update_workspace",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_projects",
+    "index": 5,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects",
+    "response_model": "builtins.list",
+    "route_name": "list_projects",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_project",
+    "index": 6,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects",
+    "response_model": "app.api.schemas.ProjectResponse",
+    "route_name": "create_project",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_project",
+    "index": 7,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}",
+    "response_model": "app.api.schemas.ProjectResponse",
+    "route_name": "get_project",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_project",
+    "index": 8,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}",
+    "response_model": "app.api.schemas.ProjectResponse",
+    "route_name": "update_project",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "archive_project",
+    "index": 9,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/archive",
+    "response_model": "app.api.schemas.ProjectResponse",
+    "route_name": "archive_project",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "restore_project",
+    "index": 10,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/restore",
+    "response_model": "app.api.schemas.ProjectResponse",
+    "route_name": "restore_project",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "project_planning_overview",
+    "index": 11,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/planning/overview",
+    "response_model": "app.api.schemas.ProjectPlanningOverview",
+    "route_name": "project_planning_overview",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_epics",
+    "index": 12,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/epics",
+    "response_model": "builtins.list",
+    "route_name": "list_epics",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_epic",
+    "index": 13,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/epics",
+    "response_model": "app.api.schemas.EpicResponse",
+    "route_name": "create_epic",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_epic",
+    "index": 14,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/epics/{epic_id}",
+    "response_model": "app.api.schemas.EpicResponse",
+    "route_name": "get_epic",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_epic",
+    "index": 15,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/epics/{epic_id}",
+    "response_model": "app.api.schemas.EpicResponse",
+    "route_name": "update_epic",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_features",
+    "index": 16,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features",
+    "response_model": "builtins.list",
+    "route_name": "list_features",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_feature",
+    "index": 17,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features",
+    "response_model": "app.api.schemas.FeatureResponse",
+    "route_name": "create_feature",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_feature",
+    "index": 18,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}",
+    "response_model": "app.api.schemas.FeatureResponse",
+    "route_name": "get_feature",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_feature",
+    "index": 19,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}",
+    "response_model": "app.api.schemas.FeatureResponse",
+    "route_name": "update_feature",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_tasks",
+    "index": 20,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks",
+    "response_model": "builtins.list",
+    "route_name": "list_tasks",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_task",
+    "index": 21,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks",
+    "response_model": "app.api.schemas.TaskResponse",
+    "route_name": "create_task",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_task",
+    "index": 22,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks/{task_id}",
+    "response_model": "app.api.schemas.TaskResponse",
+    "route_name": "update_task",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "reorder_tasks",
+    "index": 23,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks/reorder",
+    "response_model": "builtins.list",
+    "route_name": "reorder_tasks",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_acceptance_criteria",
+    "index": 24,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria",
+    "response_model": "builtins.list",
+    "route_name": "list_acceptance_criteria",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_acceptance_criterion",
+    "index": 25,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria",
+    "response_model": "app.api.schemas.AcceptanceCriterionResponse",
+    "route_name": "create_acceptance_criterion",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_acceptance_criterion",
+    "index": 26,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria/{criterion_id}",
+    "response_model": "app.api.schemas.AcceptanceCriterionResponse",
+    "route_name": "update_acceptance_criterion",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "reorder_acceptance_criteria",
+    "index": 27,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria/reorder",
+    "response_model": "builtins.list",
+    "route_name": "reorder_acceptance_criteria",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_dependencies",
+    "index": 28,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/dependencies",
+    "response_model": "builtins.list",
+    "route_name": "list_dependencies",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_dependency",
+    "index": 29,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/dependencies",
+    "response_model": "app.api.schemas.DependencyResponse",
+    "route_name": "create_dependency",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "delete_dependency",
+    "index": 30,
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/dependencies/{dependency_id}",
+    "response_model": null,
+    "route_name": "delete_dependency",
+    "status_code": 204
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_decisions",
+    "index": 31,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions",
+    "response_model": "builtins.list",
+    "route_name": "list_decisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_decision",
+    "index": 32,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions",
+    "response_model": "app.api.schemas.DecisionResponse",
+    "route_name": "create_decision",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_decision",
+    "index": 33,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}",
+    "response_model": "app.api.schemas.DecisionResponse",
+    "route_name": "get_decision",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_decision",
+    "index": 34,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}",
+    "response_model": "app.api.schemas.DecisionResponse",
+    "route_name": "update_decision",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "accept_decision",
+    "index": 35,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/accept",
+    "response_model": "app.api.schemas.DecisionResponse",
+    "route_name": "accept_decision",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "supersede_decision",
+    "index": 36,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/supersede",
+    "response_model": "app.api.schemas.DecisionResponse",
+    "route_name": "supersede_decision",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "decision_revisions",
+    "index": 37,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/revisions",
+    "response_model": "builtins.list",
+    "route_name": "decision_revisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "link_decision",
+    "index": 38,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/features/{feature_id}",
+    "response_model": null,
+    "route_name": "link_decision",
+    "status_code": 204
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "unlink_decision",
+    "index": 39,
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/features/{feature_id}",
+    "response_model": null,
+    "route_name": "unlink_decision",
+    "status_code": 204
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "feature_decisions",
+    "index": 40,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/decisions",
+    "response_model": "builtins.list",
+    "route_name": "feature_decisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_invariants",
+    "index": 41,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants",
+    "response_model": "builtins.list",
+    "route_name": "list_invariants",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_invariant",
+    "index": 42,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants",
+    "response_model": "app.api.schemas.InvariantResponse",
+    "route_name": "create_invariant",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_invariant",
+    "index": 43,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}",
+    "response_model": "app.api.schemas.InvariantResponse",
+    "route_name": "get_invariant",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_invariant",
+    "index": 44,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}",
+    "response_model": "app.api.schemas.InvariantResponse",
+    "route_name": "update_invariant",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "retire_invariant",
+    "index": 45,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}/retire",
+    "response_model": "app.api.schemas.InvariantResponse",
+    "route_name": "retire_invariant",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "invariant_revisions",
+    "index": 46,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}/revisions",
+    "response_model": "builtins.list",
+    "route_name": "invariant_revisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "feature_invariants",
+    "index": 47,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/invariants",
+    "response_model": "builtins.list",
+    "route_name": "feature_invariants",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "acknowledge_invariant",
+    "index": 48,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/invariants/{invariant_id}/acknowledge",
+    "response_model": "app.api.schemas.InvariantAcknowledgementResponse",
+    "route_name": "acknowledge_invariant",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "preview_readiness",
+    "index": 49,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/readiness/preview",
+    "response_model": "app.api.schemas.ReadinessEvaluationResponse",
+    "route_name": "preview_readiness",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_readiness_evaluations",
+    "index": 50,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/readiness/evaluations",
+    "response_model": "builtins.list",
+    "route_name": "list_readiness_evaluations",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "save_readiness_evaluation",
+    "index": 51,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/readiness/evaluations",
+    "response_model": "app.api.schemas.ReadinessEvaluationResponse",
+    "route_name": "save_readiness_evaluation",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_repositories",
+    "index": 52,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/repositories",
+    "response_model": "builtins.list",
+    "route_name": "list_repositories",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "connect_repository",
+    "index": 53,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/repositories",
+    "response_model": "app.api.schemas.RepositoryConnectionResponse",
+    "route_name": "connect_repository",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "observe_repository",
+    "index": 54,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/observe",
+    "response_model": "app.api.schemas.GitObservationResponse",
+    "route_name": "observe_repository",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_repository_observations",
+    "index": 55,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/observations",
+    "response_model": "builtins.list",
+    "route_name": "list_repository_observations",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "disconnect_repository",
+    "index": 56,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/disconnect",
+    "response_model": "app.api.schemas.RepositoryConnectionResponse",
+    "route_name": "disconnect_repository",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_feature_repositories",
+    "index": 57,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/repositories",
+    "response_model": "builtins.list",
+    "route_name": "list_feature_repositories",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "link_feature_repository",
+    "index": 58,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/repositories",
+    "response_model": "app.api.schemas.FeatureRepositoryLinkResponse",
+    "route_name": "link_feature_repository",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "unlink_feature_repository",
+    "index": 59,
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/repositories/{repository_id}",
+    "response_model": null,
+    "route_name": "unlink_feature_repository",
+    "status_code": 204
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "preview_context_package",
+    "index": 60,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/preview",
+    "response_model": "app.api.schemas.ContextPackageResponse",
+    "route_name": "preview_context_package",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_context_packages",
+    "index": 61,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages",
+    "response_model": "builtins.list",
+    "route_name": "list_context_packages",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "save_context_package",
+    "index": 62,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages",
+    "response_model": "app.api.schemas.ContextPackageResponse",
+    "route_name": "save_context_package",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_context_package",
+    "index": 63,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages/{package_id}",
+    "response_model": "app.api.schemas.ContextPackageResponse",
+    "route_name": "get_context_package",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "download_context_package",
+    "index": 64,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages/{package_id}/download",
+    "response_model": null,
+    "route_name": "download_context_package",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_workspace_runs",
+    "index": 65,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/runs",
+    "response_model": "builtins.list",
+    "route_name": "list_workspace_runs",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_project_runs",
+    "index": 66,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs",
+    "response_model": "builtins.list",
+    "route_name": "list_project_runs",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_run",
+    "index": 67,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs",
+    "response_model": "app.api.schemas.RunResponse",
+    "route_name": "create_run",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_run",
+    "index": 68,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}",
+    "response_model": "app.api.schemas.RunResponse",
+    "route_name": "get_run",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "change_run_status",
+    "index": 69,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/status",
+    "response_model": "app.api.schemas.RunResponse",
+    "route_name": "change_run_status",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_run_events",
+    "index": 70,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/events",
+    "response_model": "builtins.list",
+    "route_name": "list_run_events",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "add_run_event",
+    "index": 71,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/events",
+    "response_model": "app.api.schemas.RunEventResponse",
+    "route_name": "add_run_event",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_run_outputs",
+    "index": 72,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/outputs",
+    "response_model": "builtins.list",
+    "route_name": "list_run_outputs",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "add_run_output",
+    "index": 73,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/outputs",
+    "response_model": "app.api.schemas.RunOutputResponse",
+    "route_name": "add_run_output",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_handoffs",
+    "index": 74,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs",
+    "response_model": "builtins.list",
+    "route_name": "list_handoffs",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_handoff",
+    "index": 75,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/handoffs",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "create_handoff",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_handoff",
+    "index": 76,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "get_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_handoff",
+    "index": 77,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "update_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "ready_handoff",
+    "index": 78,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/ready",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "ready_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "revise_handoff",
+    "index": 79,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revise",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "revise_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "acknowledge_handoff",
+    "index": 80,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/acknowledge",
+    "response_model": "app.api.schemas.HandoffAcknowledgementResponse",
+    "route_name": "acknowledge_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "withdraw_handoff",
+    "index": 81,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/withdraw",
+    "response_model": "app.api.schemas.HandoffResponse",
+    "route_name": "withdraw_handoff",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_handoff_revisions",
+    "index": 82,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revisions",
+    "response_model": "builtins.list",
+    "route_name": "list_handoff_revisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "download_handoff_revision",
+    "index": 83,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revisions/{revision}/download",
+    "response_model": null,
+    "route_name": "download_handoff_revision",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_evidence",
+    "index": 84,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/evidence",
+    "response_model": "builtins.list",
+    "route_name": "list_evidence",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_evidence",
+    "index": 85,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/evidence",
+    "response_model": "app.api.schemas.EvidenceResponse",
+    "route_name": "create_evidence",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_evidence",
+    "index": 86,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/evidence/{evidence_id}",
+    "response_model": "app.api.schemas.EvidenceResponse",
+    "route_name": "get_evidence",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "invalidate_evidence",
+    "index": 87,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/evidence/{evidence_id}/invalidate",
+    "response_model": "app.api.schemas.EvidenceResponse",
+    "route_name": "invalidate_evidence",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_verification_rules",
+    "index": 88,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/rules",
+    "response_model": "builtins.list",
+    "route_name": "list_verification_rules",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_verification_evaluations",
+    "index": 89,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/verifications",
+    "response_model": "builtins.list",
+    "route_name": "list_verification_evaluations",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "preview_verification",
+    "index": 90,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/preview",
+    "response_model": "app.api.schemas.VerificationResponse",
+    "route_name": "preview_verification",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "evaluate_verification",
+    "index": 91,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/evaluate",
+    "response_model": "app.api.schemas.VerificationResponse",
+    "route_name": "evaluate_verification",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_verification_evaluation",
+    "index": 92,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/{evaluation_id}",
+    "response_model": "app.api.schemas.VerificationResponse",
+    "route_name": "get_verification_evaluation",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_release_candidates",
+    "index": 93,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates",
+    "response_model": "builtins.list",
+    "route_name": "list_release_candidates",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "create_release_candidate",
+    "index": 94,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates",
+    "response_model": "app.api.schemas.CandidateResponse",
+    "route_name": "create_release_candidate",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_release_candidate",
+    "index": 95,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}",
+    "response_model": "app.api.schemas.CandidateResponse",
+    "route_name": "get_release_candidate",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "update_release_candidate",
+    "index": 96,
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}",
+    "response_model": "app.api.schemas.CandidateResponse",
+    "route_name": "update_release_candidate",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "freeze_release_candidate",
+    "index": 97,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/freeze",
+    "response_model": "app.api.schemas.CandidateResponse",
+    "route_name": "freeze_release_candidate",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_candidate_revisions",
+    "index": 98,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/revisions",
+    "response_model": "builtins.list",
+    "route_name": "list_candidate_revisions",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "preview_release_gates",
+    "index": 99,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates/preview",
+    "response_model": "app.api.schemas.GateEvaluationResponse",
+    "route_name": "preview_release_gates",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "evaluate_release_gates",
+    "index": 100,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates/evaluate",
+    "response_model": "app.api.schemas.GateEvaluationResponse",
+    "route_name": "evaluate_release_gates",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "list_release_gate_evaluations",
+    "index": 101,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates",
+    "response_model": "builtins.list",
+    "route_name": "list_release_gate_evaluations",
+    "status_code": null
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "get_release_manifest",
+    "index": 102,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/manifest",
+    "response_model": "app.api.schemas.ManifestResponse",
+    "route_name": "get_release_manifest",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "save_release_manifest",
+    "index": 103,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/manifest",
+    "response_model": "app.api.schemas.ManifestResponse",
+    "route_name": "save_release_manifest",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routes",
+    "endpoint_name": "download_release_manifest",
+    "index": 104,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/manifest/download",
+    "response_model": null,
+    "route_name": "download_release_manifest",
+    "status_code": null
+  }
+]
