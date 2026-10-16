@@ -140,8 +140,8 @@ mod tests {
     use super::{ApiRequest, forward_request, validate_request_manifest};
     use crate::route_policy::RouteManifest;
     use crate::session::Session;
-    use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread;
