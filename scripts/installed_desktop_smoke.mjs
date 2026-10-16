@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { access, mkdir, readdir } from "node:fs/promises";
+import { access, mkdir, readFile, readdir } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -16,6 +16,7 @@ if (process.platform !== "win32") throw new Error("Installed Forge smoke require
 // Tauri keeps the Cargo binary target name for the installed executable; the
 // user-facing product and installer are named Forge.
 const installedExecutableName = "forge-desktop.exe";
+const desktopIdentifier = JSON.parse(await readFile(new URL("../desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")).identifier;
 
 const runRoot = process.env.RUNNER_TEMP ?? process.env.TEMP;
 if (!runRoot) throw new Error("A disposable Windows runner temp directory is required.");
@@ -43,6 +44,72 @@ function powershell(script, extraEnvironment = {}) {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`PowerShell smoke helper failed (${result.status}): ${result.stderr.trim()}`);
   return result.stdout.trim();
+}
+
+function configureWebViewDebuggingPolicyValue(valueName, debugPort) {
+  assert(/^[A-Za-z0-9._-]{1,128}$/i.test(valueName), "WebView2 policy must be scoped to a valid application identifier");
+  const output = powershell(
+    "$segments = @('Software', 'Policies', 'Microsoft', 'Edge', 'WebView2', 'AdditionalBrowserArguments'); " +
+    "$current = 'HKCU:\\'; $created = [System.Collections.Generic.List[string]]::new(); " +
+    "foreach ($segment in $segments) { $current = Join-Path $current $segment; if (-not (Test-Path -LiteralPath $current)) { " +
+    "New-Item -Path $current -ErrorAction Stop | Out-Null; $created.Add($current) } }; " +
+    "$key = Get-Item -LiteralPath $current -ErrorAction Stop; $name = $env:FORGE_WEBVIEW_POLICY_NAME; " +
+    "$existed = $key.GetValueNames() -contains $name; $previousValue = $null; $previousKind = $null; " +
+    "if ($existed) { $previousKind = $key.GetValueKind($name).ToString(); if ($previousKind -notin @('String','ExpandString')) { " +
+    "throw 'Existing WebView2 debug policy has an unsupported registry type; refusing to overwrite it.' }; " +
+    "$previousValue = $key.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) }; " +
+    "try { $key.SetValue($name, $env:FORGE_WEBVIEW_POLICY_ARGUMENTS, [Microsoft.Win32.RegistryValueKind]::String); " +
+    "} catch { $key.Close(); foreach ($createdKey in @($created.ToArray() | Sort-Object Length -Descending)) { " +
+    "if (Test-Path -LiteralPath $createdKey) { $candidate = Get-Item -LiteralPath $createdKey; " +
+    "if ($candidate.GetValueNames().Length -eq 0 -and $candidate.GetSubKeyNames().Length -eq 0) { " +
+    "Remove-Item -LiteralPath $createdKey -Force -ErrorAction SilentlyContinue } } }; throw }; $key.Close(); " +
+    "[pscustomobject]@{ ValueName=$name; ValueExisted=$existed; PreviousValue=$previousValue; PreviousKind=$previousKind; CreatedKeys=@($created.ToArray()) } | ConvertTo-Json -Compress",
+    {
+      FORGE_WEBVIEW_POLICY_NAME: valueName,
+      FORGE_WEBVIEW_POLICY_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`,
+    },
+  );
+  return JSON.parse(output);
+}
+
+function restoreWebViewDebuggingPolicyValue(policyState) {
+  const serialized = Buffer.from(JSON.stringify(policyState), "utf8").toString("base64");
+  powershell(
+    "$state = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FORGE_WEBVIEW_POLICY_STATE)) | ConvertFrom-Json; " +
+    "$policyPath = 'HKCU:\\Software\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments'; " +
+    "$name = [string]$state.ValueName; $key = Get-Item -LiteralPath $policyPath -ErrorAction SilentlyContinue; " +
+    "if ($state.ValueExisted -and -not $key) { throw 'Previous WebView2 debug policy key was not restored.' }; " +
+    "if ($key) { if ($state.ValueExisted) { $kind = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], [string]$state.PreviousKind); " +
+    "$key.SetValue($name, [string]$state.PreviousValue, $kind) } else { $key.DeleteValue($name, $false) }; $key.Close() }; " +
+    "$created = @($state.CreatedKeys | Sort-Object { $_.Length } -Descending); foreach ($createdKey in $created) { " +
+    "if ($createdKey -like 'HKCU:\\Software\\Policies\\Microsoft\\Edge\\WebView2*' -and (Test-Path -LiteralPath $createdKey)) { " +
+    "$candidate = Get-Item -LiteralPath $createdKey; if ($candidate.GetValueNames().Length -eq 0 -and $candidate.GetSubKeyNames().Length -eq 0) { " +
+    "Remove-Item -LiteralPath $createdKey -Force -ErrorAction Stop } } }; " +
+    "$restored = Get-Item -LiteralPath $policyPath -ErrorAction SilentlyContinue; if ($state.ValueExisted) { " +
+    "if (-not $restored -or $restored.GetValueKind($name).ToString() -ne [string]$state.PreviousKind -or " +
+    "$restored.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) -cne [string]$state.PreviousValue) { " +
+    "throw 'Previous WebView2 debug policy value was not restored exactly.' } } elseif ($restored -and $restored.GetValueNames() -contains $name) { " +
+    "throw 'Temporary WebView2 debug policy value remains after the app closed.' }; " +
+    "foreach ($createdKey in $created) { if (Test-Path -LiteralPath $createdKey) { throw 'Temporary WebView2 registry key remains after restoration.' } }",
+    { FORGE_WEBVIEW_POLICY_STATE: serialized },
+  );
+}
+
+function configureWebViewDebuggingPolicy(executable, debugPort) {
+  const valueNames = [...new Set([desktopIdentifier, path.basename(executable)])];
+  const policyStates = [];
+  try {
+    for (const valueName of valueNames) policyStates.push(configureWebViewDebuggingPolicyValue(valueName, debugPort));
+    return policyStates;
+  } catch (error) {
+    restoreWebViewDebuggingPolicy(policyStates);
+    throw error;
+  }
+}
+
+function restoreWebViewDebuggingPolicy(policyStates) {
+  if (!policyStates) return;
+  for (const policyState of [...policyStates].reverse()) restoreWebViewDebuggingPolicyValue(policyState);
 }
 
 function install(targetDirectory) {
@@ -151,16 +218,13 @@ async function waitFor(predicate, description, timeoutMs = 30_000) {
 async function startInstalledApp(targetDirectory, debugPort) {
   const executable = path.join(targetDirectory, installedExecutableName);
   await access(executable);
-  const appProcess = spawn(executable, [], {
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      WEBVIEW2_USER_DATA_FOLDER: webviewProfile,
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`,
-    },
-  });
-  appProcess.once("error", (error) => { throw error; });
+  const debugPolicyState = configureWebViewDebuggingPolicy(executable, debugPort);
+  let appProcess;
   try {
+    const launchEnvironment = { ...process.env, WEBVIEW2_USER_DATA_FOLDER: webviewProfile };
+    delete launchEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS;
+    appProcess = spawn(executable, [], { stdio: "ignore", env: launchEnvironment });
+    appProcess.once("error", (error) => { throw error; });
     await waitFor(async () => {
       if (appProcess.exitCode !== null) throw new Error(`Forge exited early with ${appProcess.exitCode}.`);
       const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`).catch(() => null);
@@ -177,40 +241,48 @@ async function startInstalledApp(targetDirectory, debugPort) {
     });
     await page.waitForURL(/^http:\/\/tauri\.localhost(?:\/|$)/, { timeout: 60_000 });
     await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor({ timeout: 60_000 });
-    return { process: appProcess, browser, page, consoleErrors, loopbackRequests };
+    return { process: appProcess, browser, page, consoleErrors, loopbackRequests, debugPolicyState };
   } catch (error) {
     let diagnostics;
-    try {
-      diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort, targetDirectory);
-    } catch (diagnosticError) {
-      diagnostics = { diagnosticError: String(diagnosticError) };
+    if (appProcess?.pid) {
+      try {
+        diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort, targetDirectory);
+      } catch (diagnosticError) {
+        diagnostics = { diagnosticError: String(diagnosticError) };
+      }
     }
-    if (appProcess.exitCode === null && appProcess.signalCode === null) {
+    if (appProcess && appProcess.exitCode === null && appProcess.signalCode === null) {
       appProcess.kill();
       await Promise.race([once(appProcess, "exit"), delay(5_000)]);
     }
+    restoreWebViewDebuggingPolicy(debugPolicyState);
     throw new Error(`${error}; installed process diagnostics=${JSON.stringify(diagnostics)}`, { cause: error });
   }
 }
 
 async function closeInstalledApp(app) {
-  const pid = String(app.process.pid);
-  powershell(
-    "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ForgeWindow { [DllImport(\"user32.dll\")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam); }'; " +
-    "$p = Get-Process -Id $env:FORGE_APP_PID -ErrorAction Stop; if ($p.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Main window was not found.' }; " +
-    "[ForgeWindow]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null",
-    { FORGE_APP_PID: pid },
-  );
-  const exited = Promise.race([
-    once(app.process, "exit").then(() => true),
-    delay(15_000).then(() => false),
-  ]);
-  if (!(await exited)) {
-    app.process.kill();
-    await once(app.process, "exit").catch(() => undefined);
-    throw new Error("Forge did not close after WM_CLOSE; the test-owned app process was stopped.");
+  try {
+    const pid = String(app.process.pid);
+    powershell(
+      "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ForgeWindow { [DllImport(\"user32.dll\")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam); }'; " +
+      "$p = Get-Process -Id $env:FORGE_APP_PID -ErrorAction Stop; if ($p.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Main window was not found.' }; " +
+      "[ForgeWindow]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null",
+      { FORGE_APP_PID: pid },
+    );
+    const exited = Promise.race([
+      once(app.process, "exit").then(() => true),
+      delay(15_000).then(() => false),
+    ]);
+    if (!(await exited)) {
+      app.process.kill();
+      await once(app.process, "exit").catch(() => undefined);
+      throw new Error("Forge did not close after WM_CLOSE; the test-owned app process was stopped.");
+    }
+  } finally {
+    await app.browser.close().catch(() => undefined);
+    restoreWebViewDebuggingPolicy(app.debugPolicyState);
+    app.debugPolicyState = null;
   }
-  await app.browser.close().catch(() => undefined);
 }
 
 async function sidecarDetails(appPid, targetDirectory) {
@@ -259,6 +331,8 @@ async function assertForcedTerminationCleansSidecar(targetDirectory) {
       await once(app.process, "exit").catch(() => undefined);
     }
     await app.browser.close().catch(() => undefined);
+    restoreWebViewDebuggingPolicy(app.debugPolicyState);
+    app.debugPolicyState = null;
   }
 }
 
