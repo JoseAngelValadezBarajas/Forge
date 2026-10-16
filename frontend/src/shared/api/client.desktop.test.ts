@@ -212,11 +212,12 @@ describe("desktop API transport", () => {
   });
 
   test("does not invoke Rust if the signal aborts before IPC dispatch", async () => {
-    const signal = {
+    const mutableSignal = {
       aborted: false,
-      addEventListener() { this.aborted = true; },
+      addEventListener() { mutableSignal.aborted = true; },
       removeEventListener: vi.fn(),
-    } as unknown as AbortSignal;
+    };
+    const signal = mutableSignal as unknown as AbortSignal;
 
     await expect(desktopApiFetch("/api/workspaces", { signal }))
       .rejects.toMatchObject({ name: "AbortError" });
