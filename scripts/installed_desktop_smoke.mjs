@@ -56,10 +56,11 @@ function configureWebViewDebuggingPolicyValue(valueName, debugPort) {
     "$key = Get-Item -LiteralPath $current -ErrorAction Stop; $name = $env:FORGE_WEBVIEW_POLICY_NAME; " +
     "$existed = $key.GetValueNames() -contains $name; $previousValue = $null; $previousKind = $null; " +
     "if ($existed) { $previousKind = $key.GetValueKind($name).ToString(); if ($previousKind -notin @('String','ExpandString')) { " +
-    "throw 'Existing WebView2 debug policy has an unsupported registry type; refusing to overwrite it.' }; " +
+    "$key.Close(); throw 'Existing WebView2 debug policy has an unsupported registry type; refusing to overwrite it.' }; " +
     "$previousValue = $key.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) }; " +
-    "try { $key.SetValue($name, $env:FORGE_WEBVIEW_POLICY_ARGUMENTS, [Microsoft.Win32.RegistryValueKind]::String); " +
-    "} catch { $key.Close(); foreach ($createdKey in @($created.ToArray() | Sort-Object Length -Descending)) { " +
+    "$key.Close(); try { New-ItemProperty -Path $current -Name $name -Value $env:FORGE_WEBVIEW_POLICY_ARGUMENTS " +
+    "-PropertyType String -Force -ErrorAction Stop | Out-Null; " +
+    "} catch { foreach ($createdKey in @($created.ToArray() | Sort-Object Length -Descending)) { " +
     "if (Test-Path -LiteralPath $createdKey) { $candidate = Get-Item -LiteralPath $createdKey; " +
     "if ($candidate.GetValueNames().Length -eq 0 -and $candidate.GetSubKeyNames().Length -eq 0) { " +
     "Remove-Item -LiteralPath $createdKey -Force -ErrorAction SilentlyContinue } } }; throw }; $key.Close(); " +
@@ -79,8 +80,9 @@ function restoreWebViewDebuggingPolicyValue(policyState) {
     "$policyPath = 'HKCU:\\Software\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments'; " +
     "$name = [string]$state.ValueName; $key = Get-Item -LiteralPath $policyPath -ErrorAction SilentlyContinue; " +
     "if ($state.ValueExisted -and -not $key) { throw 'Previous WebView2 debug policy key was not restored.' }; " +
-    "if ($key) { if ($state.ValueExisted) { $kind = [Enum]::Parse([Microsoft.Win32.RegistryValueKind], [string]$state.PreviousKind); " +
-    "$key.SetValue($name, [string]$state.PreviousValue, $kind) } else { $key.DeleteValue($name, $false) }; $key.Close() }; " +
+    "if ($key) { $key.Close(); if ($state.ValueExisted) { New-ItemProperty -Path $policyPath -Name $name " +
+    "-Value ([string]$state.PreviousValue) -PropertyType ([string]$state.PreviousKind) -Force -ErrorAction Stop | Out-Null " +
+    "} else { Remove-ItemProperty -Path $policyPath -Name $name -ErrorAction Stop } }; " +
     "$created = @($state.CreatedKeys | Sort-Object { $_.Length } -Descending); foreach ($createdKey in $created) { " +
     "if ($createdKey -like 'HKCU:\\Software\\Policies\\Microsoft\\Edge\\WebView2*' -and (Test-Path -LiteralPath $createdKey)) { " +
     "$candidate = Get-Item -LiteralPath $createdKey; if ($candidate.GetValueNames().Length -eq 0 -and $candidate.GetSubKeyNames().Length -eq 0) { " +
