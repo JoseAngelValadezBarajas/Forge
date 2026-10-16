@@ -6,13 +6,16 @@ from pathlib import Path, PurePosixPath
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.responses import FileResponse, Response
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import FileResponse, PlainTextResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import Settings, get_settings
 from app.local_runtime import (
+    has_valid_local_host_header,
     is_browser_navigation,
+    local_runtime_host,
     local_runtime_origin,
     validate_frontend_build,
     validate_local_runtime_settings,
@@ -79,6 +82,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def same_origin_mutations(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        if local_mode and not has_valid_local_host_header(
+            request.scope["headers"], runtime_settings
+        ):
+            return PlainTextResponse("Invalid host header", status_code=400)
         if request.method in {"POST", "PATCH", "PUT", "DELETE"}:
             origin = request.headers.get("origin")
             if local_mode and (origin is None or origin.rstrip("/") not in origins):
@@ -98,6 +105,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     if local_mode:
         assert index_path is not None and assets_path is not None
+        application.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=[local_runtime_host(runtime_settings)],
+            www_redirect=False,
+        )
         application.mount(
             "/assets",
             StaticFiles(directory=assets_path, check_dir=False, follow_symlink=False),

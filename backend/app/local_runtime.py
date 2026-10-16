@@ -1,8 +1,9 @@
 """Single-origin local distribution runtime helpers and launcher."""
 
 import sys
+from collections.abc import Sequence
 from html.parser import HTMLParser
-from ipaddress import ip_address
+from ipaddress import IPv6Address, ip_address
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
@@ -35,9 +36,11 @@ def validate_local_runtime_settings(settings: Settings) -> None:
         raise RuntimeError(
             "FORGE_RUNTIME_HOST must be a loopback IP address in local runtime mode"
         ) from exc
-    if not address.is_loopback:
+    if not address.is_loopback or (
+        isinstance(address, IPv6Address) and address.scope_id is not None
+    ):
         raise RuntimeError(
-            "FORGE_RUNTIME_HOST must be a loopback IP address in local runtime mode"
+            "FORGE_RUNTIME_HOST must be an unscoped loopback IP address in local runtime mode"
         )
     if not 1 <= settings.runtime_port <= 65535:
         raise RuntimeError("FORGE_RUNTIME_PORT must be between 1 and 65535")
@@ -45,9 +48,47 @@ def validate_local_runtime_settings(settings: Settings) -> None:
 
 def local_runtime_origin(settings: Settings) -> str:
     validate_local_runtime_settings(settings)
-    host = f"[{settings.runtime_host}]" if ":" in settings.runtime_host else settings.runtime_host
+    host = local_runtime_host(settings)
     port = "" if settings.runtime_port == 80 else f":{settings.runtime_port}"
     return f"http://{host}{port}"
+
+
+def local_runtime_host(settings: Settings) -> str:
+    """Return the canonical Host hostname for the configured loopback address."""
+    validate_local_runtime_settings(settings)
+    address = ip_address(settings.runtime_host)
+    host = address.compressed
+    return f"[{host}]" if address.version == 6 else host
+
+
+def has_valid_local_host_header(
+    headers: Sequence[tuple[bytes, bytes]], settings: Settings
+) -> bool:
+    """Require one unambiguous HTTP Host authority on the configured port."""
+    host_values = [value for name, value in headers if name.lower() == b"host"]
+    if len(host_values) != 1:
+        return False
+
+    try:
+        raw_host = host_values[0].decode("ascii")
+        if not raw_host or raw_host != raw_host.strip():
+            return False
+        authority = urlsplit(f"//{raw_host}")
+        if (
+            authority.netloc != raw_host
+            or authority.path
+            or authority.query
+            or authority.fragment
+            or authority.netloc.endswith(":")
+        ):
+            return False
+        supplied_port = authority.port
+    except (UnicodeDecodeError, ValueError):
+        return False
+
+    if supplied_port is None:
+        return settings.runtime_port == 80
+    return supplied_port == settings.runtime_port
 
 
 def is_browser_navigation(request: Request) -> bool:

@@ -31,11 +31,13 @@ def frontend_dist(tmp_path: Path) -> Path:
     return dist
 
 
-def _local_app(dist: Path, port: int = 43123) -> tuple[FastAPI, Settings]:
+def _local_app(
+    dist: Path, host: str = "127.0.0.1", port: int = 43123
+) -> tuple[FastAPI, Settings]:
     settings = Settings(
         _env_file=None,  # type: ignore[call-arg]
         runtime_mode="local",
-        runtime_host="127.0.0.1",
+        runtime_host=host,
         runtime_port=port,
         frontend_dist_dir=dist,
     )
@@ -67,8 +69,8 @@ def _isolated_database(application: FastAPI) -> Iterator[None]:
 def test_local_runtime_serves_only_build_assets_and_browser_navigation(
     frontend_dist: Path,
 ) -> None:
-    application, _ = _local_app(frontend_dist)
-    with TestClient(application) as client:
+    application, settings = _local_app(frontend_dist)
+    with TestClient(application, base_url=local_runtime_origin(settings)) as client:
         navigation_headers = {
             "Accept": "text/html,application/xhtml+xml",
             "Sec-Fetch-Mode": "navigate",
@@ -110,23 +112,140 @@ def test_local_runtime_requires_the_configured_origin_not_host_header(
     frontend_dist: Path,
 ) -> None:
     application, settings = _local_app(frontend_dist)
-    with _isolated_database(application), TestClient(application) as client:
+    with _isolated_database(application), TestClient(
+        application, base_url=local_runtime_origin(settings)
+    ) as client:
         payload = {"name": "Origin policy workspace"}
-        spoofed = client.post(
+        forged_host = client.post(
             "/api/workspaces",
             json=payload,
-            headers={"Origin": "http://attacker.invalid", "Host": "attacker.invalid"},
+            headers={"Origin": local_runtime_origin(settings), "Host": "attacker.invalid"},
         )
-        missing_origin = client.post("/api/workspaces", json=payload)
+        invalid_origin = client.post(
+            "/api/workspaces", json=payload, headers={"Origin": "http://attacker.invalid"}
+        )
         accepted = client.post(
             "/api/workspaces",
-            json=payload,
+            json={"name": "Accepted same-origin workspace"},
             headers={"Origin": local_runtime_origin(settings)},
         )
 
-        assert spoofed.status_code == 403
-        assert missing_origin.status_code == 403
+        assert forged_host.status_code == 400
+        assert invalid_origin.status_code == 403
         assert accepted.status_code == 201
+        listed = client.get("/api/workspaces")
+        assert [workspace["name"] for workspace in listed.json()] == [
+            "Accepted same-origin workspace"
+        ]
+
+
+def test_local_runtime_accepts_health_and_workspace_requests_on_configured_host(
+    frontend_dist: Path,
+) -> None:
+    application, settings = _local_app(frontend_dist)
+    with _isolated_database(application), TestClient(
+        application, base_url=local_runtime_origin(settings)
+    ) as client:
+        health = client.get("/api/health")
+        created = client.post(
+            "/api/workspaces",
+            json={"name": "Trusted Host Workspace"},
+            headers={"Origin": local_runtime_origin(settings)},
+        )
+
+    assert health.status_code == 200
+    assert created.status_code == 201
+
+
+def test_local_runtime_rejects_untrusted_host_for_api_reads_and_browser_navigation(
+    frontend_dist: Path,
+) -> None:
+    application, settings = _local_app(frontend_dist)
+    with _isolated_database(application), TestClient(
+        application, base_url=local_runtime_origin(settings)
+    ) as client:
+        created = client.post(
+            "/api/workspaces",
+            json={"name": "Private to configured host"},
+            headers={"Origin": local_runtime_origin(settings)},
+        )
+        health = client.get("/api/health", headers={"Host": "attacker.invalid"})
+        trusted_forwarded_host = f"127.0.0.1:{settings.runtime_port}"
+        untrusted_headers = {
+            "Host": f"attacker.invalid:{settings.runtime_port}",
+            "Forwarded": f"host={trusted_forwarded_host};proto=http",
+            "X-Forwarded-Host": trusted_forwarded_host,
+        }
+        listing = client.get("/api/workspaces", headers=untrusted_headers)
+        navigation = client.get(
+            "/projects/p1",
+            headers={
+                "Accept": "text/html",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Dest": "document",
+                **untrusted_headers,
+            },
+        )
+
+    assert created.status_code == 201
+    assert health.status_code == 400
+    assert listing.status_code == 400
+    assert "Private to configured host" not in listing.text
+    assert navigation.status_code == 400
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+def test_local_runtime_rejects_untrusted_host_for_every_http_method(
+    frontend_dist: Path, method: str
+) -> None:
+    application, settings = _local_app(frontend_dist)
+    with TestClient(application, base_url=local_runtime_origin(settings)) as client:
+        response = client.request(
+            method,
+            "/api/health",
+            headers={"Host": f"attacker.invalid:{settings.runtime_port}"},
+        )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("host", "port", "host_header", "accepted"),
+    [
+        ("127.0.0.1", 43123, "127.0.0.1:43123", True),
+        ("127.0.0.1", 43123, "127.0.0.1", False),
+        ("127.0.0.1", 43123, "127.0.0.1:43124", False),
+        ("127.0.0.1", 80, "127.0.0.1", True),
+        ("127.0.0.1", 80, "127.0.0.1:80", True),
+        ("::1", 43123, "[::1]:43123", True),
+        ("::1", 43123, "::1:43123", False),
+    ],
+)
+def test_local_runtime_validates_configured_host_port_and_ipv6_syntax(
+    frontend_dist: Path, host: str, port: int, host_header: str, accepted: bool
+) -> None:
+    application, settings = _local_app(frontend_dist, host=host, port=port)
+    with TestClient(application, base_url=local_runtime_origin(settings)) as client:
+        response = client.get("/api/health", headers={"Host": host_header})
+
+    assert response.status_code == (200 if accepted else 400)
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        [("Host", "")],
+        [("Host", "127.0.0.1:43123"), ("Host", "attacker.invalid")],
+    ],
+)
+def test_local_runtime_rejects_missing_or_ambiguous_host_headers(
+    frontend_dist: Path, headers: list[tuple[str, str]]
+) -> None:
+    application, settings = _local_app(frontend_dist)
+    with TestClient(application, base_url=local_runtime_origin(settings)) as client:
+        response = client.get("/api/health", headers=headers)
+
+    assert response.status_code == 400
 
 
 def test_development_mode_keeps_its_existing_frontend_origin_allowlist(
@@ -155,7 +274,7 @@ def test_development_mode_keeps_its_existing_frontend_origin_allowlist(
         assert forbidden.status_code == 403
 
 
-@pytest.mark.parametrize("host", ["0.0.0.0", "192.0.2.10", "localhost"])
+@pytest.mark.parametrize("host", ["0.0.0.0", "192.0.2.10", "localhost", "::1%lo"])
 def test_local_runtime_fails_closed_for_non_literal_loopback_hosts(
     frontend_dist: Path, host: str
 ) -> None:
@@ -182,6 +301,20 @@ def test_local_runtime_origin_uses_browser_canonical_default_http_port(
     )
 
     assert local_runtime_origin(settings) == "http://127.0.0.1"
+
+
+def test_local_runtime_origin_canonicalizes_ipv6_loopback_authority(
+    frontend_dist: Path,
+) -> None:
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        runtime_mode="local",
+        runtime_host="0:0:0:0:0:0:0:1",
+        runtime_port=43123,
+        frontend_dist_dir=frontend_dist,
+    )
+
+    assert local_runtime_origin(settings) == "http://[::1]:43123"
 
 
 def test_local_runtime_startup_fails_when_a_compiled_asset_is_missing(tmp_path: Path) -> None:

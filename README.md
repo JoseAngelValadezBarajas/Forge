@@ -70,7 +70,7 @@ $env:FORGE_RUNTIME_MODE = "local"
 uv run --directory backend python -m app.local_runtime
 ```
 
-Open `http://127.0.0.1:8000`. Node is needed to build the assets, not to serve them. The runtime binds only to a literal loopback IP, validates the compiled build before startup, and requires the configured same-origin `Origin` for browser mutations. It is not an authentication boundary against local processes and must not be exposed to a network. This mode does not relocate the database or run migrations automatically; migrate the selected database explicitly first. See [runtime/platform boundaries](docs/architecture/README.md#runtime-modes-and-platform-boundaries) for future DESK-01 and WEB-01 responsibilities.
+Open `http://127.0.0.1:8000`. Node is needed to build the assets, not to serve them. The runtime binds only to a literal loopback IP, validates the compiled build before startup, accepts only the configured loopback `Host` and port, and requires the configured same-origin `Origin` for browser mutations. Host validation helps prevent DNS rebinding; it is not authentication against arbitrary local processes, which can call loopback APIs directly. Do not expose this mode to a network. This mode does not relocate the database or run migrations automatically; migrate the selected database explicitly first. See [runtime/platform boundaries](docs/architecture/README.md#runtime-modes-and-platform-boundaries) for future DESK-01 and WEB-01 responsibilities.
 
 Or use the Windows helper, which starts both processes:
 

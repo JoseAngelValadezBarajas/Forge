@@ -228,6 +228,24 @@ def main() -> int:
                     health_status == 200 and json.loads(health_body)["status"] == "ok",
                     "Single-origin API health check failed",
                 )
+                trusted_host = f"127.0.0.1:{port}"
+                forged_host_headers = {
+                    "Host": f"attacker.invalid:{port}",
+                    "Forwarded": f"host={trusted_host};proto=http",
+                    "X-Forwarded-Host": trusted_host,
+                }
+                rejected_host_status, _, _ = _request(
+                    base_url, "/api/health", headers=forged_host_headers
+                )
+                rejected_navigation_status, _, _ = _request(
+                    base_url,
+                    "/projects/forged-host",
+                    headers={**navigation_headers, **forged_host_headers},
+                )
+                _assert(
+                    rejected_host_status == rejected_navigation_status == 400,
+                    "A forwarded or forged Host reached local API or frontend routes",
+                )
 
                 workspace_status, _, workspace_body = _request(
                     base_url,
@@ -258,15 +276,38 @@ def main() -> int:
                     "Created project was not returned by the real API",
                 )
 
-                denied_status, _, _ = _request(
+                rejected_workspace_read, _, rejected_workspace_body = _request(
+                    base_url,
+                    "/api/workspaces",
+                    headers=forged_host_headers,
+                )
+                _assert(
+                    rejected_workspace_read == 400
+                    and b"PLT-01 Smoke Workspace" not in rejected_workspace_body,
+                    "Workspace data was returned for an untrusted Host",
+                )
+
+                forged_host_mutation_status, _, _ = _request(
                     base_url,
                     "/api/workspaces",
                     method="POST",
-                    headers={"Origin": "http://attacker.invalid", "Host": "attacker.invalid"},
-                    payload={"name": "Must Be Rejected"},
+                    headers={"Origin": origin, **forged_host_headers},
+                    payload={"name": "Must Be Rejected By Host Validation"},
+                )
+                invalid_origin_mutation_status, _, _ = _request(
+                    base_url,
+                    "/api/workspaces",
+                    method="POST",
+                    headers={"Origin": "http://attacker.invalid"},
+                    payload={"name": "Must Be Rejected By Origin Validation"},
                 )
                 _assert(
-                    denied_status == 403, "A spoofed Host did not authorize a cross-origin write"
+                    forged_host_mutation_status == 400,
+                    "A forged Host was accepted for a same-origin mutation",
+                )
+                _assert(
+                    invalid_origin_mutation_status == 403,
+                    "An invalid Origin was accepted for a local mutation",
                 )
 
                 missing_asset_status, _, missing_asset_body = _request(
@@ -295,9 +336,7 @@ def main() -> int:
                     "Static path traversal was not rejected",
                 )
 
-                print(
-                    "PASS: build, assets, deep links, API, origin and path checks"
-                )
+                print("PASS: build, assets, deep links, API, host, origin and path checks")
         except (URLError, OSError) as exc:
             raise RuntimeError(f"Local distribution smoke request failed: {exc}") from exc
         finally:
