@@ -77,7 +77,9 @@ The data model keeps `Workspace`, `Project`, planning records, `Repository` and 
 
 The frontend talks to the backend through the Vite `/api` proxy in development. It has no direct filesystem or Git access. Routing is local and uses React Router; the active workspace ID and theme are stored in browser local storage, while workspace/project truth stays in the backend SQLite database. Mutating API requests with an untrusted `Origin` are rejected; this is a localhost boundary, not an authentication system.
 
-### Frontend shell, routes and Command Palette (RFX-02B)
+### Historical frontend milestones (superseded by RFX-ORG-01 below)
+
+The RFX-02B/02C/02D notes that follow preserve the incremental implementation history. Any descriptions there of root-level milestone pages, deferred page extraction or planned boundary enforcement are historical, not the current architecture. The canonical ownership, dependencies and verification rules are defined in the RFX-ORG-01 section at the end of this document.
 
 `frontend/src/main.tsx` remains the Vite entrypoint and owns React root mounting, `BrowserRouter` and the global stylesheet. `frontend/src/app/App.tsx` owns the application shell, workspace initialization/selection, theme persistence, global keyboard shortcut and palette open/focus-restoration state. It composes the sidebar, route tree and Command Palette; feature page implementations and API contracts remain in their owning modules.
 
@@ -112,4 +114,61 @@ API contract tests are grouped by domain and characterize every one of the 94 `f
 The frozen OpenAPI cross-check confirms all 94 operations use declared backend routes/methods and verifies query names and request-body fields. Its response comparison checks top-level DTO property presence and requiredness, not scalar types recursively inside nested objects. It reports 19 preexisting top-level discrepancies, unchanged by this extraction: Decision and Invariant revision DTOs include fields absent from the baseline schema; several Verification, Readiness and Gate fields are optional in OpenAPI but required in frontend types; Handoff acknowledgement/revision fields have the inverse optionality; and the VerificationRule response schema has no declared properties. These contract gaps are preserved and classified for a separate compatibility decision rather than changed in this frontend-only refactor.
 
 RFX-02E and later phases may own extraction of the remaining planning/decisions/repositories/runs/handoffs/delivery page modules, styling ownership and automated dependency-boundary enforcement. No empty layers or future-facing wrappers were added in RFX-02D.
+
+## Canonical frontend architecture (RFX-ORG-01)
+
+RFX-ORG-01 completes the page/component migration described historically above. The current frontend structure is:
+
+```text
+frontend/src/
+├── app/                         shell and composition
+│   ├── App.tsx
+│   ├── router.tsx
+│   ├── shell/
+│   ├── command-palette/
+│   └── compositions/
+├── features/
+│   ├── workspaces/              workspace API contracts
+│   ├── projects/                Home, project inventory and overview
+│   ├── planning/                Epics, Features, Tasks, criteria, dependencies
+│   ├── decisions/               decisions and revision history
+│   ├── invariants/              invariant lifecycle and acknowledgements
+│   ├── readiness/               preview, saved evaluation and staleness
+│   ├── repositories/            repository presentation and Context Packages
+│   ├── workbench/               Runs and Handoffs
+│   └── delivery/                evidence, verification and release candidates
+├── shared/                      transport, domain-independent UI and utilities
+├── styles.css                   global styles (unchanged; RFX-ORG-03 scope)
+└── main.tsx                     Vite entrypoint
+```
+
+Each feature owns its pages, feature-specific components, hooks, local utilities, API contracts and API operations. `features/<name>/index.ts` is the public UI interface for routing/application composition and permitted cross-feature consumers; nested files are private. Projects exports `HomePage`, `ProjectsPage` and `ProjectOverviewPage`. Planning exposes its route pages through its feature entrypoint, while `ReadinessPanel` is exposed by `features/readiness/index.ts` for Planning's embedded readiness view. Workbench retains Runs and Handoffs as sub-capabilities; Repositories retains Context Packages.
+
+`app/App.tsx` owns workspace initialization/selection, theme persistence, shell state, keyboard shortcut and palette focus restoration. `app/shell/` owns sidebar and workspace-switcher presentation; `app/command-palette/` owns palette presentation and interaction. `app/router.tsx` composes all 18 existing routes, including parameters, the `/projects/:projectId/delivery/*` wildcard and fallback, without owning feature data loading. The cross-feature Project Overview + repository section is composed in `app/compositions/ProjectOverviewWithRepositories.tsx` through the Projects and Repositories public interfaces.
+
+`shared/api/client.ts` is the sole HTTP `fetch` transport; `shared/api/errors.ts` owns transport errors. `shared/ui/` contains domain-independent `PageFrame`, `LoadingPanel` and `ErrorPanel`; `shared/utils/formatDate.ts` provides shared date formatting. Feature-specific visual components stay in their feature even when patterns are similar. `styles.css` remains global and was not changed by this migration.
+
+`src/api.ts` remains the explicit compatibility facade for existing screens and tests. It composes the domain-owned API modules and preserves all 94 public `forgeApi` operations and DTO exports. This is the only allowed compatibility bridge from feature UI to API operations; no second client or transport is permitted. API modules call the shared transport and import no React UI. Request paths, methods, query strings, payloads, response/error semantics and cancellation behavior remain covered by the existing contract tests and frozen backend OpenAPI baseline. The 19 previously reported top-level DTO/OpenAPI discrepancies remain unchanged and are not suppressed or resolved by this structural migration.
+
+### Dependency rules
+
+Allowed composition flows from the application to public feature interfaces and domain-independent shared infrastructure: `main.tsx → app → feature public interfaces → shared`.
+
+- `shared` must not import `app` or `features`.
+- Feature modules must not import `app`.
+- One feature must not import another feature's private files. Cross-feature UI dependencies use the target `index.ts`; app-level composition is preferred when combining page-level capabilities.
+- Feature API modules remain framework/UI independent and use `shared/api/client.ts` for network I/O.
+- `src/api.ts` may compose feature API entrypoints/contracts as a documented compatibility exception; it may not import private UI or define another transport.
+- Runtime dependency cycles are forbidden. Type-only dependencies do not create runtime edges.
+- Root-level `fndXX.tsx` milestone production modules are not permitted.
+
+`npm run check:architecture` enforces these rules with the existing TypeScript compiler API. It is included in frontend test scripts and GitHub Actions. `src/test/architecture-boundaries.test.ts` covers valid imports and verifies rejection of forbidden shared/app/feature edges, private cross-feature imports, UI imports from API modules, runtime cycles, milestone files and duplicate `fetch` implementations.
+
+### Tests and adding a feature
+
+Tests live beside the boundary they characterize: feature component/integration tests under `features/<feature>/`, route compatibility tests under `app/`, API operation and transport tests under `src/`, and browser journeys under `frontend/e2e/`. Prefer observable behavior and stable contracts over implementation details. From `frontend/`, run `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:coverage`, `npm run build`, `npm run e2e` and `npm run test:isolation`. Coverage reports whole-frontend totals separately from API/transport and feature totals; the established API/transport thresholds remain enforced.
+
+To add a capability, place its UI, hooks, API contracts and domain-specific components under `features/<capability>/`; expose only required consumers in its `index.ts`; compose routes in `app/router.tsx`; and add behavior tests plus operation-level contract coverage if HTTP behavior is introduced. Promote a UI element to `shared/ui` only when it is domain-independent and has a stable reusable contract. Run the architecture checker and frontend gates before delivery.
+
+RFX-ORG-01 does not modularize global CSS, change backend services/routes or database schema, alter API behavior, introduce runtime dependencies, redesign screens, or begin RFX-ORG-02/RFX-ORG-03. Further CSS ownership or architecture evolution remains separately scoped.
 
