@@ -18,8 +18,8 @@ import {
   type RunStatus,
   type Workspace,
 } from "./api";
-import { PageFrame } from "./pages";
-import { formatDate } from "./components";
+import { PageFrame } from "./shared/ui/PageFrame";
+import { formatDate } from "./shared/utils/formatDate";
 
 type PaletteOpener = (button: HTMLButtonElement) => void;
 

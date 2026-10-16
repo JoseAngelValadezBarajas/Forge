@@ -3,7 +3,9 @@ import type { FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { forgeApi, type ContextPackage, type RepositoryConnection, type Workspace } from "./api";
-import { LoadingPanel, PageFrame, ProjectOverviewPage } from "./pages";
+import { ProjectOverviewPage } from "./features/projects";
+import { LoadingPanel } from "./shared/ui/LoadingPanel";
+import { PageFrame } from "./shared/ui/PageFrame";
 
 type PaletteOpener = (button: HTMLButtonElement) => void;
 type ContextRecord = Record<string, unknown>;

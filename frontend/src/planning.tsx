@@ -16,7 +16,9 @@ import {
   type TaskStatus,
   type Workspace,
 } from "./api";
-import { ErrorPanel, LoadingPanel, PageFrame } from "./pages";
+import { ErrorPanel } from "./shared/ui/ErrorPanel";
+import { LoadingPanel } from "./shared/ui/LoadingPanel";
+import { PageFrame } from "./shared/ui/PageFrame";
 import { ReadinessPanel } from "./fnd03";
 
 const statuses: FeatureStatus[] = ["backlog", "refining", "ready", "in_progress", "verify", "done"];

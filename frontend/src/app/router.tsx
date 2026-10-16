@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import type { Workspace } from "../api";
-import { HomePage, ProjectsPage } from "../pages";
+import { HomePage, ProjectsPage } from "../features/projects";
 import { FeatureDetailPage, FeaturesPage, ProjectBoardPage } from "../planning";
 import { DecisionsPage, InvariantsPage } from "../fnd03";
 import { FeatureContextPage, ProjectOverviewWithRepositories, RepositoriesPage } from "../fnd04";

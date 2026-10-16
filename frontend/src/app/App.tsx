@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { forgeApi, type Workspace } from "../api";
-import { Sidebar } from "../components";
+import { Sidebar } from "./shell/Sidebar";
 import { AppRouter } from "./router";
 import { CommandPalette } from "./command-palette/CommandPalette";
 
