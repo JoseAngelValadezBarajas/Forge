@@ -1,4 +1,4 @@
-export type ReadinessReference = { kind: string; id: string; label?: string };
+export type ReadinessReference = { kind: string; id: string; label: string | null };
 
 export type ReadinessBlocker = { code: string; message: string; references: ReadinessReference[] };
 

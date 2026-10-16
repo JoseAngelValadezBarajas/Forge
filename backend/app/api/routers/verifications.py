@@ -1,10 +1,8 @@
-from typing import Any
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.errors import _delivery_error
-from app.api.schemas import VerificationRequest, VerificationResponse
+from app.api.schemas import VerificationRequest, VerificationResponse, VerificationRuleResponse
 from app.application.delivery import DeliveryService, verification_response
 from app.application.services import EntityNotFound, InvalidInput, RevisionConflict
 from app.db import get_db
@@ -15,12 +13,15 @@ router = APIRouter()
 @router.get("/workspaces/{workspace_id}/projects/{project_id}/verifications/rules")
 def list_verification_rules(
     workspace_id: str, project_id: str, db: Session = Depends(get_db)
-) -> list[dict[str, Any]]:
+) -> list[VerificationRuleResponse]:
     try:
         DeliveryService(db).project(workspace_id, project_id)
     except (EntityNotFound, InvalidInput) as exc:
         raise _delivery_error(exc) from exc
-    return DeliveryService(db).rule_catalog()
+    return [
+        VerificationRuleResponse.model_validate(item)
+        for item in DeliveryService(db).rule_catalog()
+    ]
 
 
 @router.get(
@@ -59,6 +60,7 @@ def preview_verification(
     except (EntityNotFound, InvalidInput) as exc:
         raise _delivery_error(exc) from exc
     result["project_id"] = project_id
+    result["feature_id"] = result["subject"]["feature_id"]
     return VerificationResponse.model_validate(result)
 
 

@@ -149,9 +149,13 @@ def preview_release_gates(
         raise _delivery_error(exc) from exc
     result.update(
         {
+            "id": None,
             "candidate_id": candidate_id,
             "project_id": project_id,
+            "candidate_revision": None,
             "ruleset_version": "forge-release-gates-v1",
+            "stored_result": None,
+            "evaluated_at": None,
         }
     )
     return GateEvaluationResponse.model_validate(result)

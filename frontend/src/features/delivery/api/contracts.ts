@@ -7,10 +7,32 @@ export type EvidenceRecord = {
   version: number; recorded_at: string; invalidated_at: string | null;
 };
 
-export type VerificationRule = { rule_id: string; version: string; title: string; available: boolean; required_inputs: string[]; limitation: string };
+export type EvidenceType = "reported_test_result" | "document_reference" | "artifact_reference" | "git_observation_reference" | "context_snapshot_reference" | "handoff_revision_reference" | "manual_attestation";
+export type EvidenceSourceKind = "safe_link" | "artifact" | "commit" | "context_package" | "git_observation" | "handoff_revision" | "manual";
+export type VerificationRuleId = "V01" | "V02" | "V03" | "V04";
+export type EvidenceCreatePayload = {
+  feature_id?: string;
+  acceptance_criterion_id?: string;
+  run_id?: string;
+  evidence_type: EvidenceType;
+  title: string;
+  description?: string;
+  source_kind: EvidenceSourceKind;
+  source_reference?: string;
+  declared_outcome?: string;
+};
+export type VerificationRequestPayload = {
+  rule_id: VerificationRuleId;
+  feature_id?: string;
+  context_package_id?: string;
+  expected_digest?: string;
+  handoff_revision_id?: string;
+  evidence_ids?: string[];
+};
+export type VerificationRule = { rule_id: VerificationRuleId; version: string; title: string; available: boolean; required_inputs: string[]; limitation: string };
 
 export type VerificationEvaluation = {
-  id: string | null; project_id?: string | null; feature_id: string | null; rule_id: string; rule_version: string;
+  id: string | null; project_id: string; feature_id: string | null; rule_id: VerificationRuleId; rule_version: string;
   subject: Record<string, unknown>; inputs: Record<string, unknown>; input_fingerprint: string;
   result: "PASS" | "FAIL" | "BLOCKED" | "NOT_EVALUATED" | "ERROR"; findings: string[]; limitations: string[];
   evidence_ids: string[]; verifier_version: string; evaluated_at: string | null; stale: boolean;
@@ -29,8 +51,8 @@ export type ReleaseCandidate = {
 export type GateCheck = { rule_id: string; version: string; status: "PASS" | "BLOCKED" | "STALE"; explanation: string; inputs: string[]; blockers: string[]; limitations: string[] };
 
 export type GateEvaluation = {
-  id: string | null; project_id?: string | null; candidate_id: string; candidate_revision?: number; ruleset_version: string;
-  input_fingerprint: string; result: "READY_BY_DEFINED_GATES" | "BLOCKED" | "STALE"; stored_result?: string;
+  id: string | null; project_id: string; candidate_id: string; candidate_revision: number | null; ruleset_version: string;
+  input_fingerprint: string; result: "READY_BY_DEFINED_GATES" | "BLOCKED" | "STALE"; stored_result: string | null;
   checks: GateCheck[]; limitations: string[]; manifest: Record<string, unknown>; manifest_fingerprint: string; evaluated_at: string | null; stale: boolean;
 };
 

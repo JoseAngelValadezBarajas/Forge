@@ -16,7 +16,20 @@ export type Decision = {
   updated_at: string;
 };
 
-export type DecisionRevision = Decision & { decision_id: string };
+export type DecisionRevision = {
+  id: string;
+  decision_id: string;
+  revision: number;
+  title: string;
+  context: string;
+  decision: string;
+  rationale: string;
+  alternatives_considered: string | null;
+  tradeoffs: string | null;
+  status: DecisionStatus;
+  superseded_by_id: string | null;
+  created_at: string;
+};
 
 export type DecisionCreatePayload = {
   title: string;

@@ -44,6 +44,7 @@ export type {
 } from "./features/repositories/api/contracts";
 export type {
   RunStatus,
+  RunEventType,
   AgentRun,
   RunEvent,
   RunOutputReference,

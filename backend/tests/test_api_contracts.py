@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -108,10 +109,34 @@ OPENAPI = app.openapi()
 ROUTES = _effective_routes(router.routes)
 
 
-def test_complete_openapi_matches_frozen_pre_refactor_main() -> None:
+def _apply_rfx_org_03a_openapi_delta(expected: dict[str, Any]) -> dict[str, Any]:
+    corrected = deepcopy(expected)
+    delta = json.loads(
+        (FIXTURES / "rfx-org-03a-openapi-delta.json").read_text(encoding="utf-8")
+    )
+    schemas = corrected["components"]["schemas"]
+    for name, fields in delta["required_additions"].items():
+        schemas[name]["required"] = [*schemas[name].get("required", []), *fields]
+    for name, fields in delta["required_order_overrides"].items():
+        schemas[name]["required"] = fields
+    for name, fields in delta["remove_defaults"].items():
+        for field in fields:
+            schemas[name]["properties"][field].pop("default")
+    for name, properties in delta["property_replacements"].items():
+        schemas[name]["properties"].update(properties)
+    schemas.update(delta["components"])
+    for route, schema in delta["response_schema_replacements"].items():
+        path, method, status_code = route.rsplit("#", maxsplit=2)
+        corrected["paths"][path][method]["responses"][status_code]["content"][
+            "application/json"
+        ]["schema"] = schema
+    return corrected
+
+
+def test_complete_openapi_matches_frozen_baseline_plus_rfx_org_03a_corrections() -> None:
     expected = json.loads((FIXTURES / "rfx01b-openapi-baseline.json").read_text(encoding="utf-8"))
 
-    assert OPENAPI == expected
+    assert OPENAPI == _apply_rfx_org_03a_openapi_delta(expected)
 
 
 def test_runtime_route_registry_preserves_all_105_registrations() -> None:

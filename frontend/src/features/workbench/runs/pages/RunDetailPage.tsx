@@ -9,6 +9,7 @@ import {
   type RunEvent,
   type RunOutputReference,
   type RunStatus,
+  type RunEventType,
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
@@ -40,7 +41,7 @@ export function RunDetailPage({
   const [eventOpen, setEventOpen] = useState(false);
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
-  const [eventType, setEventType] = useState("progress");
+  const [eventType, setEventType] = useState<RunEventType>("progress");
   const [outputOpen, setOutputOpen] = useState(false);
   const [outputLabel, setOutputLabel] = useState("");
   const [outputSummary, setOutputSummary] = useState("");
@@ -273,7 +274,7 @@ export function RunDetailPage({
             Type
             <select
               aria-label="Event type"
-              onChange={(event) => setEventType(event.target.value)}
+              onChange={(event) => setEventType(event.target.value as RunEventType)}
               value={eventType}
             >
               <option value="progress">Progress</option>

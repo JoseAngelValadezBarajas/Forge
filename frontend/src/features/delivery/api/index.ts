@@ -1,12 +1,12 @@
 import { request } from "../../../shared/api/client";
-import type { EvidenceRecord, VerificationRule, VerificationEvaluation, ReleaseCandidateInput, ReleaseCandidate, GateEvaluation, ReleaseManifest } from "./contracts";
+import type { EvidenceCreatePayload, EvidenceRecord, VerificationRequestPayload, VerificationRule, VerificationEvaluation, ReleaseCandidateInput, ReleaseCandidate, GateEvaluation, ReleaseManifest } from "./contracts";
 
 export const deliveryApi = {
   listEvidence: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
     request<EvidenceRecord[]>(`/workspaces/${workspaceId}/projects/${projectId}/evidence`, { signal }),
   getEvidence: (workspaceId: string, projectId: string, evidenceId: string, signal?: AbortSignal) =>
     request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence/${evidenceId}`, { signal }),
-  createEvidence: (workspaceId: string, projectId: string, payload: { feature_id?: string; acceptance_criterion_id?: string; run_id?: string; evidence_type: string; title: string; description?: string; source_kind: string; source_reference?: string; declared_outcome?: string }) =>
+  createEvidence: (workspaceId: string, projectId: string, payload: EvidenceCreatePayload) =>
     request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence`, { method: "POST", body: JSON.stringify(payload) }),
   invalidateEvidence: (workspaceId: string, projectId: string, evidenceId: string) =>
     request<EvidenceRecord>(`/workspaces/${workspaceId}/projects/${projectId}/evidence/${evidenceId}/invalidate`, { method: "POST" }),
@@ -14,9 +14,9 @@ export const deliveryApi = {
     request<VerificationRule[]>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/rules`, { signal }),
   listVerifications: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
     request<VerificationEvaluation[]>(`/workspaces/${workspaceId}/projects/${projectId}/verifications`, { signal }),
-  previewVerification: (workspaceId: string, projectId: string, payload: { rule_id: string; feature_id?: string; context_package_id?: string; expected_digest?: string; handoff_revision_id?: string; evidence_ids?: string[] }, signal?: AbortSignal) =>
+  previewVerification: (workspaceId: string, projectId: string, payload: VerificationRequestPayload, signal?: AbortSignal) =>
     request<VerificationEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/preview`, { method: "POST", body: JSON.stringify(payload), signal }),
-  evaluateVerification: (workspaceId: string, projectId: string, payload: { rule_id: string; feature_id?: string; context_package_id?: string; expected_digest?: string; handoff_revision_id?: string; evidence_ids?: string[] }) =>
+  evaluateVerification: (workspaceId: string, projectId: string, payload: VerificationRequestPayload) =>
     request<VerificationEvaluation>(`/workspaces/${workspaceId}/projects/${projectId}/verifications/evaluate`, { method: "POST", body: JSON.stringify(payload) }),
   listReleaseCandidates: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
     request<ReleaseCandidate[]>(`/workspaces/${workspaceId}/projects/${projectId}/release-candidates`, { signal }),
