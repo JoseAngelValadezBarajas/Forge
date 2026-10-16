@@ -73,6 +73,24 @@ function freeLoopbackPort() {
   });
 }
 
+function diagnoseInstalledApp(appPid, debugPort) {
+  const output = powershell(
+    "$parent = [int]$env:FORGE_APP_PID; $debug = [int]$env:FORGE_DEBUG_PORT; " +
+    "$all = @(Get-CimInstance Win32_Process); $queue = [System.Collections.Generic.Queue[int]]::new(); $queue.Enqueue($parent); " +
+    "$seen = [System.Collections.Generic.HashSet[int]]::new(); [void]$seen.Add($parent); $children = [System.Collections.Generic.List[object]]::new(); " +
+    "while ($queue.Count -gt 0) { $current = $queue.Dequeue(); foreach ($child in $all | Where-Object { $_.ParentProcessId -eq $current }) { " +
+    "if ($seen.Add([int]$child.ProcessId)) { $children.Add($child); $queue.Enqueue([int]$child.ProcessId) } } }; " +
+    "$main = Get-Process -Id $parent -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle; " +
+    "$owned = @($all | Where-Object { $seen.Contains([int]$_.ProcessId) }); $ownedIds = @($owned | ForEach-Object { [int]$_.ProcessId }); " +
+    "$listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ownedIds -contains [int]$_.OwningProcess } | Select-Object LocalAddress,LocalPort,OwningProcess); " +
+    "$debugListeners = @(Get-NetTCPConnection -State Listen -LocalPort $debug -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess); " +
+    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners }; " +
+    "$result | ConvertTo-Json -Compress -Depth 4",
+    { FORGE_APP_PID: String(appPid), FORGE_DEBUG_PORT: String(debugPort) },
+  );
+  return JSON.parse(output);
+}
+
 async function startSentinelListener() {
   const server = net.createServer((socket) => {
     server.received += 1;
@@ -154,9 +172,17 @@ async function startInstalledApp(targetDirectory, debugPort) {
     await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor({ timeout: 60_000 });
     return { process: appProcess, browser, page, consoleErrors, loopbackRequests };
   } catch (error) {
-    if (appProcess.exitCode === null) appProcess.kill();
-    await once(appProcess, "exit").catch(() => undefined);
-    throw error;
+    let diagnostics;
+    try {
+      diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort);
+    } catch (diagnosticError) {
+      diagnostics = { diagnosticError: String(diagnosticError) };
+    }
+    if (appProcess.exitCode === null && appProcess.signalCode === null) {
+      appProcess.kill();
+      await Promise.race([once(appProcess, "exit"), delay(5_000)]);
+    }
+    throw new Error(`${error}; installed process diagnostics=${JSON.stringify(diagnostics)}`, { cause: error });
   }
 }
 
