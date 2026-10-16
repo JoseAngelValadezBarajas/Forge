@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.application.services import EntityNotFound
+from app.application.common.errors import EntityNotFound
 from app.domain.verification import VerificationEngine
 from app.persistence.models import (
     ReleaseGateEvaluationModel,

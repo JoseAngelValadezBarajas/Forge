@@ -2,15 +2,13 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.application.services import (
+from app.application.common.errors import (
     DuplicateName,
     EntityNotFound,
     InvalidInput,
     RevisionConflict,
-    clean_text,
-    clean_title,
-    now,
 )
+from app.application.common.validation import clean_text, clean_title, now
 from app.domain.entities import InvariantStatus
 from app.persistence.models import (
     FeatureModel,

@@ -1,4 +1,4 @@
-from app.application.services import ensure_local_workspace
+from app.application.workspaces import ensure_local_workspace
 from app.db import SessionLocal
 
 

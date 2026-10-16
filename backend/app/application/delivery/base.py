@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.application.services import InvalidInput, ProjectService
+from app.application.common.errors import InvalidInput
+from app.application.projects import ProjectService
 from app.domain.verification import VerificationEngine
 from app.persistence.models import FeatureModel, ProjectModel
 

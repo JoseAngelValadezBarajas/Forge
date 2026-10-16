@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.application.services import EntityNotFound, InvalidInput, RevisionConflict
+from app.application.common.errors import EntityNotFound, InvalidInput, RevisionConflict
 from app.persistence.models import (
     AcceptanceCriterionModel,
     ContextPackageModel,
