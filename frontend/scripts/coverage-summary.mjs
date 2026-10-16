@@ -35,12 +35,18 @@ function show(label, summary) {
 
 const api = emptySummary();
 const domains = new Map();
+const features = new Map();
 for (const [filePath, fileSummary] of Object.entries(coverage)) {
   if (filePath === "total") continue;
   const normalized = filePath.replaceAll("\\", "/");
   const domain = normalized.match(/\/src\/features\/([^/]+)\/api\//)?.[1];
+  const feature = normalized.match(/\/src\/features\/([^/]+)\//)?.[1];
   const sharedApi = normalized.includes("/src/shared/api/");
   const legacyApi = normalized.endsWith("/src/api.ts");
+  if (feature) {
+    if (!features.has(feature)) features.set(feature, emptySummary());
+    addSummary(features.get(feature), fileSummary);
+  }
   if (domain) {
     if (!domains.has(domain)) domains.set(domain, emptySummary());
     addSummary(domains.get(domain), fileSummary);
@@ -52,6 +58,9 @@ for (const [filePath, fileSummary] of Object.entries(coverage)) {
 
 show("Frontend", coverage.total);
 show("API client and transport", api);
+for (const [feature, summary] of [...features].sort(([left], [right]) => left.localeCompare(right))) {
+  show(`Feature ${feature} (API + UI)`, summary);
+}
 if (domains.size === 0) {
 logger.log("Domain API modules: not yet extracted (baseline client is src/api.ts).");
 } else {
