@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
 
 Add-Type -TypeDefinition @"
 using System;
@@ -161,8 +162,31 @@ try {
         "click" {
             $element = Find-ForgeElement $window.Root $true
             if (-not $element) { throw "Could not find $($env:FORGE_UIA_CONTROL_TYPE) named '$($env:FORGE_UIA_NAME)'." }
-            $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-            ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+            $pattern = $null
+            if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+                ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+            } elseif ($element.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$pattern)) {
+                ([System.Windows.Automation.LegacyIAccessiblePattern]$pattern).DoDefaultAction()
+            } elseif ($element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$pattern)) {
+                $expandCollapse = [System.Windows.Automation.ExpandCollapsePattern]$pattern
+                if ($expandCollapse.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+                    $expandCollapse.Expand()
+                } else {
+                    $expandCollapse.Collapse()
+                }
+            } elseif ($element.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$pattern)) {
+                ([System.Windows.Automation.TogglePattern]$pattern).Toggle()
+            } elseif ($element.Current.ControlType -in @(
+                [System.Windows.Automation.ControlType]::Button,
+                [System.Windows.Automation.ControlType]::MenuItem,
+                [System.Windows.Automation.ControlType]::Hyperlink
+            )) {
+                $element.SetFocus()
+                [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+            } else {
+                $supported = @($element.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName }) -join ", "
+                throw "Control '$($env:FORGE_UIA_NAME)' has no supported activation pattern. Available: $supported"
+            }
             Write-Output "Invoked $($element.Current.ControlType.ProgrammaticName): $($element.Current.Name)"
         }
         "set-value" {
