@@ -249,6 +249,11 @@ class _ReadyServer:
         return f"{READY_PREFIX}{port}"
 
 
+def write_ready_line(stream: BinaryIO, port: int) -> None:
+    stream.write((_ReadyServer.ready_line(port) + "\n").encode("ascii"))
+    stream.flush()
+
+
 async def _serve(bootstrap: Bootstrap) -> None:
     database_path = bootstrap.database_path
     database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -276,7 +281,7 @@ async def _serve(bootstrap: Bootstrap) -> None:
             async def startup(self, sockets: list[socket.socket] | None = None) -> None:
                 await super().startup(sockets=sockets)
                 if self.started:
-                    print(_ReadyServer.ready_line(port), file=sys.stdout, flush=True)
+                    write_ready_line(sys.stdout.buffer, port)
 
         config = uvicorn.Config(
             application,

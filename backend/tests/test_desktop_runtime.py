@@ -31,6 +31,7 @@ from desktop_sidecar import (
     bind_loopback_socket,
     migrate_database,
     read_bootstrap,
+    write_ready_line,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -202,6 +203,14 @@ def test_bootstrap_parser_keeps_secret_out_of_repr_and_validates_fields(tmp_path
     invalid = {**message, "session_secret": "too-short"}
     with pytest.raises(BootstrapError):
         read_bootstrap(io.BytesIO(json.dumps(invalid).encode() + b"\n"))
+
+
+def test_sidecar_readiness_protocol_always_writes_lf_bytes() -> None:
+    stream = io.BytesIO()
+
+    write_ready_line(stream, 41234)
+
+    assert stream.getvalue() == b"FORGE_READY 41234\n"
 
 
 def test_sidecar_binds_only_an_ephemeral_ipv4_loopback_socket() -> None:
