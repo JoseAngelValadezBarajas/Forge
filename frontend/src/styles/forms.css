@@ -1,0 +1,11 @@
+.workspace-create-form, .project-form { display: grid; gap: 12px; }
+.workspace-create-form label, .project-form label, .search-field, .filter-field { color: var(--text-muted); display: grid; font-size: 11px; gap: 6px; }
+.workspace-create-form input, .project-form input, .project-form textarea, .search-field input, .filter-field select { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 9px 10px; width: 100%; }
+.project-form textarea { min-height: 100px; resize: vertical; }
+.field-hint { color: var(--text-subtle); float: right; font-size: 10px; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.button.primary { background: var(--accent); border: 1px solid var(--accent); color: var(--text-dark-on-accent); cursor: pointer; font-weight: 600; }
+.button.primary:hover { filter: brightness(1.08); }
+.button.ghost { background: transparent; border: 1px solid transparent; color: var(--text-muted); cursor: pointer; }
+.button.ghost:hover { background: var(--surface-interactive); color: var(--text); }
+.form-error { color: var(--danger); font-size: 12px; line-height: 18px; margin: 0; }

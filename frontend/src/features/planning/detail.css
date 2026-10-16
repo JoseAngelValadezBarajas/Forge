@@ -1,0 +1,62 @@
+.feature-detail-header { align-items: start; display: flex; justify-content: space-between; margin-top: 18px; }
+.feature-detail-header h2 { font-size: 24px; line-height: 30px; margin: 8px 0 5px; }
+.feature-detail-header p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; max-width: 650px; }
+.feature-goal { color: var(--text) !important; margin-top: 10px !important; }
+.feature-controls { display: flex; gap: 10px; }
+.feature-detail-grid { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-section { min-width: 0; }
+.inline-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.inline-add input { background: var(--surface-interactive); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 8px 9px; width: 100%; }
+.planning-list, .dependency-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.planning-list li, .dependency-list li { align-items: center; background: var(--surface-interactive); border-radius: var(--radius-sm); display: flex; gap: 9px; min-height: 42px; padding: 8px 10px; }
+.planning-list li > span:nth-child(2), .dependency-list li > span { flex: 1; font-size: 12px; line-height: 18px; }
+.planning-list select { font-size: 11px; margin-left: auto; }
+.task-state { background: var(--text-subtle); border-radius: 50%; flex: 0 0 8px; height: 8px; width: 8px; }
+.task-state.in_progress { background: var(--accent); }
+.task-state.done { background: var(--success); }
+.task-done { color: var(--text-muted); text-decoration: line-through; }
+.criteria-list li { align-items: start; }
+.criterion-check { align-items: center; background: transparent; border: 1px solid var(--border); border-radius: 5px; color: var(--success); display: flex; flex: 0 0 20px; height: 20px; justify-content: center; padding: 0; }
+.criterion-check.checked { background: color-mix(in srgb, var(--success) 16%, transparent); border-color: var(--success); }
+.dependencies-section { margin-top: 0; }
+.dependency-form { align-items: end; display: flex; gap: 10px; }
+.dependency-form label { flex: 1; }
+.dependency-form > span { color: var(--text-subtle); font-size: 11px; padding-bottom: 10px; }
+.dependency-list { margin-top: 14px; }
+
+@media (max-width: 1150px) {
+  .kanban-board { overflow-x: auto; }
+  .planning-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .planning-toolbar, .feature-detail-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .planning-filters, .dependency-form { align-items: stretch; flex-direction: column; }
+  .dependency-form > span { padding: 0; }
+  .inventory-grid, .feature-detail-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .wide-field { grid-column: auto; }
+  .planning-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.feature-edit-form .section-heading { align-items: start; }
+.feature-edit-form .section-heading h2 { margin: 6px 0 0; }
+.planning-item { align-items: start; position: relative; }
+.planning-item-copy { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.planning-item-copy strong { font-size: 12px; font-weight: 600; line-height: 18px; }
+.planning-item-copy small { color: var(--text-muted); font-size: 11px; line-height: 16px; }
+.item-edit-form { align-items: end; display: grid; flex: 1; gap: 8px; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto auto auto; }
+.item-edit-form label { color: var(--text-muted); display: grid; font-size: 10px; gap: 4px; }
+.item-edit-form input, .item-edit-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 7px 8px; }
+.reorder-controls { display: flex; gap: 2px; }
+.reorder-controls .icon-button { height: 28px; min-width: 28px; padding: 0; }
+.dependency-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+.dependency-group { border-top: 1px solid var(--border); padding-top: 12px; }
+.dependency-group .section-heading { margin-bottom: 8px; }
+.dependency-group h3 { color: var(--text); font-size: 13px; margin: 0; }
+.criterion-item .criterion-check { flex: 0 0 24px; }
+
+@media (max-width: 760px) {
+  .item-edit-form { grid-template-columns: 1fr; }
+  .dependency-groups { grid-template-columns: 1fr; }
+}

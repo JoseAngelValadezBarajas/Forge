@@ -1,0 +1,27 @@
+.readiness-panel { display: grid; gap: 16px; }
+.readiness-outcome { background: var(--status-warning-bg); border-radius: 7px; color: var(--warning); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; padding: 6px 8px; }
+.readiness-outcome.ready { background: var(--status-success-bg); color: var(--success); }
+.readiness-outcome.blocked { background: var(--status-warning-bg); color: var(--warning); }
+.readiness-progress { display: grid; gap: 8px; }
+.readiness-progress > div:first-child { color: var(--text-muted); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; justify-content: space-between; }
+.readiness-track { background: var(--surface-track); border-radius: 999px; height: 7px; overflow: hidden; }
+.readiness-track span { background: var(--success); border-radius: inherit; display: block; height: 100%; transition: width 160ms ease; }
+.readiness-rules { display: grid; gap: 8px; }
+.readiness-rule { background: var(--surface-interactive); border-left: 3px solid var(--success); border-radius: var(--radius-sm); display: grid; gap: 5px; padding: 10px 12px; }
+.readiness-rule.failed { border-left-color: var(--warning); }
+.readiness-rule strong { color: var(--success); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.readiness-rule.failed strong { color: var(--warning); }
+.readiness-rule p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 4px 0 0; }
+.readiness-blocker { color: var(--warning); font-size: 12px; line-height: 18px; }
+.readiness-support { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.readiness-support > div, .readiness-history { background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 13px; }
+.readiness-support h3, .readiness-history h3 { font-size: 14px; margin: 0; }
+.readiness-support p, .readiness-history p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; }
+.inline-link-form { display: flex; gap: 8px; margin-top: 12px; }
+.inline-link-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); min-width: 0; padding: 7px 8px; }
+.readiness-invariant { align-items: center; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; justify-content: space-between; margin-top: 8px; padding-top: 8px; }
+.readiness-invariant-copy { display: grid; gap: 3px; min-width: 0; }
+.readiness-invariant-copy strong, .readiness-invariant-copy p, .readiness-invariant-copy small { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; }
+.readiness-invariant-copy strong { color: var(--text); }
+.readiness-invariant > small { color: var(--text-muted); font-size: 12px; }
+.readiness-current-note { align-items: baseline; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; line-height: 18px; }

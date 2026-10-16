@@ -1,0 +1,13 @@
+.palette-backdrop { align-items: flex-start; background: rgb(0 0 0 / 45%); display: flex; inset: 0; justify-content: center; padding-top: 132px; position: fixed; z-index: 10; }
+.command-palette { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-dialog); max-width: 560px; overflow: hidden; width: calc(100% - 32px); }
+.palette-search { align-items: center; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 10px; padding: 16px 18px; }
+.palette-search > span { color: var(--accent); font-size: 20px; }
+.palette-search input { background: transparent; border: 0; color: var(--text); flex: 1; font-size: 14px; outline: 0; }
+.palette-search input::placeholder { color: var(--text-subtle); }
+kbd { border: 1px solid var(--border); border-radius: 5px; color: var(--text-subtle); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; padding: 3px 5px; }
+.palette-results { padding: 8px; }
+.command-option { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--text); cursor: pointer; display: flex; justify-content: space-between; padding: 12px 10px; text-align: left; width: 100%; }
+.command-option:hover, .command-option.current { background: var(--surface-tag); }
+.command-option small { color: var(--text-muted); font-size: 11px; }
+.palette-empty { color: var(--text-muted); font-size: 12px; padding: 16px 10px; }
+.palette-footer { border-top: 1px solid var(--border-subtle); color: var(--text-subtle); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; justify-content: space-between; padding: 11px 18px; }

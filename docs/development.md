@@ -1,5 +1,7 @@
 # Development
 
+For current module ownership and dependency rules, see the [architecture index](architecture/README.md). The [engineering checks guide](engineering/testing.md) is the canonical reference for the complete backend/frontend quality sequence and visual-baseline policy.
+
 ## Local services
 
 Run the backend on `127.0.0.1:8000` and the Vite frontend on `127.0.0.1:5173`. These values come from the tracked `forge.config.json`; Vite, Playwright and the Windows launcher read the same file. Vite proxies `/api` to the backend and E2E verifies health through that proxy. The backend defaults to the absolute repository path `.forge/data/forge.db`, independent of the current working directory, and reads `FORGE_` environment variables from the root or `backend/.env` when present.
@@ -14,7 +16,7 @@ FND-06 evidence, provenance, verification rules, release gates and manifest limi
 
 ## Checks
 
-Use `scripts/test.ps1` for the full quality sequence. It validates migrations, starts both local services through the Playwright config, validates `/api/health` through Vite, checks navigation and keyboard-accessible palette behavior, and checks that theme switching does not emit browser console errors. Use `npm ci` and `uv sync --locked --dev` for reproducible installs.
+Use `scripts/test.ps1` for the full quality sequence. It validates migrations, starts isolated local services through the Playwright config, validates `/api/health` through Vite, checks navigation and keyboard-accessible palette behavior, and checks that theme switching does not emit browser console errors. The detailed commands, coverage gates, temporary-database rules and visual regression process are maintained in [engineering/testing](engineering/testing.md). Use `npm ci` and `uv sync --locked --dev` for reproducible installs.
 
 `scripts/start.ps1` checks whether the configured backend port is available. If another listener responds with a non-Forge health payload, startup stops with an actionable message and does not terminate the unrelated process.
 

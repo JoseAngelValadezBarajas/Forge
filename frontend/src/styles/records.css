@@ -1,0 +1,16 @@
+.fnd-toolbar { align-items: end; display: flex; justify-content: space-between; margin-top: 18px; }
+.fnd-toolbar p { color: var(--text-muted); font-size: 12px; margin: 8px 0 0; }
+.fnd-form { margin-top: 18px; }
+.fnd-record-list { display: grid; gap: 12px; margin-top: 18px; }
+.fnd-record-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); display: grid; gap: 10px; padding: 18px 20px; }
+.fnd-record-header { align-items: start; display: flex; gap: 14px; justify-content: space-between; }
+.fnd-record-card h3 { font-size: 18px; line-height: 24px; margin: 6px 0 0; }
+.fnd-record-card p { color: var(--text); font-size: 13px; line-height: 20px; margin: 0; }
+.fnd-record-card small { color: var(--text-muted); font-size: 12px; line-height: 18px; }
+.fnd-record-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fnd-history { background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); display: grid; gap: 6px; margin-top: -6px; padding: 10px 12px; }
+.fnd-history span { color: var(--text-muted); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.fnd-history summary { color: var(--text); cursor: pointer; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; }
+.fnd-history-detail { display: grid; gap: 8px; padding: 8px 0 2px 18px; }
+.fnd-history-detail p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; }
+.fnd-history-detail strong { color: var(--text); display: block; font-size: 10px; margin-bottom: 2px; text-transform: uppercase; }

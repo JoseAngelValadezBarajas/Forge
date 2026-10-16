@@ -1,0 +1,13 @@
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { background: var(--surface-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex: 0 0 232px; flex-direction: column; gap: 18px; min-height: 100vh; padding: 24px 16px; }
+.brand-row { align-items: center; display: flex; gap: 10px; height: 28px; }
+.brand-mark { align-items: center; background: var(--accent); border-radius: 8px; color: var(--text-dark-on-accent); display: flex; font-size: 14px; font-weight: 600; height: 28px; justify-content: center; width: 28px; }
+.brand-name { font-size: 14px; font-weight: 500; letter-spacing: .04em; }
+.workspace-switcher { align-items: center; background: var(--surface-interactive); border-radius: 8px; color: var(--text-muted); display: flex; font-size: 12px; height: 42px; justify-content: space-between; padding: 0 10px; }
+.workspace-switcher-wrap { position: relative; }
+.workspace-switcher { border: 1px solid transparent; cursor: pointer; width: 100%; }
+.workspace-switcher:hover { border-color: var(--border); color: var(--text); }
+.workspace-menu { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-dialog); display: grid; gap: 6px; left: 0; padding: 12px; position: absolute; top: 48px; width: 280px; z-index: 5; }
+.workspace-option, .workspace-create { align-items: center; background: transparent; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; display: flex; font-size: 12px; justify-content: space-between; padding: 9px 10px; text-align: left; }
+.workspace-option:hover, .workspace-option.selected, .workspace-create:hover { background: var(--surface-tag); color: var(--text); }
+.workspace-create { border-top: 1px solid var(--border-subtle); border-radius: 0; color: var(--accent); gap: 8px; margin-top: 4px; padding-top: 12px; }
