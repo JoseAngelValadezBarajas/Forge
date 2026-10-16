@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 
 type Identified = { id: string; name?: string; version?: number; current_revision?: number; revision?: number };
 
+const visualSnapshotMismatches: string[] = [];
+
 async function create<T extends Identified>(
   page: Page,
   path: string,
@@ -61,13 +63,17 @@ async function capture(page: Page, name: string) {
       page.locator(".fnd06-multi").filter({ has: page.getByText("Published Handoff revisions", { exact: true }) }).locator(".fnd06-option"),
     ],
   };
-  if (process.platform === "win32") {
-    await expect(page).toHaveScreenshot(`${name}.png`, options);
-  }
   // Keep each current-render capture separate from the approved snapshots.
   const candidateDirectory = "artifacts/rfx-org-03b/candidate";
   mkdirSync(candidateDirectory, { recursive: true });
   await page.screenshot({ path: `${candidateDirectory}/${name}.png`, ...options });
+  if (process.platform === "win32") {
+    try {
+      await expect(page).toHaveScreenshot(`${name}.png`, options);
+    } catch {
+      visualSnapshotMismatches.push(name);
+    }
+  }
 }
 
 async function ready(page: Page, heading: string) {
@@ -79,6 +85,7 @@ async function ready(page: Page, heading: string) {
 
 test("captures deterministic visual baselines for shell and representative product surfaces", async ({ page }) => {
   test.setTimeout(180_000);
+  visualSnapshotMismatches.length = 0;
   await page.addInitScript(() => {
     if (!localStorage.getItem("rfx-org-03b-visual-initialized")) {
       localStorage.setItem("forge-theme", "dark");
@@ -319,6 +326,7 @@ test("captures deterministic visual baselines for shell and representative produ
     await ready(persistedPage, "Workspace");
     await expect(persistedPage.locator("html")).toHaveAttribute("data-theme", "dark");
     await persistedPage.close();
+    expect(visualSnapshotMismatches, "visual snapshots that differ from the approved baseline").toEqual([]);
   } finally {
     rmSync(temporaryRepository, { recursive: true, force: true });
   }
