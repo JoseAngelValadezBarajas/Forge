@@ -1,0 +1,134 @@
+name: Forge Windows desktop
+
+on:
+  push:
+    branches: [desktop/desk-01-windows-alpha]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-installed-product:
+    name: Windows x64 build and installed-product smoke
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Report runner OS
+        shell: pwsh
+        run: Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install pinned Rust MSVC toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1-x86_64-pc-windows-msvc --profile minimal --component rustfmt --component clippy
+          rustup target add x86_64-pc-windows-msvc --toolchain 1.99.1-x86_64-pc-windows-msvc
+          rustup show active-toolchain
+          cl.exe /Bv
+
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
+            choco install nsis --yes --no-progress
+          }
+          $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
+          $nsis = Join-Path $programFilesX86 "NSIS"
+          if (-not (Test-Path (Join-Path $nsis "makensis.exe"))) { throw "NSIS makensis.exe was not found after setup." }
+          $nsis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          makensis.exe /VERSION
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install locked desktop Python dependencies
+        run: uv sync --locked --dev --group desktop-build
+
+      - name: Generate Cargo.lock on the Windows runner if absent
+        shell: pwsh
+        run: |
+          $manifest = "desktop/src-tauri/Cargo.toml"
+          $lock = "desktop/src-tauri/Cargo.lock"
+          if (-not (Test-Path $lock)) { cargo generate-lockfile --manifest-path $manifest }
+
+      - name: Prepare bundled frontend, route policy, sidecar and icons
+        working-directory: frontend
+        run: npm run desktop:prepare
+
+      - name: Rust format
+        run: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all -- --check
+
+      - name: Rust unit tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --all-targets
+
+      - name: Rust Clippy
+        run: cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Build unsigned per-user NSIS installer
+        working-directory: frontend
+        run: npm run desktop:build
+
+      - name: Configure installed-product smoke inputs
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -LiteralPath "desktop/bundle" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Expected the built NSIS installer." }
+          "FORGE_DESKTOP_INSTALLER=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $evidence = Join-Path $env:RUNNER_TEMP "forge-desktop-evidence"
+          "FORGE_DESKTOP_EVIDENCE=$evidence" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install, launch, secure, persist, uninstall and reinstall smoke
+        run: node scripts/installed_desktop_smoke.mjs
+
+      - name: Upload installer, checksum and installed screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-windows-x64-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            desktop/bundle/*-setup.exe
+            desktop/bundle/*-setup.exe.sha256
+            ${{ runner.temp }}/forge-desktop-evidence/*.png
+
+      - name: Export Cargo lockfile for bootstrap review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-desktop-cargo-lock-${{ github.sha }}
+          if-no-files-found: error
+          path: desktop/src-tauri/Cargo.lock

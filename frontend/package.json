@@ -14,18 +14,22 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
-    "test": "vitest run && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs scripts/contrast.test.mjs && node scripts/verify-api-response-contracts.mjs",
-    "test:coverage": "vitest run --coverage && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs scripts/contrast.test.mjs && node scripts/verify-api-response-contracts.mjs && node scripts/coverage-summary.mjs",
+    "test": "vitest run && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs scripts/contrast.test.mjs ../scripts/desktop-build-utils.test.mjs && node scripts/verify-api-response-contracts.mjs",
+    "test:coverage": "vitest run --coverage && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs scripts/contrast.test.mjs ../scripts/desktop-build-utils.test.mjs && node scripts/verify-api-response-contracts.mjs && node scripts/coverage-summary.mjs",
+    "desktop:prepare": "node ../scripts/prepare_desktop.mjs",
+    "desktop:build": "node ../scripts/run_desktop.mjs",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
     "test:isolation": "node ../scripts/verify_e2e_isolation.mjs"
   },
   "dependencies": {
+    "@tauri-apps/api": "2.12.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.12.2",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.0",
     "@testing-library/jest-dom": "7.0.1",

@@ -13,6 +13,7 @@ import type {
   VerificationEvaluation,
 } from "../../../api";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
+import { DownloadLink } from "../../../shared/ui/DownloadLink";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type Loaded } from "../types";
 import { ScopeCount } from "./ScopeCount";
@@ -438,15 +439,15 @@ export function CandidateDetail({
                   <div className="fnd06-downloads">
                     <strong>Saved {manifest.schema_version}</strong>
                     <span>{manifest.fingerprint}</span>
-                    <a className="button secondary" href={downloadUrl("json")}>
+                    <DownloadLink className="button secondary" href={downloadUrl("json")}>
                       Download JSON
-                    </a>
-                    <a
+                    </DownloadLink>
+                    <DownloadLink
                       className="button secondary"
                       href={downloadUrl("markdown")}
                     >
                       Download Markdown
-                    </a>
+                    </DownloadLink>
                     <span className="status-chip neutral">NOT PUBLISHED</span>
                   </div>
                 )}

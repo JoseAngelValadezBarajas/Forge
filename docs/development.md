@@ -2,6 +2,8 @@
 
 For current module ownership and dependency rules, see the [architecture index](architecture/README.md). The [engineering checks guide](engineering/testing.md) is the canonical reference for the complete backend/frontend quality sequence and visual-baseline policy.
 
+The Windows Desktop Alpha uses the same product contracts with a Rust-owned authenticated local API bridge and per-user SQLite under `%LOCALAPPDATA%\Forge`. Its separate toolchain, build, data-preservation and installed-product acceptance steps are in the [DESK-01 Windows guide](desktop/desk-01-windows-alpha.md). Do not use the developer `.forge/data/forge.db` as desktop smoke-test data.
+
 ## Local services
 
 Run the backend on `127.0.0.1:8000` and the Vite frontend on `127.0.0.1:5173`. These values come from the tracked `forge.config.json`; Vite, Playwright and the Windows launcher read the same file. Vite proxies `/api` to the backend and E2E verifies health through that proxy. The backend defaults to the absolute repository path `.forge/data/forge.db`, independent of the current working directory, and reads `FORGE_` environment variables from the root or `backend/.env` when present.

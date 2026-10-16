@@ -1,0 +1,296 @@
+{
+  "/api/health": {
+    "get": []
+  },
+  "/api/workspaces": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects": {
+    "get": [
+      "search",
+      "status"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/archive": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/accept": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/features/{feature_id}": {
+    "delete": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/revisions": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/decisions/{decision_id}/supersede": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/dependencies": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/dependencies/{dependency_id}": {
+    "delete": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/epics": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/epics/{epic_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/evidence": {
+    "get": [
+      "provenance",
+      "search",
+      "status"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/evidence/{evidence_id}": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/evidence/{evidence_id}/invalidate": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features": {
+    "get": [
+      "epic_id",
+      "priority",
+      "search",
+      "status"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria/reorder": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/acceptance-criteria/{criterion_id}": {
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages/{package_id}": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/packages/{package_id}/download": {
+    "get": [
+      "format"
+    ]
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/context/preview": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/decisions": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/invariants": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/invariants/{invariant_id}/acknowledge": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/readiness/evaluations": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/readiness/preview": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/repositories": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/repositories/{repository_id}": {
+    "delete": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks/reorder": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/features/{feature_id}/tasks/{task_id}": {
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs": {
+    "get": [
+      "search",
+      "status"
+    ]
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/acknowledge": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/ready": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revise": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revisions": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/revisions/{revision}/download": {
+    "get": [
+      "format"
+    ]
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/handoffs/{handoff_id}/withdraw": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/invariants": {
+    "get": [
+      "include_retired"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}/retire": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/invariants/{invariant_id}/revisions": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/planning/overview": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}": {
+    "get": [],
+    "patch": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/freeze": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates/evaluate": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/gates/preview": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/manifest": {
+    "get": [
+      "manifest_id"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/manifest/download": {
+    "get": [
+      "format",
+      "manifest_id"
+    ]
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/release-candidates/{candidate_id}/revisions": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/repositories": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/disconnect": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/observations": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/repositories/{repository_id}/observe": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/restore": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs": {
+    "get": [
+      "feature_id",
+      "search",
+      "status"
+    ],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/events": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/handoffs": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/outputs": {
+    "get": [],
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/runs/{run_id}/status": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/verifications": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/evaluate": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/preview": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/rules": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/verifications/{evaluation_id}": {
+    "get": []
+  },
+  "/api/workspaces/{workspace_id}/runs": {
+    "get": [
+      "feature_id",
+      "project_id",
+      "search",
+      "status"
+    ]
+  }
+}

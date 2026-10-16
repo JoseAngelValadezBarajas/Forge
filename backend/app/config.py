@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str | None = None
     frontend_origin: str = "http://localhost:5173"
-    runtime_mode: Literal["development", "local"] = "development"
+    runtime_mode: Literal["development", "local", "desktop"] = "development"
     runtime_host: str = "127.0.0.1"
     runtime_port: int = Field(default=8000, ge=1, le=65535)
     frontend_dist_dir: Path = PROJECT_ROOT / "frontend" / "dist"
@@ -78,5 +79,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    if os.environ.get("FORGE_RUNTIME_MODE") == "desktop":
+        return Settings(_env_file=None)  # type: ignore[call-arg]  # pydantic-settings runtime option
     return Settings()
 
