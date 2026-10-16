@@ -72,7 +72,11 @@ test("completes the planning workflow in Chromium", async ({ page }) => {
 
   for (const title of ["Task one", "Task two", "Task three"]) {
     await page.getByLabel("New task").fill(title);
+    const taskCreated = page.waitForResponse((response) =>
+      response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/tasks"),
+    );
     await page.locator("form.inline-add").first().getByRole("button", { name: "Add", exact: true }).click();
+    expect((await taskCreated).status()).toBe(201);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: "Edit task Task one", exact: true }).click();

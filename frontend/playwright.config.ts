@@ -15,7 +15,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Stability must come from deterministic tests, not retries that mask flakes.
+  retries: 0,
   reporter: "html",
   use: {
     baseURL: localBaseUrl,

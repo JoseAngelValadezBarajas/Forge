@@ -26,6 +26,12 @@ async function complete(
 }
 
 async function capture(page: Page, name: string) {
+  // The timestamp is masked, but its localized glyph widths still change the
+  // mask geometry. Normalize only this already-masked fixture datum before capture.
+  await page.locator(".repository-card small").evaluateAll((elements) => {
+    for (const element of elements)
+      element.textContent = "Last observation 10/16/2026, 1:00:00 AM";
+  });
   const options = {
     animations: "disabled" as const,
     caret: "hide" as const,

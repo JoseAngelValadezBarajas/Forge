@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Handoff } from "../../api";
 import {
   HandoffDetailPage,
+  RunCreatePage,
   RunDetailPage,
   RunInventoryPage,
   WorkbenchPage,
@@ -73,6 +74,125 @@ describe("FND-05 Workbench surfaces", () => {
     expect(await screen.findByText("NO RUNS RECORDED YET")).toBeInTheDocument();
     expect(screen.getByText("Start with a known Feature")).toBeInTheDocument();
     expect(screen.queryByText("RUN-008")).not.toBeInTheDocument();
+  });
+
+  it("records a run against the selected saved context and recovers from a conflict", async () => {
+    const project = {
+      id: "project-1",
+      workspace_id: workspace.id,
+      name: "Forge",
+      description: null,
+      status: "active",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      archived_at: null,
+    };
+    const feature = {
+      id: "feature-1",
+      project_id: project.id,
+      key: "FEAT-001",
+      readable_id: "FEAT-001",
+      title: "Record work provenance",
+      description: null,
+      goal: "Keep the exact context attached.",
+      priority: "medium",
+      status: "backlog",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    const contextPackage = {
+      id: "package-1",
+      project_id: project.id,
+      feature_id: feature.id,
+      schema_version: "forge-context-v1",
+      fingerprint: "a".repeat(64),
+      created_at: "2026-01-01T00:00:00Z",
+      payload: { schema: "forge-context-v1" },
+    };
+    const requests: Array<{ url: string; method: string; body?: unknown }> = [];
+    let createAttempts = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      requests.push({
+        url,
+        method,
+        body: init?.body ? JSON.parse(String(init.body)) as unknown : undefined,
+      });
+      if (url.endsWith("/projects?status=active")) return response([project]);
+      if (url.endsWith("/projects/project-1/features")) return response([feature]);
+      if (url.endsWith("/features/feature-1/context/packages"))
+        return response([contextPackage]);
+      if (url.endsWith("/projects/project-1/runs") && method === "POST") {
+        createAttempts += 1;
+        if (createAttempts === 1)
+          return response({ detail: "Run was changed by another local request." }, 409);
+        return response({ ...run, id: "run-created", title: "Document review" }, 201);
+      }
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          "/workbench/runs/new?project=project-1&feature=feature-1",
+        ]}
+      >
+        <Routes>
+          <Route
+            element={<RunCreatePage onOpenPalette={() => undefined} workspace={workspace} />}
+            path="/workbench/runs/new"
+          />
+          <Route
+            element={<p>Recorded run detail</p>}
+            path="/projects/:projectId/runs/:runId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("option", { name: /forge-context-v1/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Run title" }), {
+      target: { value: "Document review" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Executor label" }), {
+      target: { value: "Human reviewer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Record run/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Run was changed by another local request.",
+    );
+    expect(screen.getByRole("textbox", { name: "Run title" })).toHaveValue(
+      "Document review",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Record run/ }));
+    expect(await screen.findByText("Recorded run detail")).toBeInTheDocument();
+    expect(createAttempts).toBe(2);
+    expect(requests.filter((item) => item.method === "POST")).toEqual([
+      {
+        url: "/api/workspaces/workspace-1/projects/project-1/runs",
+        method: "POST",
+        body: {
+          feature_id: feature.id,
+          context_package_id: contextPackage.id,
+          title: "Document review",
+          executor_label: "Human reviewer",
+        },
+      },
+      {
+        url: "/api/workspaces/workspace-1/projects/project-1/runs",
+        method: "POST",
+        body: {
+          feature_id: feature.id,
+          context_package_id: contextPackage.id,
+          title: "Document review",
+          executor_label: "Human reviewer",
+        },
+      },
+    ]);
+    expect(requests.some((item) => /agent|execute/i.test(item.url))).toBe(false);
   });
 
   it("ignores an out-of-order run search response", async () => {
@@ -238,6 +358,55 @@ describe("FND-05 Workbench surfaces", () => {
     await waitFor(() =>
       expect(screen.getByText("Reported artifact")).toBeInTheDocument(),
     );
+  });
+
+  it("keeps a run lifecycle transition retryable after an optimistic-version conflict", async () => {
+    let current: Omit<typeof run, "status"> & {
+      status: "PLANNED" | "IN_PROGRESS";
+    } = { ...run };
+    const transitionBodies: unknown[] = [];
+    let transitionAttempts = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/runs/run-1/status") && init?.method === "POST") {
+        transitionBodies.push(JSON.parse(String(init.body)) as unknown);
+        transitionAttempts += 1;
+        if (transitionAttempts === 1)
+          return response({ detail: "Run version is stale." }, 409);
+        current = { ...current, status: "IN_PROGRESS", version: current.version + 1 };
+        return response(current);
+      }
+      if (url.endsWith("/runs/run-1") && !init?.method) return response(current);
+      if (url.endsWith("/runs/run-1/events")) return response([]);
+      if (url.endsWith("/runs/run-1/outputs")) return response([]);
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/runs/run-1"]}>
+        <Routes>
+          <Route
+            element={<RunDetailPage onOpenPalette={() => undefined} workspace={workspace} />}
+            path="/projects/:projectId/runs/:runId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Record a feature run" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Move to IN PROGRESS" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Run version is stale.");
+    expect(screen.getAllByText("PLANNED")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Move to IN PROGRESS" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Move to IN PROGRESS" }));
+    expect(await screen.findAllByText("IN PROGRESS")).toHaveLength(2);
+    expect(transitionBodies).toEqual([
+      { status: "IN_PROGRESS", expected_version: 1 },
+      { status: "IN_PROGRESS", expected_version: 1 },
+    ]);
   });
 
   it("acknowledges only the visible published revision", async () => {

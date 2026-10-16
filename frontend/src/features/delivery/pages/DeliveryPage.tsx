@@ -830,11 +830,14 @@ export function DeliveryPage({
           mutations are disabled.
         </div>
       )}
-      {formError && !isEvidence && (
-        <p className="form-error" role="alert">
-          {formError}
-        </p>
-      )}
+      {formError &&
+        !isEvidence &&
+        tail !== "verifications/new" &&
+        !isCandidate && (
+          <p className="form-error" role="alert">
+            {formError}
+          </p>
+        )}
       {message && (
         <p className="feedback-panel fnd06-success" role="status">
           {message}

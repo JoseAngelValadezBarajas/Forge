@@ -7,12 +7,20 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
 
+import { assertRunResourceDirectory } from "./run-resources.mjs";
+
 const host = process.argv[2] ?? "127.0.0.1";
 const port = process.argv[3] ?? "8000";
 const backendDirectory = process.cwd();
 const projectRoot = join(backendDirectory, "..");
 const uv = process.platform === "win32" ? "uv.exe" : "uv";
-const databasePath = join(tmpdir(), `forge-fnd03-e2e-${process.pid}-${Date.now()}.db`);
+const suppliedResourceDirectory = process.env.FORGE_E2E_RESOURCE_DIR;
+if (!suppliedResourceDirectory) {
+  console.error("Run browser tests through `npm run e2e` to establish resource ownership.");
+  process.exit(2);
+}
+const resourceDirectory = assertRunResourceDirectory(suppliedResourceDirectory);
+const databasePath = join(resourceDirectory, `backend-${process.pid}-${Date.now()}.db`);
 const frontendPort = process.env.FORGE_FRONTEND_PORT ?? "5173";
 const env = {
   ...process.env,
@@ -21,7 +29,10 @@ const env = {
   FORGE_FRONTEND_ORIGIN: process.env.FORGE_FRONTEND_ORIGIN ?? `http://${host}:${frontendPort}`,
 };
 
+let cleanupStarted = false;
 const cleanup = () => {
+  if (cleanupStarted) return;
+  cleanupStarted = true;
   for (const path of [databasePath, `${databasePath}-wal`, `${databasePath}-shm`]) {
     try {
       rmSync(path, { force: true });
