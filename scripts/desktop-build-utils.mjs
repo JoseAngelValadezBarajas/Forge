@@ -22,18 +22,15 @@ export function assertBuildPrerequisites({ platform, architecture, requiredComma
   if (missing.length) throw new Error(`Missing desktop build prerequisites: ${missing.join(", ")}.`);
 }
 
-export function createInstalledWebViewEnvironment(parentEnvironment, userDataFolder, debugPort) {
-  if (!Number.isInteger(debugPort) || debugPort < 1 || debugPort > 65535) {
-    throw new Error("Installed WebView smoke requires a valid loopback debug port.");
-  }
+export function createInstalledAppEnvironment(parentEnvironment, userDataFolder) {
   if (typeof userDataFolder !== "string" || !userDataFolder.trim()) {
-    throw new Error("Installed WebView smoke requires an isolated user-data folder.");
+    throw new Error("Installed app smoke requires an isolated WebView user-data folder.");
   }
   const childEnvironment = {
     ...parentEnvironment,
     WEBVIEW2_USER_DATA_FOLDER: userDataFolder,
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1`,
   };
+  delete childEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS;
   delete childEnvironment.WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER;
   return childEnvironment;
 }

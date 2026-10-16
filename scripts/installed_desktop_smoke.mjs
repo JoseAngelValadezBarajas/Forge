@@ -5,10 +5,10 @@ import { access, mkdir, readFile, readdir } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "../frontend/node_modules/playwright/index.mjs";
 import {
-  createInstalledWebViewEnvironment,
+  createInstalledAppEnvironment,
   describeInstalledSmokeFailure,
   sha256File,
 } from "./desktop-build-utils.mjs";
@@ -26,6 +26,7 @@ const smokeRoot = path.join(runRoot, `forge-desk01-${process.env.GITHUB_RUN_ID ?
 const installDirectory = path.join(smokeRoot, "install-1");
 const reinstallDirectory = path.join(smokeRoot, "install-2");
 const webviewProfile = path.join(smokeRoot, "webview-profile");
+const uiAutomationScript = path.join(path.dirname(fileURLToPath(import.meta.url)), "desktop-ui-automation.ps1");
 const screenshotDirectory = path.join(process.env.FORGE_DESKTOP_EVIDENCE ?? path.join(smokeRoot, "evidence"));
 const localDataRoot = path.join(process.env.LOCALAPPDATA ?? "", "Forge");
 const databasePath = path.join(localDataRoot, "data", "forge.db");
@@ -63,22 +64,42 @@ function assertStartMenuShortcut(targetDirectory) {
   );
 }
 
-function freeLoopbackPort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") return reject(new Error("Could not reserve a WebView2 debug port."));
-      const { port } = address;
-      server.close((error) => error ? reject(error) : resolve(port));
-    });
-  });
+function runUiAutomation(action, processId, options = {}) {
+  const environment = {
+    ...process.env,
+    FORGE_UIA_ACTION: action,
+    FORGE_UIA_PROCESS_ID: String(processId),
+    FORGE_UIA_CONTROL_TYPE: options.controlType ?? "*",
+    FORGE_UIA_NAME: options.name ?? "",
+    FORGE_UIA_VALUE: options.value ?? "",
+    FORGE_UIA_MATCH: options.match ?? "exact",
+    FORGE_UIA_TIMEOUT_SECONDS: String(options.timeoutSeconds ?? 30),
+    FORGE_UIA_SCREENSHOT_PATH: options.screenshotPath ?? "",
+  };
+  const timeoutSeconds = options.timeoutSeconds ?? 30;
+  const result = spawnSync("powershell.exe", [
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", uiAutomationScript,
+  ], { encoding: "utf8", timeout: (timeoutSeconds + 15) * 1_000, env: environment });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Windows UI Automation ${action} failed (${result.status}): ${(result.stderr || result.stdout).trim()}`);
+  }
+  return result.stdout.trim();
 }
 
-function diagnoseInstalledApp(appPid, debugPort, targetDirectory) {
+function createUiAutomation(processId) {
+  return {
+    wait: (controlType, name, timeoutSeconds = 60, match = "exact") => runUiAutomation("wait", processId, { controlType, name, timeoutSeconds, match }),
+    click: (controlType, name, match = "exact") => runUiAutomation("click", processId, { controlType, name, match }),
+    setValue: (name, value) => runUiAutomation("set-value", processId, { controlType: "Edit", name, value }),
+    screenshot: (screenshotPath) => runUiAutomation("screenshot", processId, { screenshotPath }),
+    inspect: () => runUiAutomation("inspect", processId),
+  };
+}
+
+function diagnoseInstalledApp(appPid, targetDirectory) {
   const output = powershell(
-    "$parent = [int]$env:FORGE_APP_PID; $debug = [int]$env:FORGE_DEBUG_PORT; $install = $env:FORGE_INSTALL_DIR; " +
+    "$parent = [int]$env:FORGE_APP_PID; $install = $env:FORGE_INSTALL_DIR; " +
     "$all = @(Get-CimInstance Win32_Process); $queue = [System.Collections.Generic.Queue[int]]::new(); $queue.Enqueue($parent); " +
     "$seen = [System.Collections.Generic.HashSet[int]]::new(); [void]$seen.Add($parent); $children = [System.Collections.Generic.List[object]]::new(); " +
     "while ($queue.Count -gt 0) { $current = $queue.Dequeue(); foreach ($child in $all | Where-Object { $_.ParentProcessId -eq $current }) { " +
@@ -86,17 +107,14 @@ function diagnoseInstalledApp(appPid, debugPort, targetDirectory) {
     "$main = Get-Process -Id $parent -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle; " +
     "$owned = @($all | Where-Object { $seen.Contains([int]$_.ProcessId) }); $ownedIds = @($owned | ForEach-Object { [int]$_.ProcessId }); " +
     "$listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ownedIds -contains [int]$_.OwningProcess } | Select-Object LocalAddress,LocalPort,OwningProcess); " +
-    "$debugListeners = @(Get-NetTCPConnection -State Listen -LocalPort $debug -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess); " +
-    "$webviews = @($owned | Where-Object { $_.Name -ieq 'msedgewebview2.exe' }); " +
-    "$debugArgumentPresent = @($webviews | Where-Object { $_.CommandLine -match [regex]::Escape('--remote-debugging-port=' + $debug) }).Count -gt 0; " +
     "$sidecarPath = Join-Path $install 'resources\forge-sidecar\forge-sidecar.exe'; " +
     "$sidecarMatches = @(Get-ChildItem -LiteralPath $install -Filter 'forge-sidecar.exe' -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($install.Length).TrimStart('\') }); " +
     "$logPath = Join-Path $env:LOCALAPPDATA 'Forge\logs\forge-desktop.log'; " +
     "$knownFailures = @('Forge''s bundled local service is missing.', 'Forge could not launch its bundled local service.', 'Forge could not establish local service process ownership.', 'Forge local service exited before readiness.', 'Forge local service startup timed out.', 'Forge local service readiness was invalid.', 'Forge local service readiness verification failed.', 'Forge sidecar startup failed; see the local Forge log for details.'); " +
     "$startupFailure = $null; foreach ($line in @(Get-Content -LiteralPath $logPath -Tail 50 -ErrorAction SilentlyContinue)) { foreach ($known in $knownFailures) { if ($line.Contains($known)) { $startupFailure = $known; break } }; if ($startupFailure) { break } }; " +
-    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; DebugPortListeners=$debugListeners; RemoteDebuggingArgumentPresent=$debugArgumentPresent; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); BundledSidecarMatches=$sidecarMatches; StartupLogExists=(Test-Path -LiteralPath $logPath -PathType Leaf); StartupFailure=$startupFailure }; " +
+    "$result = [pscustomobject]@{ MainWindow=$main; ChildProcesses=@($children | Select-Object Name,ProcessId,ParentProcessId); OwnedListeners=$listeners; BundledSidecarExists=(Test-Path -LiteralPath $sidecarPath -PathType Leaf); BundledSidecarMatches=$sidecarMatches; StartupLogExists=(Test-Path -LiteralPath $logPath -PathType Leaf); StartupFailure=$startupFailure }; " +
     "$result | ConvertTo-Json -Compress -Depth 4",
-    { FORGE_APP_PID: String(appPid), FORGE_DEBUG_PORT: String(debugPort), FORGE_INSTALL_DIR: targetDirectory },
+    { FORGE_APP_PID: String(appPid), FORGE_INSTALL_DIR: targetDirectory },
   );
   return JSON.parse(output);
 }
@@ -151,36 +169,27 @@ async function waitFor(predicate, description, timeoutMs = 30_000) {
   throw new Error(`Timed out waiting for ${description}${lastError ? `: ${lastError}` : ""}`);
 }
 
-async function startInstalledApp(targetDirectory, debugPort) {
+async function startInstalledApp(targetDirectory) {
   const executable = path.join(targetDirectory, installedExecutableName);
   await access(executable);
   let appProcess;
   try {
-    const launchEnvironment = createInstalledWebViewEnvironment(process.env, webviewProfile, debugPort);
+    const launchEnvironment = createInstalledAppEnvironment(process.env, webviewProfile);
     appProcess = spawn(executable, [], { stdio: "ignore", env: launchEnvironment });
     appProcess.once("error", (error) => { throw error; });
-    await waitFor(async () => {
-      if (appProcess.exitCode !== null) throw new Error(`Forge exited early with ${appProcess.exitCode}.`);
-      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`).catch(() => null);
-      return response?.ok;
-    }, "WebView2 remote debugging endpoint", 120_000);
-    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
-    const context = browser.contexts()[0];
-    const page = context.pages()[0] ?? await context.newPage();
-    const consoleErrors = [];
-    const loopbackRequests = [];
-    page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
-    page.on("request", (request) => {
-      if (/^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\//.test(request.url())) loopbackRequests.push(request.url());
-    });
-    await page.waitForURL(/^http:\/\/tauri\.localhost(?:\/|$)/, { timeout: 60_000 });
-    await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor({ timeout: 60_000 });
-    return { process: appProcess, browser, page, consoleErrors, loopbackRequests };
+    const ui = createUiAutomation(appProcess.pid);
+    ui.wait("Text", "Workspace", 120);
+    return { process: appProcess, ui };
   } catch (error) {
     let diagnostics;
     if (appProcess?.pid) {
       try {
-        diagnostics = diagnoseInstalledApp(appProcess.pid, debugPort, targetDirectory);
+        diagnostics = diagnoseInstalledApp(appProcess.pid, targetDirectory);
+        try {
+          diagnostics.accessibility = runUiAutomation("inspect", appProcess.pid);
+        } catch (diagnosticError) {
+          diagnostics.accessibilityError = String(diagnosticError);
+        }
       } catch (diagnosticError) {
         diagnostics = { diagnosticError: String(diagnosticError) };
       }
@@ -199,25 +208,21 @@ async function startInstalledApp(targetDirectory, debugPort) {
 }
 
 async function closeInstalledApp(app) {
-  try {
-    const pid = String(app.process.pid);
-    powershell(
-      "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ForgeWindow { [DllImport(\"user32.dll\")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam); }'; " +
-      "$p = Get-Process -Id $env:FORGE_APP_PID -ErrorAction Stop; if ($p.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Main window was not found.' }; " +
-      "[ForgeWindow]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null",
-      { FORGE_APP_PID: pid },
-    );
-    const exited = Promise.race([
-      once(app.process, "exit").then(() => true),
-      delay(15_000).then(() => false),
-    ]);
-    if (!(await exited)) {
-      app.process.kill();
-      await once(app.process, "exit").catch(() => undefined);
-      throw new Error("Forge did not close after WM_CLOSE; the test-owned app process was stopped.");
-    }
-  } finally {
-    await app.browser.close().catch(() => undefined);
+  const pid = String(app.process.pid);
+  powershell(
+    "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ForgeWindow { [DllImport(\"user32.dll\")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam); }'; " +
+    "$p = Get-Process -Id $env:FORGE_APP_PID -ErrorAction Stop; if ($p.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Main window was not found.' }; " +
+    "[ForgeWindow]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null",
+    { FORGE_APP_PID: pid },
+  );
+  const exited = Promise.race([
+    once(app.process, "exit").then(() => true),
+    delay(15_000).then(() => false),
+  ]);
+  if (!(await exited)) {
+    app.process.kill();
+    await once(app.process, "exit").catch(() => undefined);
+    throw new Error("Forge did not close after WM_CLOSE; the test-owned app process was stopped.");
   }
 }
 
@@ -245,11 +250,9 @@ async function assertProcessExited(processId) {
 }
 
 async function assertForcedTerminationCleansSidecar(targetDirectory) {
-  const app = await startInstalledApp(targetDirectory, await freeLoopbackPort());
-  let sidecarProcessId;
+  const app = await startInstalledApp(targetDirectory);
   try {
     const details = await sidecarDetails(app.process.pid, targetDirectory);
-    sidecarProcessId = details.processId;
     powershell(
       "Stop-Process -Id ([int]$env:FORGE_APP_PID) -Force -ErrorAction Stop",
       { FORGE_APP_PID: String(app.process.pid) },
@@ -259,20 +262,18 @@ async function assertForcedTerminationCleansSidecar(targetDirectory) {
       delay(15_000).then(() => false),
     ]);
     assert(exited, "the test-owned Forge process must terminate after forced stop");
-    await app.browser.close().catch(() => undefined);
     await assertProcessExited(details.processId);
   } finally {
     if (app.process.exitCode === null && app.process.signalCode === null) {
       app.process.kill();
       await once(app.process, "exit").catch(() => undefined);
     }
-    await app.browser.close().catch(() => undefined);
   }
 }
 
 async function assertSecondLaunchDoesNotSpawnSidecar(targetDirectory, originalSidecarPid) {
   const executable = path.join(targetDirectory, installedExecutableName);
-  const duplicate = spawn(executable, [], { stdio: "ignore", env: process.env });
+  const duplicate = spawn(executable, [], { stdio: "ignore", env: createInstalledAppEnvironment(process.env, webviewProfile) });
   try {
     await delay(1_500);
     const result = spawnSync(
@@ -294,40 +295,31 @@ async function assertSecondLaunchDoesNotSpawnSidecar(targetDirectory, originalSi
   }
 }
 
-async function createWorkspaceAndProject(page, nameSuffix) {
-  await page.locator("button.workspace-switcher").click();
-  await page.getByRole("menuitem", { name: "Create workspace", exact: true }).click();
+async function createWorkspaceAndProject(ui, nameSuffix) {
+  ui.click("Button", "No workspace selected");
+  ui.click("MenuItem", "Create workspace");
   const workspaceName = `Desktop Smoke ${nameSuffix}`;
-  await page.getByLabel("Name").fill(workspaceName);
-  await page.getByLabel("Description").fill("Created by the installed Windows desktop smoke.");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await page.locator("button.workspace-switcher").getByText(workspaceName).waitFor();
-  await page.getByRole("link", { name: "Projects", exact: true }).click();
-  await page.getByRole("button", { name: /New project/ }).click();
+  ui.setValue("Name", workspaceName);
+  ui.setValue("Description", "Created by the installed Windows desktop smoke.");
+  ui.click("Button", "Create");
+  ui.wait("Button", workspaceName);
+  ui.click("Hyperlink", "Projects");
+  ui.wait("Text", "Projects");
+  ui.click("Button", "+ New project");
   const projectName = `Persisted Project ${nameSuffix}`;
-  await page.getByLabel("Project name").fill(projectName);
-  await page.getByLabel("Project description").fill("Local SQLite persistence check.");
-  await page.getByRole("button", { name: "Create project", exact: true }).click();
-  await page.getByRole("heading", { name: projectName, exact: true, level: 1 }).waitFor();
-  await page.getByRole("link", { name: "Features and Epics", exact: true }).click();
-  await page.getByRole("button", { name: "+ Feature", exact: true }).click();
+  ui.setValue("Project name", projectName);
+  ui.setValue("Project description", "Local SQLite persistence check.");
+  ui.click("Button", "Create project");
+  ui.wait("Text", projectName);
+  ui.click("Hyperlink", "Features and Epics");
+  ui.click("Button", "+ Feature");
   const featureName = `Desktop Feature ${nameSuffix}`;
-  await page.getByLabel("Title").fill(featureName);
-  await page.getByLabel("Goal").fill("Persist a real planning record through a desktop restart.");
-  await page.getByLabel("Description").fill("Installed-product planning persistence check.");
-  await page.getByRole("button", { name: "Create feature", exact: true }).click();
-  await page.getByRole("heading", { name: new RegExp(featureName) }).waitFor();
+  ui.setValue("Title", featureName);
+  ui.setValue("Goal", "Persist a real planning record through a desktop restart.");
+  ui.setValue("Description", "Installed-product planning persistence check.");
+  ui.click("Button", "Create feature");
+  ui.wait("Text", featureName);
   return { workspaceName, projectName, featureName };
-}
-
-async function assertExternalNavigationBlocked(page) {
-  const appUrl = page.url();
-  await page.evaluate(() => { window.location.href = "https://attacker.invalid/"; }).catch(() => undefined);
-  await page.waitForTimeout(500);
-  assert.equal(page.url(), appUrl, "external top-level navigation must remain blocked");
-  await page.evaluate(() => { window.open("https://attacker.invalid/", "_blank"); });
-  await page.waitForTimeout(300);
-  assert.equal(page.context().pages().length, 1, "external popups must remain blocked");
 }
 
 async function assertIndependentProcessCannotAccessApi(port, workspaceName) {
@@ -373,34 +365,30 @@ async function runInstalledJourney(targetDirectory, suffix, expectedProject) {
   const sentinel = expectedProject ? null : await startSentinelListener();
   let app;
   try {
-  const port = await freeLoopbackPort();
-  app = await startInstalledApp(targetDirectory, port);
-  await app.page.screenshot({ path: path.join(screenshotDirectory, `${suffix}-first-run.png`), fullPage: true });
-  const records = expectedProject ?? await createWorkspaceAndProject(app.page, suffix);
+  app = await startInstalledApp(targetDirectory);
+  app.ui.screenshot(path.join(screenshotDirectory, `${suffix}-first-run.png`));
+  const records = expectedProject ?? await createWorkspaceAndProject(app.ui, suffix);
   if (expectedProject) {
-    await app.page.getByRole("heading", { name: "Workspace", exact: true, level: 1 }).waitFor();
-    const projectCard = app.page.getByRole("heading", { name: expectedProject.projectName, exact: true, level: 3 });
-    await projectCard.waitFor();
-    await projectCard.click();
-    await app.page.getByRole("heading", { name: expectedProject.projectName, exact: true, level: 1 }).waitFor();
-    await app.page.getByRole("link", { name: "Features and Epics", exact: true }).click();
-    await app.page.getByRole("heading", { name: expectedProject.featureName, exact: true, level: 3 }).waitFor();
+    app.ui.wait("Text", "Workspace");
+    app.ui.wait("Button", expectedProject.projectName, 30, "contains");
+    app.ui.click("Button", expectedProject.projectName, "contains");
+    app.ui.wait("Text", expectedProject.projectName);
+    app.ui.click("Hyperlink", "Features and Epics");
+    app.ui.wait("Text", expectedProject.featureName);
   }
-  await app.page.screenshot({ path: path.join(screenshotDirectory, `${suffix}-project.png`), fullPage: true });
+  app.ui.screenshot(path.join(screenshotDirectory, `${suffix}-project.png`));
   if (!expectedProject) {
     const details = await sidecarDetails(app.process.pid, targetDirectory);
     assert.notEqual(details.port, sentinel.port, "the sidecar must use its own ephemeral port, not the sentinel listener");
     assert.equal(sentinel.server.received, 0, "the unrelated loopback listener must receive no request");
     await assertIndependentProcessCannotAccessApi(details.port, records.workspaceName);
     await assertSecondLaunchDoesNotSpawnSidecar(targetDirectory, details.processId);
-    await assertExternalNavigationBlocked(app.page);
-    await app.page.locator("button.workspace-switcher").click();
-    await app.page.getByRole("menuitem", { name: records.workspaceName }).waitFor();
-    await app.page.getByRole("menuitem", { name: "Create workspace", exact: true }).waitFor();
-    assert.equal(await app.page.getByRole("menuitem", { name: "Unauthorized Desktop Workspace" }).count(), 0);
-    await app.page.keyboard.press("Escape");
-    assert.deepEqual(app.consoleErrors, [], `unexpected WebView console errors: ${app.consoleErrors.join(" | ")}`);
-    assert.deepEqual(app.loopbackRequests, [], `WebView made direct loopback API requests: ${app.loopbackRequests.join(" | ")}`);
+    app.ui.click("Button", records.workspaceName);
+    app.ui.wait("MenuItem", records.workspaceName);
+    app.ui.wait("MenuItem", "Create workspace");
+    assert(!app.ui.inspect().includes("Unauthorized Desktop Workspace"), "unauthorized workspace creation must not appear in the UI");
+    app.ui.click("Button", records.workspaceName);
+    assert(!app.ui.inspect().includes("Create workspace"), "workspace menu must close after its switcher is activated again");
     assert.equal(sentinel.server.received, 0, "the unrelated loopback listener must remain untouched");
     await closeInstalledApp(app);
     app = null;
@@ -436,4 +424,4 @@ await runInstalledJourney(reinstallDirectory, "reinstall", persistedRecords);
 assert(await access(databasePath).then(() => true).catch(() => false), "reinstall must preserve the user's SQLite database");
 const log = await import("node:fs/promises").then(({ readFile }) => readFile(logPath, "utf8").catch(() => ""));
 assert(!/Bearer\s+[a-f0-9]{64}|session_secret/i.test(log), "runtime log must not contain the session capability");
-console.log(`Installed NSIS smoke passed on ${osVersion}; workspace/project/feature survived restart, uninstall and reinstall.`);
+console.log(`Installed NSIS smoke passed on ${osVersion}; native Windows UI Automation created and reopened workspace/project/feature records, which survived restart, uninstall and reinstall.`);

@@ -7,7 +7,7 @@ import {
   assertNoSourcePathLeak,
   assertTreeNoSourcePathLeak,
   assertBuildPrerequisites,
-  createInstalledWebViewEnvironment,
+  createInstalledAppEnvironment,
   describeInstalledSmokeFailure,
   findNsiInstaller,
   resolveGeneratedPath,
@@ -76,21 +76,22 @@ test("binary runtime files cannot embed the developer checkout path", async () =
   }
 });
 
-test("installed WebView debugging is scoped to the launched app process", () => {
+test("installed smoke launches the production app without WebView debugging overrides", () => {
   const parentEnvironment = {
     PATH: "runner-path",
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--inherited-flag",
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=43127",
     WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER: "\\\\.\\pipe\\inherited-debugger",
   };
 
-  const childEnvironment = createInstalledWebViewEnvironment(parentEnvironment, "C:\\temp\\forge-profile", 43127);
+  const childEnvironment = createInstalledAppEnvironment(parentEnvironment, "C:\\temp\\forge-profile");
 
   assert.equal(childEnvironment.PATH, "runner-path");
   assert.equal(childEnvironment.WEBVIEW2_USER_DATA_FOLDER, "C:\\temp\\forge-profile");
-  assert.equal(childEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--remote-debugging-port=43127 --remote-debugging-address=127.0.0.1");
+  assert.equal("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS" in childEnvironment, false);
   assert.equal("WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER" in childEnvironment, false);
-  assert.equal(parentEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--inherited-flag");
-  assert.throws(() => createInstalledWebViewEnvironment(parentEnvironment, "C:\\temp\\forge-profile", 0), /valid loopback debug port/);
+  assert.equal(parentEnvironment.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, "--remote-debugging-port=43127");
+  assert.equal(parentEnvironment.WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER, "\\\\.\\pipe\\inherited-debugger");
+  assert.throws(() => createInstalledAppEnvironment(parentEnvironment, "  "), /isolated WebView user-data folder/);
 });
 
 test("cleanup failures preserve the primary installed-app error and process diagnostics", () => {

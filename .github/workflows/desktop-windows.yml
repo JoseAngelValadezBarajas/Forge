@@ -106,6 +106,9 @@ jobs:
         working-directory: frontend
         run: npm run desktop:build
 
+      - name: Verify native Windows UI Automation helper
+        run: node --test scripts/desktop-ui-automation.test.mjs
+
       - name: Configure installed-product smoke inputs
         shell: pwsh
         run: |
