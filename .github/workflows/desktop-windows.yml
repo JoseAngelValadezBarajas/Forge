@@ -73,7 +73,7 @@ jobs:
           $nsis = Join-Path $programFilesX86 "NSIS"
           if (-not (Test-Path (Join-Path $nsis "makensis.exe"))) { throw "NSIS makensis.exe was not found after setup." }
           $nsis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          makensis.exe /VERSION
+          & (Join-Path $nsis "makensis.exe") /VERSION
 
       - name: Install frontend dependencies
         working-directory: frontend
