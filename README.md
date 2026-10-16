@@ -27,6 +27,8 @@ The FND-05 Workbench records human-reported Agent Runs against an immutable Cont
 - Backend: Python 3.12+, FastAPI, Pydantic Settings, SQLAlchemy 2, SQLite, Alembic, uv, pytest, ruff and mypy.
 - Frontend: React, TypeScript strict, Vite, React Router, CSS variables, Vitest, React Testing Library, Playwright and ESLint.
 
+Current module ownership, dependency rules and stylesheet composition are documented in the [architecture guide](docs/architecture/README.md). Reproducible quality checks and visual baselines are described in [engineering/testing](docs/engineering/testing.md).
+
 ## Run locally on Windows
 
 Prerequisites: Python 3.12+, Node.js `24.13.0`, npm `11.6.2`, uv and Git. The Node version is recorded in `.node-version` and `.nvmrc`; the frontend package enforces the compatible Node/npm range.
@@ -108,8 +110,11 @@ backend/app/{domain,application,persistence,git,context,handoffs,api}
 backend/migrations
 backend/tests
 frontend/src
+frontend/src/styles              shared CSS composition and tokens
+frontend/src/{app,features}       shell and capability-owned styles
 frontend/e2e
-docs
+docs/architecture                current architecture + archived refactor history
+docs/engineering
 scripts
 ```
 

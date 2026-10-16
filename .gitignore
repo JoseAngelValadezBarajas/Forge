@@ -29,6 +29,7 @@ frontend/.vite/
 frontend/coverage/
 playwright-report/
 test-results/
+frontend/artifacts/rfx-org-03b/candidate/
 
 .DS_Store
 .idea/

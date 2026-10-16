@@ -8,11 +8,30 @@ import { tmpdir } from "node:os";
 
 const frontendRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const playwrightCli = join(frontendRoot, "node_modules", "@playwright", "test", "cli.js");
-const result = spawnSync(process.execPath, [playwrightCli, "test", ...process.argv.slice(2)], {
-  cwd: frontendRoot,
-  env: process.env,
-  stdio: "inherit",
-});
+const runPlaywright = (args) =>
+  spawnSync(process.execPath, [playwrightCli, "test", ...args], {
+    cwd: frontendRoot,
+    env: process.env,
+    stdio: "inherit",
+  });
+
+const requestedArgs = process.argv.slice(2);
+let status;
+if (requestedArgs.length === 0) {
+  // Visual references require a pristine fixture database; run them in their own
+  // server lifecycle so earlier E2E journeys cannot change workspace-wide counts.
+  const visualResult = runPlaywright(["e2e/visual-baseline.spec.ts"]);
+  status = visualResult.status ?? 1;
+  if (status === 0) {
+    const behaviorResult = runPlaywright([
+      "--grep-invert",
+      "captures deterministic visual baselines for shell and representative product surfaces",
+    ]);
+    status = behaviorResult.status ?? 1;
+  }
+} else {
+  status = runPlaywright(requestedArgs).status ?? 1;
+}
 
 const temporaryDatabasePaths = () =>
   readdirSync(tmpdir())
@@ -40,5 +59,4 @@ if (remaining.length > 0) {
   globalThis.console.error(`Could not remove temporary E2E resources: ${remaining.join(", ")}`);
 }
 
-const status = result.status ?? 1;
 process.exit(status === 0 && remaining.length === 0 ? 0 : status || 1);

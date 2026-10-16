@@ -1,0 +1,4 @@
+@media (max-width: 800px) {
+  .readiness-support { grid-template-columns: 1fr; }
+  .fnd-toolbar { align-items: start; flex-direction: column; gap: 12px; }
+}

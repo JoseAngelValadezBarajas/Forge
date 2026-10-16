@@ -1,0 +1,8 @@
+.main-content { flex: 1; min-width: 0; }
+.page-frame { margin: 0 auto; max-width: 1208px; padding: 28px 36px 48px; }
+.workspace-header { align-items: center; display: flex; justify-content: space-between; min-height: 64px; }
+.workspace-header h1 { font-size: 32px; font-weight: 600; letter-spacing: -1px; line-height: 38px; margin: 0; }
+.workspace-header p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 2px 0 0; }
+.command-trigger { align-items: center; background: transparent; border: 1px solid var(--border); border-radius: 7px; color: var(--text-muted); cursor: pointer; display: flex; font-size: 12px; gap: 8px; padding: 4px 8px; }
+.command-trigger:hover { background: var(--surface-interactive); color: var(--text); }
+.command-key { color: var(--text-subtle); font-family: "IBM Plex Mono", Consolas, monospace; }
