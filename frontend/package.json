@@ -14,8 +14,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
-    "test": "vitest run && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs && node scripts/verify-api-response-contracts.mjs",
-    "test:coverage": "vitest run --coverage && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs && node scripts/verify-api-response-contracts.mjs && node scripts/coverage-summary.mjs",
+    "test": "vitest run && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs && node scripts/verify-api-response-contracts.mjs",
+    "test:coverage": "vitest run --coverage && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs && node scripts/verify-api-response-contracts.mjs && node scripts/coverage-summary.mjs",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
     "test:isolation": "node ../scripts/verify_e2e_isolation.mjs"

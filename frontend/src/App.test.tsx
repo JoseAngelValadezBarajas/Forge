@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserRouter } from "react-router-dom";
 
@@ -187,6 +187,28 @@ describe("Forge workspace and project shell", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     fireEvent.click(screen.getByRole("button", { name: "Light mode" }));
     expect(document.documentElement.dataset.theme).toBe("light");
+  });
+
+  it("keeps Command Palette keyboard focus within its dialog and executes the selected command", async () => {
+    renderApp();
+    await screen.findByRole("heading", { name: "Workspace" });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const dialog = screen.getByRole("dialog", { name: "Command palette" });
+    const input = screen.getByRole("combobox", { name: "Search commands" });
+    expect(input).toHaveAttribute("aria-controls", "command-options");
+    expect(input).toHaveAttribute("aria-activedescendant", "command-option-0");
+
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    const options = within(dialog).getAllByRole("option");
+    expect(document.activeElement).toBe(options.at(-1));
+    fireEvent.keyDown(options.at(-1)!, { key: "Tab" });
+    expect(document.activeElement).toBe(input);
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input).toHaveAttribute("aria-activedescendant", "command-option-1");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
   });
 
   it("directly resolves project and feature parameters for the context deep link", async () => {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("FND-06 evidence, deterministic verification and immutable release candidate", async ({ page }) => {
+test("FND-06 evidence, deterministic verification and immutable release candidate", async ({ page }, testInfo) => {
   const workspacesResponse = await page.request.get("/api/workspaces");
   expect(workspacesResponse.ok()).toBeTruthy();
   const [workspace] = await workspacesResponse.json();
@@ -49,28 +49,28 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   const emptyProject = await emptyProjectResponse.json();
   await page.goto(`/projects/${emptyProject.id}/delivery`);
   await expect(page.getByText("No evidence recorded yet")).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/empty-evidence.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("empty-evidence.png"), fullPage: true });
   await page.getByRole("link", { name: "Register evidence" }).click();
   await expect(page.getByRole("heading", { name: "Register evidence" })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/register-evidence.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("register-evidence.png"), fullPage: true });
 
   await page.goto(`/projects/${project.id}/delivery`);
   await expect(page.getByRole("heading", { name: "Delivery" })).toBeVisible();
   await expect(page.getByText("Loading delivery records")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Trust levels" })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/delivery-overview.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("delivery-overview.png"), fullPage: true });
   await expect(page.getByText("No evidence recorded yet")).toHaveCount(0);
   await page.getByRole("link", { name: "Evidence", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Evidence inventory" })).toBeVisible();
   await expect(page.getByRole("link", { name: /User-reported test summary/ })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/evidence-inventory.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("evidence-inventory.png"), fullPage: true });
   await page.getByRole("textbox", { name: "Search evidence" }).fill("not in this inventory");
   await expect(page.getByRole("heading", { name: "No matching evidence" })).toBeVisible();
   await page.getByRole("textbox", { name: "Search evidence" }).fill("User-reported test summary");
   await expect(page.getByRole("link", { name: /User-reported test summary/ })).toBeVisible();
   await page.getByRole("link", { name: /User-reported test summary/ }).click();
   await expect(page.getByText("REPORTED", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/evidence-detail.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("evidence-detail.png"), fullPage: true });
 
   const verify = await page.request.post(`${base}/verifications/evaluate`, {
     data: { rule_id: "V02", context_package_id: context.id },
@@ -85,15 +85,15 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   await page.goto(`/projects/${project.id}/delivery/verifications`);
   await expect(page.getByRole("heading", { name: "Verification center" })).toBeVisible();
   await expect(page.locator(".fnd06-list .status-chip.pass").first()).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/verification-center.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("verification-center.png"), fullPage: true });
   await expect(page.locator(".fnd06-list .status-chip.pass").first()).toBeVisible();
   await page.goto(`/projects/${project.id}/delivery/verifications/new`);
   await expect(page.getByRole("heading", { name: "Verification center" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Evaluate & Save" })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/verification-config.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("verification-config.png"), fullPage: true });
   await page.goto(`/projects/${project.id}/delivery/verifications`);
   await expect(page.locator(".fnd06-list .status-chip.pass").first()).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/verification-result.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("verification-result.png"), fullPage: true });
 
   const candidateResponse = await page.request.post(`${base}/release-candidates`, {
     data: {
@@ -112,10 +112,10 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   await page.getByRole("textbox", { name: "Candidate title" }).fill("Browser acceptance candidate revised");
   await page.getByRole("button", { name: "Save draft changes" }).click();
   await expect(page.getByRole("heading", { name: "Browser acceptance candidate revised" })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/candidate-draft.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("candidate-draft.png"), fullPage: true });
   await page.getByRole("button", { name: "Freeze candidate snapshot" }).click();
   await expect(page.getByRole("button", { name: "Evaluate release gates" })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/candidate-frozen.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("candidate-frozen.png"), fullPage: true });
   await page.getByRole("button", { name: "Evaluate release gates" }).click();
   await expect(page.getByRole("heading", { name: "Release gate evaluation" })).toBeVisible();
   await expect(page.locator(".fnd06-check-list .status-chip.blocked").first()).toBeVisible();
@@ -125,10 +125,10 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   await expect(
     page.getByText(/Required V04 verification is missing or not current for input/),
   ).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/release-gates.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("release-gates.png"), fullPage: true });
   await page.getByRole("button", { name: "Generate & save manifest" }).click();
   await expect(page.getByText("NOT PUBLISHED", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/manifest.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("manifest.png"), fullPage: true });
   const manifest = await page.request.get(`${base}/release-candidates/${candidate.id}/manifest`);
   expect(manifest.ok()).toBeTruthy();
   const payload = await manifest.json();
@@ -146,10 +146,10 @@ test("FND-06 evidence, deterministic verification and immutable release candidat
   expect(invalidated.ok()).toBeTruthy();
   await page.reload();
   await expect(page.locator(".status-chip.stale").first()).toBeVisible();
-  await page.screenshot({ path: "artifacts/fnd06/stale-gate.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("stale-gate.png"), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: "artifacts/fnd06/mobile-gates.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("mobile-gates.png"), fullPage: true });
   const overflow = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("body *"))
     .map((element) => ({ element, rect: element.getBoundingClientRect() }))
     .filter(({ rect }) => rect.right > window.innerWidth + 1)

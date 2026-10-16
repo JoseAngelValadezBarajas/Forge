@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -66,5 +66,78 @@ describe("Invariants feature error recovery", () => {
     expect(await screen.findByRole("heading", { name: invariant.title })).toBeInTheDocument();
     expect(screen.getByText(invariant.statement)).toBeInTheDocument();
     expect(invariantAttempts).toBe(2);
+  });
+
+  it("rejects whitespace-only input and preserves a failed invariant draft for retry", async () => {
+    let createAttempts = 0;
+    let postedBody: Record<string, unknown> = {};
+    let saved: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/invariants") && init?.method === "POST") {
+        createAttempts += 1;
+        postedBody = JSON.parse(String(init.body)) as Record<string, unknown>;
+        if (createAttempts === 1)
+          return response({ detail: "Invariant store is temporarily unavailable." }, 503);
+        saved = [{ ...invariant, ...postedBody }];
+        return response(saved[0], 201);
+      }
+      if (url.includes("/invariants?include_retired=true")) return response(saved);
+      if (url.endsWith("/features")) return response([]);
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/invariants"]}>
+        <Routes>
+          <Route
+            element={<InvariantsPage onOpenPalette={() => undefined} workspace={workspace} />}
+            path="/projects/:projectId/invariants"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "+ New invariant" }));
+    const form = screen.getByRole("heading", { name: "Create invariant" }).closest("form");
+    if (!form) throw new Error("Invariant form was not rendered.");
+    const submit = () => within(form).getByRole("button", { name: "Create invariant" });
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "   " },
+    });
+    fireEvent.change(screen.getByLabelText("Statement"), {
+      target: { value: "A statement" },
+    });
+    fireEvent.change(screen.getByLabelText("Rationale"), {
+      target: { value: "A rationale" },
+    });
+    fireEvent.click(submit());
+    expect(
+      await screen.findByText("Title, statement and rationale are required."),
+    ).toBeInTheDocument();
+    expect(createAttempts).toBe(0);
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Preserve reviewed context" },
+    });
+    fireEvent.click(submit());
+    expect(
+      await screen.findByText("Could not save the invariant. Try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Statement")).toHaveValue("A statement");
+    expect(screen.getByLabelText("Rationale")).toHaveValue("A rationale");
+
+    fireEvent.click(submit());
+    expect(
+      await screen.findByRole("heading", {
+        name: "Preserve reviewed context",
+      }),
+    ).toBeInTheDocument();
+    expect(createAttempts).toBe(2);
+    expect(postedBody).toEqual({
+      title: "Preserve reviewed context",
+      statement: "A statement",
+      rationale: "A rationale",
+    });
   });
 });
