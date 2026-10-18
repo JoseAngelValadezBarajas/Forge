@@ -3,6 +3,7 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import escapeHtml from "escape-html";
 import { Marked } from "marked";
 import { chromium } from "playwright";
 
@@ -61,15 +62,6 @@ export function validateUserGuideMarkdown(markdown, assets) {
   for (const image of imagePaths(markdown)) {
     if (!image.startsWith("assets/") || !assets.has(image)) throw new Error(`missing guide asset: ${image}`);
   }
-}
-
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function headingText(tokens) {
