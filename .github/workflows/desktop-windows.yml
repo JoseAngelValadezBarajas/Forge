@@ -82,16 +82,12 @@ jobs:
       - name: Install locked desktop Python dependencies
         run: uv sync --locked --dev --group desktop-build
 
-      - name: Generate Cargo.lock on the Windows runner if absent
-        shell: pwsh
-        run: |
-          $manifest = "desktop/src-tauri/Cargo.toml"
-          $lock = "desktop/src-tauri/Cargo.lock"
-          if (-not (Test-Path $lock)) { cargo generate-lockfile --manifest-path $manifest }
-
       - name: Prepare bundled frontend, route policy, sidecar and icons
         working-directory: frontend
         run: npm run desktop:prepare
+
+      - name: Validate committed Rust lockfile
+        run: cargo metadata --manifest-path desktop/src-tauri/Cargo.toml --locked --format-version 1 --no-deps
 
       - name: Rust format
         run: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all -- --check

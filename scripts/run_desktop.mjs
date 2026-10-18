@@ -21,7 +21,7 @@ const environment = {
 };
 const result = spawnSync(
   "npm",
-  ["exec", "tauri", "--", "build", "--ci", "--no-sign", "--target", "x86_64-pc-windows-msvc", "--bundles", "nsis"],
+  ["exec", "tauri", "--", "build", "--ci", "--no-sign", "--target", "x86_64-pc-windows-msvc", "--bundles", "nsis", "--", "--locked"],
   { cwd: frontend, env: environment, stdio: "inherit", shell: true },
 );
 if (result.error) throw result.error;

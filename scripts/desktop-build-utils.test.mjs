@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   assertNoSourcePathLeak,
   assertTreeNoSourcePathLeak,
@@ -14,6 +15,23 @@ import {
   resolveGeneratedPath,
   sha256File,
 } from "./desktop-build-utils.mjs";
+
+test("desktop Rust tests and installer build require the committed Cargo lockfile", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const [lockfile, workflow, buildScript] = await Promise.all([
+    readFile(path.join(root, "desktop/src-tauri/Cargo.lock"), "utf8"),
+    readFile(path.join(root, ".github/workflows/desktop-windows.yml"), "utf8"),
+    readFile(path.join(root, "scripts/run_desktop.mjs"), "utf8"),
+  ]);
+
+  assert.match(lockfile, /^version = 4/m);
+  assert.match(lockfile, /\[\[package\]\]\nname = "forge-desktop"\nversion = "0\.1\.0"\n/);
+  assert.doesNotMatch(workflow, /cargo\s+generate-lockfile/);
+  assert.match(workflow, /cargo test --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(workflow, /cargo clippy --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(workflow, /cargo metadata --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(buildScript, /"--",\s*"--locked"/);
+});
 
 test("generated paths must stay inside the repository", () => {
   const root = path.join(os.tmpdir(), "forge-project");
