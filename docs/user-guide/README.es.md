@@ -6,7 +6,7 @@ Esta guía describe Forge Desktop Alpha tal como está implementado. Los nombres
 
 Forge es un espacio local-first para organizar la intención de producto, la planeación, el contexto de repositorios locales y la evidencia declarada de un proyecto de software. Úsalo cuando necesites que el equipo pueda consultar por qué se planificó algo, qué reglas aplican y qué información fue registrada antes de comenzar o entregar trabajo.
 
-Forge no ejecuta agentes, pruebas, CI, despliegues ni comandos Git. Registra información que las personas agregan o que Forge observa de forma local y explícita.
+Forge no ejecuta agentes, pruebas, CI, despliegues ni comandos Git que modifiquen un repositorio. Al observar una conexión autorizada, consulta metadatos Git locales de solo lectura de forma acotada; no hace commit, push, checkout ni acciones remotas.
 
 ![Workspace Home](assets/workspace-home.png)
 

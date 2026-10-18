@@ -120,7 +120,9 @@ jobs:
         run: npm run test:isolation
       - name: Build and validate Spanish user guide
         working-directory: frontend
-        run: npm run docs:build
+        run: |
+          uv sync --locked --dev --group docs
+          npm run docs:build
       - name: Upload user guide PDF
         if: success()
         uses: actions/upload-artifact@v4

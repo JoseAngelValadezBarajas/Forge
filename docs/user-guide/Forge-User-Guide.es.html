@@ -46,7 +46,7 @@ pre { background: #292626; color: #fff8f2; padding: 14px; overflow: auto; }
 <p>Esta guía describe Forge Desktop Alpha tal como está implementado. Los nombres de botones y pantallas se conservan en inglés porque son los que aparecen en la aplicación.</p>
 <h2 id="que-es-forge">Qué es Forge</h2>
 <p>Forge es un espacio local-first para organizar la intención de producto, la planeación, el contexto de repositorios locales y la evidencia declarada de un proyecto de software. Úsalo cuando necesites que el equipo pueda consultar por qué se planificó algo, qué reglas aplican y qué información fue registrada antes de comenzar o entregar trabajo.</p>
-<p>Forge no ejecuta agentes, pruebas, CI, despliegues ni comandos Git. Registra información que las personas agregan o que Forge observa de forma local y explícita.</p>
+<p>Forge no ejecuta agentes, pruebas, CI, despliegues ni comandos Git que modifiquen un repositorio. Al observar una conexión autorizada, consulta metadatos Git locales de solo lectura de forma acotada; no hace commit, push, checkout ni acciones remotas.</p>
 <p><img src="assets/workspace-home.png" alt="Workspace Home"></p>
 <h2 id="instalacion-de-forge-desktop-en-windows">Instalación de Forge Desktop en Windows</h2>
 <p>Usa el instalador para Windows x64 proporcionado por tu organización. Ejecútalo para instalar Forge por usuario; no requiere elevar permisos para su ruta normal. Al abrirse, Forge inicia su backend local de forma automática.</p>

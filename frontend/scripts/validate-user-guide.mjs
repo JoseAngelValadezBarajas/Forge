@@ -4,6 +4,7 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { validateUserGuideMarkdown } from "./build-user-guide.mjs";
+import { validateUserGuideHtml } from "./user-guide-output-validation.mjs";
 
 /* global console */
 
@@ -17,6 +18,7 @@ const [markdown, html, pdf, assetNames] = await Promise.all([
 ]);
 const assets = new Set(assetNames.filter((name) => extname(name) === ".png").map((name) => `assets/${name}`));
 validateUserGuideMarkdown(markdown, assets);
+validateUserGuideHtml(html, assets);
 if (!html.includes('aria-label="Contenido"') || !html.includes('class="manual-cover"')) {
   throw new Error("HTML export is missing the manual cover or linked table of contents.");
 }

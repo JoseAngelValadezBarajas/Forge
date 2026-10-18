@@ -19,7 +19,7 @@
     "desktop:prepare": "node ../scripts/prepare_desktop.mjs",
     "desktop:build": "node ../scripts/run_desktop.mjs",
     "docs:capture": "node ../scripts/capture_user_guide_assets.mjs",
-    "docs:build": "node scripts/build-user-guide.mjs && node scripts/validate-user-guide.mjs",
+    "docs:build": "node scripts/build-user-guide.mjs && node scripts/validate-user-guide.mjs && uv run --locked --group docs python ../scripts/validate_user_guide_pdf.py",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
     "test:isolation": "node ../scripts/verify_e2e_isolation.mjs"

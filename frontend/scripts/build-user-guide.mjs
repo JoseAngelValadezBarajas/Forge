@@ -63,24 +63,44 @@ export function validateUserGuideMarkdown(markdown, assets) {
   }
 }
 
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function headingText(tokens) {
+  return tokens
+    .map((token) => {
+      if (Array.isArray(token.tokens)) return headingText(token.tokens);
+      return token.text ?? "";
+    })
+    .join("");
+}
+
 export function renderUserGuideHtml(markdown, { version, generatedAt, css = "" }) {
   const headings = [];
   const usedIds = new Map();
   const renderer = {
+    html({ text }) {
+      return escapeHtml(text);
+    },
     heading({ tokens, depth }) {
-      const parsed = this.parser.parseInline(tokens);
-      const text = parsed.replace(/<[^>]+>/g, "");
+      const text = headingText(tokens);
       const baseId = slug(text);
       const index = usedIds.get(baseId) ?? 0;
       usedIds.set(baseId, index + 1);
       const id = index ? `${baseId}-${index + 1}` : baseId;
       if (depth === 2) headings.push({ id, text });
-      return `<h${depth} id="${id}">${parsed}</h${depth}>\n`;
+      return `<h${depth} id="${id}">${escapeHtml(text)}</h${depth}>\n`;
     },
   };
   const parser = new Marked({ gfm: true, renderer });
   const content = parser.parse(markdown);
-  const toc = headings.map(({ id, text }) => `<li><a href="#${id}">${text}</a></li>`).join("\n");
+  const toc = headings.map(({ id, text }) => `<li><a href="#${id}">${escapeHtml(text)}</a></li>`).join("\n");
   return `<!doctype html>
 <html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Manual de Forge — ${version}</title><style>${css}</style></head>
 <body><main class="manual">

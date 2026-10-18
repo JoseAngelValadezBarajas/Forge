@@ -8,6 +8,7 @@ import {
   requiredGuideSections,
   validateUserGuideMarkdown,
 } from "./build-user-guide.mjs";
+import { validateUserGuideHtml } from "./user-guide-output-validation.mjs";
 
 test("user guide validation requires every promised Spanish manual section and real guide assets", () => {
   const markdown = requiredGuideSections.map((heading) => `## ${heading}`).join("\n\n");
@@ -31,7 +32,25 @@ test("HTML export has a cover, linked table of contents, page number footer and 
   assert.match(html, /assets\/workspace-home\.png/);
 });
 
+test("HTML export escapes raw HTML from manual content and headings", () => {
+  const html = renderUserGuideHtml(
+    ["# Manual de Forge", "## <script>alert(1)</script> Contexto", "<script>alert(2)</script>"].join("\n\n"),
+    { version: "Alpha", generatedAt: "2026-10-18" },
+  );
+  assert.doesNotMatch(html, /<script>/i);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; Contexto/);
+  assert.match(html, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+});
+
 test("print stylesheet leaves page numbering to the PDF footer instead of duplicating document text", async () => {
   const css = await readFile(resolve(import.meta.dirname, "../../docs/user-guide/user-guide.css"), "utf8");
   assert.doesNotMatch(css, /\.page-footer\s*\{\s*display:\s*block/s);
+});
+
+test("HTML validation rejects broken image and table-of-contents references", () => {
+  assert.throws(
+    () => validateUserGuideHtml('<img src="assets/missing.png"><a href="#missing">Missing</a>', new Set()),
+    /missing guide asset/,
+  );
+  assert.doesNotThrow(() => validateUserGuideHtml('<h2 id="known">Known</h2><a href="#known">Known</a>', new Set()));
 });
