@@ -18,6 +18,7 @@
     "test:coverage": "vitest run --coverage && npm run check:architecture && node --test scripts/api-contract-verifier.test.mjs scripts/e2e-run-resources.test.mjs scripts/contrast.test.mjs ../scripts/desktop-build-utils.test.mjs ../scripts/desktop-ui-automation.test.mjs && node scripts/verify-api-response-contracts.mjs && node scripts/coverage-summary.mjs",
     "desktop:prepare": "node ../scripts/prepare_desktop.mjs",
     "desktop:build": "node ../scripts/run_desktop.mjs",
+    "docs:capture": "node ../scripts/capture_user_guide_assets.mjs",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
     "test:isolation": "node ../scripts/verify_e2e_isolation.mjs"
