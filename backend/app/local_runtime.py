@@ -28,7 +28,7 @@ class _BuildAssetParser(HTMLParser):
 
 
 def validate_local_runtime_settings(settings: Settings) -> None:
-    if settings.runtime_mode != "local":
+    if settings.runtime_mode not in {"local", "desktop"}:
         return
     try:
         address = ip_address(settings.runtime_host)

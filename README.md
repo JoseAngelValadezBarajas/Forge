@@ -4,6 +4,10 @@ Forge is a local-first workspace for connecting product intent, optional local G
 
 The current product slice is an internal alpha. See the [Planning MVP alpha readiness guide](docs/releases/alpha-01-readiness.md) for the validated local workflow, isolated smoke tests, data backup/restore procedure, and current limitations.
 
+## Windows Desktop Alpha
+
+DESK-01 packages the same product as a per-user Windows x64 application with a Rust-owned authenticated FastAPI sidecar and SQLite under `%LOCALAPPDATA%\Forge`. The architecture and threat model are in [DESK-01 architecture](docs/desktop/desk-01-architecture.md); build prerequisites, user-data recovery, Git authorization and installer-verification instructions are in the [Windows Desktop Alpha guide](docs/desktop/desk-01-windows-alpha.md). Installer acceptance is not claimed until the real Windows workflow installs and exercises the built product.
+
 ## Status
 
 FND-06 adds declared evidence, deterministic verification of saved Forge snapshots, and immutable release-candidate snapshots with explainable gates and manifests. Forge does not fetch external URLs, import or execute artifacts, run tests or remote CI, write Git, deploy, or publish releases. A user report remains REPORTED; a passing named check proves only its stated condition. `READY_BY_DEFINED_GATES` is not functional verification, and every manifest remains `NOT_PUBLISHED`. See the [FND-06 model and limitations](docs/product/fnd06-evidence-and-releases.md) and [API contracts](docs/product/fnd06-api-contracts.md).

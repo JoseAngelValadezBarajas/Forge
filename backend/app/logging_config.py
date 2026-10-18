@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 from datetime import UTC, datetime
+from typing import TextIO
 
 
 class JsonFormatter(logging.Formatter):
@@ -17,8 +18,8 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False)
 
 
-def configure_logging(level: str) -> None:
-    handler = logging.StreamHandler(sys.stdout)
+def configure_logging(level: str, stream: TextIO | None = None) -> None:
+    handler = logging.StreamHandler(stream if stream is not None else sys.stdout)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=level, handlers=[handler], force=True)
 

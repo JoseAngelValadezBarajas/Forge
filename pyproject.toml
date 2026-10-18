@@ -18,6 +18,9 @@ dev = [
   "pytest>=8.3,<10",
   "ruff>=0.8,<1",
 ]
+desktop-build = [
+  "pyinstaller==6.22.3",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -36,5 +39,5 @@ testpaths = ["backend/tests"]
 python_version = "3.12"
 strict = true
 files = ["backend/app"]
-exclude = "backend/migrations"
+exclude = ["backend/migrations", "backend/(build|dist)/"]
 

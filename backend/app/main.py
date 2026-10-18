@@ -1,4 +1,6 @@
+import hmac
 import logging
+import sys
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path, PurePosixPath
@@ -23,9 +25,12 @@ from app.local_runtime import (
 from app.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
+DESKTOP_APP_ORIGIN = "http://tauri.localhost"
 
 
 def _frontend_origins(settings: Settings) -> set[str]:
+    if settings.runtime_mode == "desktop":
+        return {DESKTOP_APP_ORIGIN}
     if settings.runtime_mode == "local":
         return {local_runtime_origin(settings)}
     frontend_origin = settings.frontend_origin
@@ -35,9 +40,19 @@ def _frontend_origins(settings: Settings) -> set[str]:
     }
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, desktop_session_secret: bytes | None = None
+) -> FastAPI:
     runtime_settings = settings or get_settings()
     local_mode = runtime_settings.runtime_mode == "local"
+    desktop_mode = runtime_settings.runtime_mode == "desktop"
+    desktop_secret = desktop_session_secret or b""
+    if desktop_mode:
+        validate_local_runtime_settings(runtime_settings)
+        if runtime_settings.runtime_host != "127.0.0.1":
+            raise ValueError("desktop runtime host must be the literal IPv4 loopback address")
+        if len(desktop_secret) != 32:
+            raise ValueError("desktop session capability must contain exactly 32 bytes")
     origins = _frontend_origins(runtime_settings)
     index_path: Path | None = None
     assets_path: Path | None = None
@@ -50,7 +65,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        configure_logging(runtime_settings.log_level)
+        configure_logging(
+            runtime_settings.log_level,
+            stream=sys.stderr if desktop_mode else None,
+        )
         if local_mode:
             assert index_path is not None and assets_path is not None
             validate_frontend_build(index_path.parent)
@@ -69,25 +87,53 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=runtime_settings.app_version,
         lifespan=lifespan,
     )
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=sorted(origins),
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["*"],
-    )
+    if not desktop_mode:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=sorted(origins),
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+            allow_headers=["*"],
+        )
     application.include_router(router)
 
     @application.middleware("http")
     async def same_origin_mutations(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if local_mode and not has_valid_local_host_header(
+        if (local_mode or desktop_mode) and not has_valid_local_host_header(
             request.scope["headers"], runtime_settings
         ):
             return PlainTextResponse("Invalid host header", status_code=400)
+        if desktop_mode and (
+            request.url.path == "/api" or request.url.path.startswith("/api/")
+        ):
+            authorization_values = [
+                value
+                for name, value in request.scope["headers"]
+                if name.lower() == b"authorization"
+            ]
+            expected = b"Bearer " + desktop_secret.hex().encode("ascii")
+            if len(authorization_values) != 1 or not hmac.compare_digest(
+                authorization_values[0], expected
+            ):
+                return JSONResponse(
+                    status_code=401, content={"detail": "Desktop session required"}
+                )
         if request.method in {"POST", "PATCH", "PUT", "DELETE"}:
             origin = request.headers.get("origin")
+            origin_values = [
+                value
+                for name, value in request.scope["headers"]
+                if name.lower() == b"origin"
+            ]
+            if desktop_mode and (
+                len(origin_values) != 1
+                or origin_values[0] != DESKTOP_APP_ORIGIN.encode("ascii")
+            ):
+                return JSONResponse(
+                    status_code=403, content={"detail": "Same-origin mutation required"}
+                )
             if local_mode and (origin is None or origin.rstrip("/") not in origins):
                 return JSONResponse(
                     status_code=403, content={"detail": "Same-origin mutation required"}
@@ -103,13 +149,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.exception("unhandled_request_error", extra={"path": request.url.path}, exc_info=exc)
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-    if local_mode:
-        assert index_path is not None and assets_path is not None
+    if local_mode or desktop_mode:
         application.add_middleware(
             TrustedHostMiddleware,
             allowed_hosts=[local_runtime_host(runtime_settings)],
             www_redirect=False,
         )
+
+    if local_mode:
+        assert index_path is not None and assets_path is not None
         application.mount(
             "/assets",
             StaticFiles(directory=assets_path, check_dir=False, follow_symlink=False),
@@ -135,5 +183,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return application
 
 
-app = create_app()
+_default_settings = get_settings()
+
+
+def _unconfigured_desktop_application() -> FastAPI:
+    @asynccontextmanager
+    async def reject_startup(_: FastAPI) -> AsyncIterator[None]:
+        raise RuntimeError("desktop runtime requires a Rust-owned launch capability")
+        yield  # pragma: no cover
+
+    return FastAPI(lifespan=reject_startup)
+
+
+app: FastAPI = (
+    _unconfigured_desktop_application()
+    if _default_settings.runtime_mode == "desktop"
+    else create_app(_default_settings)
+)
 
