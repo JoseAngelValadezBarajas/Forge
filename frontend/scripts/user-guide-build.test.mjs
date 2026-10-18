@@ -40,6 +40,7 @@ test("HTML export escapes raw HTML from manual content and headings", () => {
   assert.doesNotMatch(html, /<script>/i);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; Contexto/);
   assert.match(html, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+  assert.match(html, /href="#script-alert-1-script-contexto"/);
 });
 
 test("print stylesheet leaves page numbering to the PDF footer instead of duplicating document text", async () => {
