@@ -28,7 +28,9 @@ Push aprobado a main
        └─ workflow reusable Windows con checkout exacto y publicación oficial
 ```
 
-La ruta `main-desktop.yml` no se activa para Pull Requests. El evento `workflow_run` se valida contra el repositorio actual, `main` y una conclusión `success`; el build recibe el `head_sha` del evento y nunca consulta el HEAD móvil de `main` para sustituirlo. El dispatch manual exige el SHA completo que actualmente apunta `main`.
+La ruta `main-desktop.yml` no se activa para Pull Requests. Tanto `workflow_run` como `workflow_dispatch` exigen evidencia de `Forge quality` exitosa para el SHA exacto y `main`; el evento automático además debe ser del workflow `Forge quality`, del repositorio actual y con conclusión `success`. El build recibe el SHA validado y nunca consulta el HEAD móvil de `main` para sustituirlo. El dispatch manual exige el SHA completo que actualmente apunta `main` y rechaza evidencia Quality fallida, pendiente o ausente.
+
+El guard resuelve los workflows por nombre y ruta, no por IDs de ejecución: `Forge quality` en `.github/workflows/quality.yml` y `CodeQL` en `dynamic/github-code-scanning/codeql`. CodeQL se espera sólo para el mismo SHA y la rama `main`; si no existe una única definición coincidente o no hay una ejecución exitosa, la certificación termina en rojo.
 
 ## Política de Pull Requests
 
@@ -39,6 +41,10 @@ La ruta `main-desktop.yml` no se activa para Pull Requests. El evento `workflow_
 - Eventos que no son Pull Request requieren Desktop.
 
 Los artefactos exitosos de PR son temporales y se nombran `forge-windows-x64-pr-<sha>-<run-id>`. No representan un instalador oficial. Los runs de PR se cancelan sólo dentro del mismo número de PR; los runs de `main` nunca se cancelan automáticamente.
+
+## Protección de `main`
+
+La API de GitHub fue consultada durante esta corrección. `GET /branches/main/protection` respondió `404 Branch not protected`; el único ruleset activo encontrado es `Copilot review for default branch`, sin reglas de checks requeridos. Por ello no se cambió silenciosamente ningún check remoto: el propietario debe configurar o confirmar la protección de `main` y requerir los nombres actuales después de la aprobación. El job de Desktop observado se identifica como `Windows x64 build and installed-product smoke` (en el resumen de reusable workflow puede aparecer con el prefijo de workflow). Mientras `main` permanezca sin protección, esta verificación es un pendiente de gobierno del repositorio, no evidencia de que un check obsoleto siga requerido.
 
 ## Calidad y caché
 

@@ -37,24 +37,49 @@ jobs:
           EVENT_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
           EVENT_BRANCH: ${{ github.event.workflow_run.head_branch }}
           EVENT_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          EVENT_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
           MANUAL_SHA: ${{ inputs.commit_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             [[ "$EVENT_REPOSITORY" == "$GITHUB_REPOSITORY" ]] || { echo "Refusing workflow_run from repository $EVENT_REPOSITORY." >&2; exit 1; }
             [[ "$EVENT_BRANCH" == "main" ]] || { echo "Refusing workflow_run from branch $EVENT_BRANCH." >&2; exit 1; }
             [[ "$EVENT_CONCLUSION" == "success" ]] || { echo "Forge quality did not pass: $EVENT_CONCLUSION." >&2; exit 1; }
-            sha="$EVENT_SHA"
+            [[ "$EVENT_WORKFLOW_NAME" == "Forge quality" ]] || { echo "workflow_run is not Forge quality." >&2; exit 1; }
+            query_sha="$EVENT_SHA"
+            current_main_sha=""
           else
             [[ "$MANUAL_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Manual dispatch requires a 40-character commit SHA." >&2; exit 1; }
             current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
             [[ "${MANUAL_SHA,,}" == "${current_main,,}" ]] || { echo "Manual SHA is not the current main SHA: $current_main." >&2; exit 1; }
-            sha="$current_main"
+            query_sha="$current_main"
+            current_main_sha="$current_main"
           fi
-          [[ "$sha" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Invalid certified SHA: $sha." >&2; exit 1; }
-          echo "commit_sha=${sha,,}" >> "$GITHUB_OUTPUT"
+          [[ "$query_sha" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Invalid certified SHA: $query_sha." >&2; exit 1; }
+
+          mapfile -t quality_ids < <(gh api "repos/$GITHUB_REPOSITORY/actions/workflows?per_page=100" --jq '.workflows[] | select(.name == "Forge quality" and .path == ".github/workflows/quality.yml") | .id')
+          if [[ "${#quality_ids[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Forge quality workflow at .github/workflows/quality.yml, found ${#quality_ids[@]}." >&2
+            exit 1
+          fi
+          quality_workflow_id="${quality_ids[0]}"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$quality_workflow_id/runs?head_sha=$query_sha&branch=main&per_page=100" > "$temp_dir/quality-runs.json"
+          python scripts/main_certification_policy.py \
+            --event-name "$EVENT_NAME" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event-repository "$EVENT_REPOSITORY" \
+            --event-branch "$EVENT_BRANCH" \
+            --event-conclusion "$EVENT_CONCLUSION" \
+            --event-workflow-name "$EVENT_WORKFLOW_NAME" \
+            --event-sha "$EVENT_SHA" \
+            --manual-sha "$MANUAL_SHA" \
+            --current-main-sha "$current_main_sha" \
+            --quality-runs-file "$temp_dir/quality-runs.json" | tee "$temp_dir/quality-validation.txt"
+          grep '^commit_sha=' "$temp_dir/quality-validation.txt" >> "$GITHUB_OUTPUT"
 
       - name: Wait for CodeQL success on the same SHA
         id: codeql
@@ -64,9 +89,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mapfile -t codeql_ids < <(gh api "repos/$GITHUB_REPOSITORY/actions/workflows?per_page=100" --jq '.workflows[] | select(.name == "CodeQL") | .id')
+          mapfile -t codeql_ids < <(gh api "repos/$GITHUB_REPOSITORY/actions/workflows?per_page=100" --jq '.workflows[] | select(.name == "CodeQL" and .path == "dynamic/github-code-scanning/codeql") | .id')
           if [[ "${#codeql_ids[@]}" -ne 1 ]]; then
-            echo "Expected exactly one CodeQL workflow, found ${#codeql_ids[@]}." >&2
+            echo "Expected exactly one CodeQL workflow at dynamic/github-code-scanning/codeql, found ${#codeql_ids[@]}." >&2
             exit 1
           fi
           workflow_id="${codeql_ids[0]}"
