@@ -148,10 +148,13 @@ jobs:
               if ($actualInstallerSha256 -ine $officialNsisInstallerSha256) {
                 throw "Embedded NSIS installer integrity check failed. Expected SHA-256 $officialNsisInstallerSha256; received $actualInstallerSha256."
               }
-              & $embeddedInstaller /S
+              $fallbackSource = Join-Path $env:RUNNER_TEMP "nsis-package-source-$expectedNsisToolVersion"
+              New-Item -ItemType Directory -Path $fallbackSource -Force | Out-Null
+              Copy-Item -LiteralPath $fallbackPackage -Destination (Join-Path $fallbackSource (Split-Path $fallbackPackage -Leaf)) -Force
+              & choco install nsis.install --version=$expectedNsisPackageVersion --source=$fallbackSource --yes --no-progress --limit-output
               $installerExitCode = $LASTEXITCODE
               if ($installerExitCode -notin @(0, 3010)) {
-                throw "Verified NSIS installer failed with exit code $installerExitCode."
+                throw "Verified NSIS Chocolatey package installation failed with exit code $installerExitCode."
               }
               $makensis = Join-Path $programFilesX86 "NSIS\makensis.exe"
             }
