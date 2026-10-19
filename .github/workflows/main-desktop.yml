@@ -63,10 +63,28 @@ jobs:
       - name: Checkout validated certification commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.validate.outputs.commit_sha }}
+          # Keep the checkout ref trusted; the exact SHA is verified immediately below.
+          # A moved main branch fails closed instead of executing a different commit.
+          ref: main
           fetch-depth: 1
           persist-credentials: false
           clean: true
+
+      - name: Verify exact validated checkout
+        shell: bash
+        env:
+          CERTIFIED_SHA: ${{ steps.validate.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          [[ "${actual_sha,,}" == "${CERTIFIED_SHA,,}" ]] || {
+            echo "Checked out $actual_sha, but the validated certification SHA is $CERTIFIED_SHA." >&2
+            exit 1
+          }
+          [[ -f scripts/main_certification_policy.py ]] || {
+            echo "Certification policy script is missing after exact-SHA checkout." >&2
+            exit 1
+          }
 
       - name: Verify Quality evidence for exact SHA
         shell: bash

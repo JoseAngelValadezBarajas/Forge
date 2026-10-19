@@ -94,9 +94,12 @@ def test_main_guard_checks_out_validated_commit_before_running_policy_code() -> 
     )
     checkout_block = workflow[checkout_index:policy_index]
     assert "uses: actions/checkout@v4" in checkout_block
-    assert "ref: ${{ steps.validate.outputs.commit_sha }}" in checkout_block
+    assert "ref: main" in checkout_block
+    assert "ref: ${{ steps.validate.outputs.commit_sha }}" not in checkout_block
     assert "fetch-depth: 1" in checkout_block
     assert "persist-credentials: false" in checkout_block
+    assert 'actual_sha="$(git rev-parse HEAD)"' in checkout_block
+    assert '[[ "${actual_sha,,}" == "${CERTIFIED_SHA,,}" ]]' in checkout_block
     assert "[[ -f scripts/main_certification_policy.py ]]" in checkout_block
 
 
