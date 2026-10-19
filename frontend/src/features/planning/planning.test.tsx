@@ -10,6 +10,7 @@ import { BrowserRouter, MemoryRouter, Route, Routes } from "react-router-dom";
 
 import App from "../../app/App";
 import { FeatureDetailPage } from "./index";
+import { PlanningPage } from "./pages/PlanningPage";
 
 const workspace = {
   id: "ws-1",
@@ -140,6 +141,9 @@ describe("FND-02 planning views", () => {
       </BrowserRouter>,
     );
     await screen.findByRole("heading", { name: "Project Board" });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "+ Feature" })).toBeEnabled(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "+ Feature" }));
     expect(
       screen.getByRole("heading", { name: "Create feature" }),
@@ -149,6 +153,44 @@ describe("FND-02 planning views", () => {
       expect(screen.queryByText("CI passed")).not.toBeInTheDocument(),
     );
   });
+
+  it.each(["/projects/project-1/features?create=1", "/projects/project-1/board?create=epic"])(
+    "keeps archived planning routes read-only, including creation deep links: %s",
+    async (entry) => {
+      vi.mocked(globalThis.fetch).mockImplementation((input) => {
+        const url = String(input);
+        if (url.endsWith("/projects/project-1")) return response({ ...project, status: "archived" });
+        if (url.includes("/planning/overview")) return response({ epics: 1, features: 1, tasks: 0, acceptance_criteria: 0, satisfied_criteria: 0, dependencies: 0 });
+        if (url.endsWith("/epics")) return response([{ id: "epic-1", project_id: "project-1", title: "Intent epic", description: "Intent", status: "planning", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }]);
+        if (url.includes("/features") && !url.includes("/tasks") && !url.includes("acceptance-criteria")) return response([{ ...feature, epic_id: "epic-1" }]);
+        if (url.includes("/dependencies")) return response([]);
+        return response([]);
+      });
+
+      render(
+        <MemoryRouter initialEntries={[entry]}>
+          <Routes>
+            <Route
+              element={<PlanningPage mode={entry.includes("/board") ? "board" : "features"} onOpenPalette={() => undefined} workspace={workspace} />}
+              path="/projects/:projectId/:view"
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByRole("heading", { name: entry.includes("/board") ? "Project Board" : "Features & Epics" })).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/archived project.*read-only/i);
+      expect(screen.getByRole("button", { name: "+ Epic" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "+ Feature" })).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: `Status for ${feature.key}` })).toBeDisabled();
+      if (entry.includes("/features")) {
+        expect(screen.getByRole("button", { name: "Edit epic" })).toBeDisabled();
+      }
+      expect(screen.queryByRole("heading", { name: "Create feature" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Create epic" })).not.toBeInTheDocument();
+      expect(vi.mocked(globalThis.fetch).mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    },
+  );
 
   it("reopens palette-created Epic and Feature forms after closing them on the same routes", async () => {
     render(

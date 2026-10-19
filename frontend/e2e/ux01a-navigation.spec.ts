@@ -83,3 +83,74 @@ test("navigates planning hierarchy and uses explicit board status selection", as
   await page.screenshot({ path: "test-results/ux01a-mobile-board.png", fullPage: true });
   await expect(page.locator("body")).toBeVisible();
 });
+
+test("keeps archived planning surfaces readable without exposing write actions", async ({ page }) => {
+  test.setTimeout(120_000);
+  const suffix = Date.now().toString();
+  const workspaces = await (await page.request.get("/api/workspaces")).json();
+  const workspace = workspaces[0] as { id: string };
+  const projectResponse = await page.request.post(
+    `/api/workspaces/${workspace.id}/projects`,
+    { data: { name: `UX-01A archived ${suffix}`, description: "Read-only planning fixture" } },
+  );
+  expect(projectResponse.status()).toBe(201);
+  const project = await projectResponse.json();
+  const base = `/api/workspaces/${workspace.id}/projects/${project.id}`;
+  const epicResponse = await page.request.post(`${base}/epics`, {
+    data: { title: `Archived Epic ${suffix}`, description: "Historical planning intent" },
+  });
+  expect(epicResponse.status()).toBe(201);
+  const epic = await epicResponse.json();
+  const featureResponse = await page.request.post(`${base}/features`, {
+    data: {
+      title: `Archived Feature ${suffix}`,
+      goal: "Keep archived planning readable",
+      priority: "medium",
+      epic_id: epic.id,
+    },
+  });
+  expect(featureResponse.status()).toBe(201);
+  const feature = await featureResponse.json();
+  expect((await page.request.post(`${base}/archive`)).status()).toBe(200);
+
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const method = request.method();
+    if (
+      request.url().includes(base) &&
+      method !== "GET" &&
+      method !== "HEAD"
+    ) {
+      writes.push(`${method} ${request.url()}`);
+    }
+  });
+
+  await page.goto(`/projects/${project.id}/features?create=1`);
+  await expect(page.getByRole("heading", { name: "Features & Epics", exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(/archived project.*read-only/i);
+  await expect(page.getByRole("button", { name: "+ Epic", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "+ Feature", exact: true })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: /Status for/ }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Edit epic", exact: true })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Create feature", exact: true })).toHaveCount(0);
+
+  await page.goto(`/projects/${project.id}/board?create=epic`);
+  await expect(page.getByRole("heading", { name: "Project Board", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Epic", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "+ Feature", exact: true })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Create epic", exact: true })).toHaveCount(0);
+
+  await page.goto(`/projects/${project.id}/epics/${epic.id}`);
+  await expect(page.getByRole("heading", { name: "Features in this Epic", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: new RegExp(`${feature.key}.*Archived Feature`) })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit epic", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "+ Create feature", exact: true })).toHaveCount(0);
+
+  await page.goto(`/projects/${project.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: `UX-01A archived ${suffix}`, exact: true })).toBeVisible();
+  await expect(page.locator(".project-planning-home").getByRole("note")).toContainText(/archived project.*read-only/i);
+  await expect(page.getByRole("link", { name: "Explore Epics", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open board", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /create feature/i })).toHaveCount(0);
+  expect(writes).toEqual([]);
+});

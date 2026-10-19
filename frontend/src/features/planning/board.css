@@ -1,4 +1,6 @@
 .planning-toolbar { align-items: center; display: flex; justify-content: space-between; margin-top: 18px; }
+.planning-read-only { background: var(--accent-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 12px; line-height: 18px; padding: 8px 10px; }
+.planning-read-only-copy { color: var(--text-muted); font-size: 12px; line-height: 18px; }
 .planning-tabs, .planning-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
 .planning-actions .button { min-width: 92px; }
 .planning-filters { align-items: end; display: flex; gap: 12px; margin-top: 18px; }

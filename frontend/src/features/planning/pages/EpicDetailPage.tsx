@@ -34,6 +34,7 @@ export function EpicDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const canMutate = project?.status === "active";
   const requestId = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -89,7 +90,7 @@ export function EpicDetailPage({
     description: string;
     status: "planning" | "archived";
   }): Promise<boolean> => {
-    if (!workspace || !projectId || !epic || saving) return false;
+    if (!workspace || !projectId || !epic || !canMutate || saving) return false;
     setSaving(true);
     try {
       setEpic(
@@ -133,16 +134,22 @@ export function EpicDetailPage({
               <h2>{epic.title}</h2>
               <p>{epic.description || "No description yet."}</p>
             </div>
-            <div className="detail-actions">
-              <button className="button secondary" onClick={() => setEditing(true)} type="button">
-                Edit epic
-              </button>
-              <Link className="button primary" to={`/projects/${project.id}/features?create=1&epic=${epic.id}`}>
-                + Create feature
-              </Link>
-            </div>
+            {canMutate ? (
+              <div className="detail-actions">
+                <button className="button secondary" onClick={() => setEditing(true)} type="button">
+                  Edit epic
+                </button>
+                <Link className="button primary" to={`/projects/${project.id}/features?create=1&epic=${epic.id}`}>
+                  + Create feature
+                </Link>
+              </div>
+            ) : (
+              <div className="planning-read-only" role="status">
+                Archived project · planning is read-only.
+              </div>
+            )}
           </section>
-          {editing && (
+          {editing && canMutate && (
             <EpicEditForm
               actionPending={saving}
               epic={epic}

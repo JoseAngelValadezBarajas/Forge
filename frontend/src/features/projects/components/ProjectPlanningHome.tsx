@@ -25,8 +25,9 @@ export function ProjectPlanningHome({
   project,
 }: {
   workspace: Workspace | null;
-  project: Pick<Project, "id" | "name">;
+  project: Pick<Project, "id" | "name" | "status">;
 }) {
+  const archived = project.status === "archived";
   const [overview, setOverview] = useState<ProjectPlanningOverview | null>(
     null,
   );
@@ -123,9 +124,15 @@ export function ProjectPlanningHome({
           <Link className="button secondary" to={`/projects/${project.id}/features`}>
             View all features
           </Link>
-          <Link className="button primary" to={`/projects/${project.id}/features?create=1`}>
-            + Create feature
-          </Link>
+          {archived ? (
+            <div className="planning-read-only" role="note">
+              Archived project · planning is read-only.
+            </div>
+          ) : (
+            <Link className="button primary" to={`/projects/${project.id}/features?create=1`}>
+              + Create feature
+            </Link>
+          )}
         </div>
       </div>
       {overview && (
@@ -171,7 +178,10 @@ export function ProjectPlanningHome({
           <div className="section-heading"><h3>Quick actions</h3></div>
           <Link className="button secondary" to={`/projects/${project.id}/epics`}>Explore Epics</Link>
           <Link aria-label="Open board" className="button secondary" to={`/projects/${project.id}/board`}>Open Board</Link>
-          <Link className="button secondary" to={`/projects/${project.id}/features?create=1`}>Create Feature</Link>
+          {!archived && (
+            <Link className="button secondary" to={`/projects/${project.id}/features?create=1`}>Create Feature</Link>
+          )}
+          {archived && <span className="planning-read-only-copy">Creation is unavailable while this project is archived.</span>}
           <div className="planning-home-context">
             <strong>Understand the hierarchy</strong>
             <p>Epic = iniciativa mayor. Feature = resultado concreto. Task = trabajo necesario para entregarlo.</p>

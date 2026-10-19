@@ -15,6 +15,7 @@ const workspace = {
 const project = {
   id: "project-1",
   name: "Forge",
+  status: "active" as const,
 };
 
 function response(payload: unknown) {
@@ -116,5 +117,41 @@ describe("ProjectPlanningHome", () => {
     expect(screen.getAllByText("2").some((node) =>
       node.className.includes("planning-home-metric-value"),
     )).toBe(true);
+  });
+
+  it("replaces creation actions with a read-only state for archived Projects", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/planning/overview")) {
+        return response({
+          epics: 1,
+          features: 1,
+          tasks: 0,
+          acceptance_criteria: 0,
+          satisfied_criteria: 0,
+          dependencies: 0,
+        });
+      }
+      if (url.endsWith("/epics")) return response([]);
+      if (url.includes("/features")) return response([]);
+      if (url.includes("/decisions")) return response([]);
+      if (url.includes("/invariants")) return response([]);
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter>
+        <ProjectPlanningHome
+          project={{ ...project, status: "archived" }}
+          workspace={workspace}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /Por .*nde continuar/ })).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(/archived project.*read-only/i);
+    expect(screen.queryAllByRole("link", { name: /create feature/i })).toHaveLength(0);
+    expect(screen.getByRole("link", { name: "View all features" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open board" })).toBeInTheDocument();
   });
 });

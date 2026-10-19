@@ -50,12 +50,16 @@ export function PlanningPage({
     [epicFilter, priority, search, status],
   );
   const { data, loading, error, reload } = usePlanningData(workspace, projectId, filters);
+  const canMutate = data?.project.status === "active";
   const navigate = useNavigate();
   const routeCreateForm = useMemo<"feature" | "epic" | null>(() => {
     const intent = new URLSearchParams(location.search).get("create");
     return intent === "1" ? "feature" : intent === "epic" ? "epic" : null;
   }, [location.search]);
-  const createForm = routeCreateForm ?? localCreateForm;
+  // Do not honor creation intents until the project has been loaded and verified
+  // as active. This also prevents archived deep links from briefly exposing a
+  // form while the planning request is still in flight.
+  const createForm = canMutate ? (routeCreateForm ?? localCreateForm) : null;
   const clearCreateIntent = useCallback(() => {
     const params = new URLSearchParams(location.search);
     if (!params.has("create")) return;
@@ -95,7 +99,7 @@ export function PlanningPage({
     action: () => Promise<void>,
     fallback: string,
   ): Promise<boolean> => {
-    if (actionPending) return false;
+    if (!canMutate || actionPending) return false;
     setActionPending(true);
     setActionError(null);
     try {
@@ -118,7 +122,7 @@ export function PlanningPage({
     status: FeatureStatus;
     epic_id?: string;
   }): Promise<boolean> => {
-    if (!workspace || !projectId || actionPending) return false;
+    if (!workspace || !projectId || !canMutate || actionPending) return false;
     setActionPending(true);
     setActionError(null);
     try {
@@ -140,7 +144,7 @@ export function PlanningPage({
   };
 
   const createEpic = (title: string, description: string): Promise<boolean> => {
-    if (!workspace || !projectId) return Promise.resolve(false);
+    if (!workspace || !projectId || !canMutate) return Promise.resolve(false);
     return runMutation(async () => {
       await forgeApi.createEpic(workspace.id, projectId, {
         title,
@@ -155,7 +159,7 @@ export function PlanningPage({
     epic: Epic,
     payload: { title: string; description: string; status: EpicStatus },
   ): Promise<boolean> => {
-    if (!workspace || !projectId) return Promise.resolve(false);
+    if (!workspace || !projectId || !canMutate) return Promise.resolve(false);
     return runMutation(async () => {
       await forgeApi.updateEpic(workspace.id, projectId, epic.id, payload);
       setEditingEpic(null);
@@ -166,7 +170,7 @@ export function PlanningPage({
     feature: Feature,
     nextStatus: FeatureStatus,
   ): Promise<boolean> => {
-    if (!workspace || !projectId || feature.status === nextStatus)
+    if (!workspace || !projectId || !canMutate || feature.status === nextStatus)
       return Promise.resolve(false);
     return runMutation(
       () =>
@@ -223,7 +227,7 @@ export function PlanningPage({
         <div className="planning-actions">
           <button
             className="button secondary"
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onClick={() => setLocalCreateForm("epic")}
             type="button"
           >
@@ -231,7 +235,7 @@ export function PlanningPage({
           </button>
           <button
             className="button primary"
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onClick={() => setLocalCreateForm("feature")}
             type="button"
           >
@@ -239,6 +243,11 @@ export function PlanningPage({
           </button>
         </div>
       </div>
+      {data?.project.status === "archived" && (
+        <div className="planning-read-only" role="status">
+          Archived project · planning is read-only.
+        </div>
+      )}
       <section className="planning-filters" aria-label="Feature filters">
         <label className="search-field">
           Search features
@@ -353,7 +362,7 @@ export function PlanningPage({
           onSubmit={createEpic}
         />
       )}
-      {editingEpic && (
+      {editingEpic && canMutate && (
         <EpicEditForm
           actionPending={actionPending}
           epic={editingEpic}
@@ -368,7 +377,7 @@ export function PlanningPage({
       ) : data ? (
         mode === "board" ? (
           <Board
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             epics={data.epics}
             features={data.features}
             onStatusChange={updateStatus}
@@ -376,7 +385,7 @@ export function PlanningPage({
         ) : (
           <FeatureInventory
             data={data}
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onEditEpic={setEditingEpic}
             onStatusChange={updateStatus}
           />
