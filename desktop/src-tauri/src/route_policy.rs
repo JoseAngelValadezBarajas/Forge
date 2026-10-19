@@ -249,9 +249,11 @@ mod tests {
             }"#,
         )
         .expect("test manifest");
-        assert!(manifest
-            .validate_request("POST", "/api/workspaces/w1/projects/import", 0)
-            .is_ok());
+        assert!(
+            manifest
+                .validate_request("POST", "/api/workspaces/w1/projects/import", 0)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -263,9 +265,11 @@ mod tests {
             }"#,
         )
         .expect("test manifest");
-        assert!(manifest
-            .validate_request("POST", "/api/projects/p1/features/preview", 0)
-            .is_ok());
+        assert!(
+            manifest
+                .validate_request("POST", "/api/projects/p1/features/preview", 0)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -277,9 +281,11 @@ mod tests {
             }"#,
         )
         .expect("test manifest");
-        assert!(manifest
-            .validate_request("POST", "/api/projects/import", 0)
-            .is_ok());
+        assert!(
+            manifest
+                .validate_request("POST", "/api/projects/import", 0)
+                .is_ok()
+        );
     }
 
     #[test]
