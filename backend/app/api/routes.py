@@ -6,6 +6,7 @@ from app.api.routers import (
     health,
     invariants,
     planning,
+    project_transfer,
     readiness,
     releases,
     repositories,
@@ -27,3 +28,4 @@ router.include_router(runs.router)
 router.include_router(evidence.router)
 router.include_router(verifications.router)
 router.include_router(releases.router)
+router.include_router(project_transfer.router)

@@ -1,0 +1,13 @@
+{
+  "schema_version": "forge-project-import-v1",
+  "project": { "name": "Invalid example" },
+  "features": [
+    {
+      "ref": "feature:one",
+      "title": "One",
+      "dependencies": [],
+      "status": "implemented"
+    }
+  ],
+  "unexpected": true
+}

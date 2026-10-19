@@ -17,6 +17,12 @@
     ],
     "post": []
   },
+  "/api/workspaces/{workspace_id}/projects/import": {
+    "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/import/preview": {
+    "post": []
+  },
   "/api/workspaces/{workspace_id}/projects/{project_id}": {
     "get": [],
     "patch": []
@@ -73,6 +79,9 @@
   },
   "/api/workspaces/{workspace_id}/projects/{project_id}/evidence/{evidence_id}/invalidate": {
     "post": []
+  },
+  "/api/workspaces/{workspace_id}/projects/{project_id}/export": {
+    "get": []
   },
   "/api/workspaces/{workspace_id}/projects/{project_id}/features": {
     "get": [

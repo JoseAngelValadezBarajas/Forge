@@ -1,0 +1,33 @@
+{
+  "schema_version": "forge-project-import-v1",
+  "project": {
+    "name": "Forge planning example",
+    "description": "A deterministic planning-only transfer."
+  },
+  "epics": [
+    {
+      "ref": "epic:foundation",
+      "title": "Foundation",
+      "description": "Initial planning context.",
+      "status": "planning"
+    }
+  ],
+  "features": [
+    {
+      "ref": "feature:bootstrap",
+      "title": "Bootstrap workspace",
+      "description": "Create the first usable workspace.",
+      "goal": "A user can begin planning locally.",
+      "priority": "high",
+      "status": "backlog",
+      "epic_ref": "epic:foundation",
+      "tasks": [
+        { "ref": "task:workspace", "title": "Create workspace", "status": "todo" }
+      ],
+      "acceptance_criteria": [
+        { "ref": "criterion:empty-state", "description": "The empty state explains the next step." }
+      ]
+    }
+  ],
+  "dependencies": []
+}

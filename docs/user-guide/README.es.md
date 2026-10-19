@@ -52,6 +52,16 @@ En **Project overview** puedes usar **Edit project** para cambiar nombre o descr
 
 No uses Archive como borrado: Forge conserva el historial. Las operaciones de planeación que intenten escribir en un Project archivado se rechazan.
 
+## Importar y exportar Projects
+
+En **Projects**, selecciona **Import project** para elegir un archivo JSON o pegar un documento `forge-project-import-v1`. Primero selecciona **Preview import**: Forge valida el esquema, referencias, estados y dependencias sin crear registros. Revisa las cantidades y el fingerprint; sólo después selecciona **Confirm import**.
+
+La confirmación importa exactamente lo que viste en el preview. Si el contenido cambió, Forge lo rechaza y debes generar un preview nuevo. La importación es atómica y no reemplaza un Project existente con el mismo nombre. Sólo se transfieren planeación, Epics, Features, Tasks, Acceptance Criteria y dependencias; no se transfieren Runs, Decisions, Invariants, Evidence, Verifications ni Release Candidates.
+
+En **Project overview**, selecciona **Export project** para descargar el Project actual como JSON estable. La acción también está disponible para Projects archivados porque es de lectura. Puedes importar el archivo exportado en otro Workspace; los IDs se generan de nuevo y los estados siguen siendo declaraciones de planeación, no evidencia de implementación o verificación.
+
+El contrato, el esquema y ejemplos están documentados en [la especificación de transferencia](../product/imp-01-project-import-export.md).
+
 ## Epics, Features y Tasks
 
 Abre **Open board** o la pestaña **Features** desde el Project. **+ Epic** crea un contenedor de planeación; **+ Feature** crea una unidad de intención implementable. Una Feature puede tener objetivo, prioridad, estado y Epic asociado.

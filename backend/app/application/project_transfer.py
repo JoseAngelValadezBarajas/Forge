@@ -11,7 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.schemas.project_transfer import (
+from app.application.common.errors import DuplicateName, EntityNotFound, RevisionConflict
+from app.application.common.validation import (
+    clean_description,
+    clean_name,
+    clean_text,
+    clean_title,
+)
+from app.application.project_transfer_contract import (
     SCHEMA_VERSION,
     ProjectImportCounts,
     ProjectImportCriterion,
@@ -22,13 +29,6 @@ from app.api.schemas.project_transfer import (
     ProjectImportPreviewResponse,
     ProjectImportProject,
     ProjectImportTask,
-)
-from app.application.common.errors import DuplicateName, EntityNotFound, RevisionConflict
-from app.application.common.validation import (
-    clean_description,
-    clean_name,
-    clean_text,
-    clean_title,
 )
 from app.domain.entities import (
     EpicStatus,
@@ -336,7 +336,6 @@ class ProjectTransferService:
                 )
                 self.session.add(project)
                 self.session.flush()
-                references.append(("project", project.id, None))
                 epic_ids: dict[str, str] = {}
                 for epic in normalized.epics:
                     item = EpicModel(
