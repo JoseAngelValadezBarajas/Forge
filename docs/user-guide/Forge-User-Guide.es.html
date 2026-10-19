@@ -27,6 +27,7 @@ pre { background: #292626; color: #fff8f2; padding: 14px; overflow: auto; }
 <li><a href="#primer-inicio-y-recorrido-de-la-interfaz">Primer inicio y recorrido de la interfaz</a></li>
 <li><a href="#workspaces">Workspaces</a></li>
 <li><a href="#projects">Projects</a></li>
+<li><a href="#importar-y-exportar-projects">Importar y exportar Projects</a></li>
 <li><a href="#epics-features-y-tasks">Epics, Features y Tasks</a></li>
 <li><a href="#project-board-y-transiciones-de-estado">Project Board y transiciones de estado</a></li>
 <li><a href="#acceptance-criteria-y-dependencias">Acceptance Criteria y dependencias</a></li>
@@ -76,6 +77,12 @@ pre { background: #292626; color: #fff8f2; padding: 14px; overflow: auto; }
 <p>En <strong>Project overview</strong> puedes usar <strong>Edit project</strong> para cambiar nombre o descripción. Usa <strong>Archive</strong> cuando el Project ya no deba aceptar cambios; confirma el diálogo. Un Project archivado sigue siendo consultable. Selecciona <strong>Restore</strong> para permitir nuevas mutaciones otra vez.</p>
 <p><img src="assets/project-overview.png" alt="Project Overview"></p>
 <p>No uses Archive como borrado: Forge conserva el historial. Las operaciones de planeación que intenten escribir en un Project archivado se rechazan.</p>
+<h2 id="importar-y-exportar-projects">Importar y exportar Projects</h2>
+<p>En <strong>Projects</strong>, selecciona <strong>Import project</strong> para elegir un archivo JSON o pegar un documento <code>forge-project-import-v1</code>. Primero selecciona <strong>Preview import</strong>: Forge valida el esquema, referencias, estados y dependencias sin crear registros. Revisa las cantidades y el fingerprint; sólo después selecciona <strong>Confirm import</strong>.</p>
+<p>La confirmación importa exactamente lo que viste en el preview. Si el contenido cambió, Forge lo rechaza y debes generar un preview nuevo. La importación es atómica y no reemplaza un Project existente con el mismo nombre. Sólo se transfieren planeación, Epics, Features, Tasks, Acceptance Criteria y dependencias; no se transfieren Runs, Decisions, Invariants, Evidence, Verifications ni Release Candidates.</p>
+<p>En <strong>Project overview</strong>, selecciona <strong>Export project</strong> para descargar el Project actual como JSON estable. La acción también está disponible para Projects archivados porque es de lectura. Puedes importar el archivo exportado en otro Workspace; los IDs se generan de nuevo y los estados siguen siendo declaraciones de planeación, no evidencia de implementación o verificación.</p>
+<p>El documento tiene límites de seguridad: máximo 100 Epics, 500 Features, 5,000 dependencias y, sumados entre todas las Features, 2,000 Tasks y 2,000 Acceptance Criteria. Un preview que supera estos límites se rechaza antes de crear registros.</p>
+<p>El contrato, el esquema y ejemplos están documentados en <a href="../product/imp-01-project-import-export.md">la especificación de transferencia</a>.</p>
 <h2 id="epics-features-y-tasks">Epics, Features y Tasks</h2>
 <p>Abre <strong>Open board</strong> o la pestaña <strong>Features</strong> desde el Project. <strong>+ Epic</strong> crea un contenedor de planeación; <strong>+ Feature</strong> crea una unidad de intención implementable. Una Feature puede tener objetivo, prioridad, estado y Epic asociado.</p>
 <p>En el detalle de una Feature agrega Tasks con el campo <strong>New task</strong> y el botón <strong>Add</strong>. Cada Task se puede editar, mover y pasar a estados de planeación. Estos estados son declaraciones manuales; no prueban que exista código ni entrega.</p>

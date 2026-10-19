@@ -32,6 +32,8 @@ export function ProjectOverviewPage({
   >(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const requestId = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -107,6 +109,20 @@ export function ProjectOverviewPage({
       );
     } finally {
       setStatusAction(null);
+    }
+  };
+  const exportProject = async () => {
+    if (!workspace || !project || exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      await forgeApi.exportProject(workspace.id, project.id);
+    } catch (cause) {
+      setExportError(
+        cause instanceof Error ? cause.message : "Could not export project.",
+      );
+    } finally {
+      setExporting(false);
     }
   };
   return (
@@ -206,6 +222,14 @@ export function ProjectOverviewPage({
                       : "Restore"}
               </button>
               <button
+                className="button secondary"
+                disabled={exporting}
+                onClick={() => void exportProject()}
+                type="button"
+              >
+                {exporting ? "Exporting..." : "Export project"}
+              </button>
+              <button
                 className="button ghost"
                 onClick={() => navigate("/projects")}
                 type="button"
@@ -221,6 +245,11 @@ export function ProjectOverviewPage({
             {statusError && (
               <p aria-live="assertive" className="status-error" role="alert">
                 {statusError}
+              </p>
+            )}
+            {exportError && (
+              <p aria-live="assertive" className="status-error" role="alert">
+                {exportError}
               </p>
             )}
           </section>

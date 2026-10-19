@@ -9,7 +9,14 @@ import { workbenchApi } from "./features/workbench/api";
 import { deliveryApi } from "./features/delivery/api";
 
 export type { Workspace } from "./features/workspaces/api/contracts";
-export type { ProjectStatus, Project, ProjectPlanningOverview } from "./features/projects/api/contracts";
+export type {
+  ProjectStatus,
+  Project,
+  ProjectPlanningOverview,
+  ProjectImportDocument,
+  ProjectImportPreview,
+  ProjectImportResult,
+} from "./features/projects/api/contracts";
 export type {
   EpicStatus,
   FeaturePriority,

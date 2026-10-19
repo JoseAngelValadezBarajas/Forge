@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forge.local/schemas/forge-project-import-v1.schema.json",
+  "title": "Forge Project Import v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project"],
+  "properties": {
+    "schema_version": { "const": "forge-project-import-v1", "type": "string" },
+    "project": { "$ref": "#/$defs/project" },
+    "epics": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/epic" } },
+    "features": { "type": "array", "maxItems": 500, "items": { "$ref": "#/$defs/feature" } },
+    "dependencies": { "type": "array", "maxItems": 5000, "items": { "$ref": "#/$defs/dependency" } }
+  },
+  "$defs": {
+    "epicRef": { "type": "string", "pattern": "^epic:[a-z][a-z0-9_-]{0,63}$" },
+    "featureRef": { "type": "string", "pattern": "^feature:[a-z][a-z0-9_-]{0,63}$" },
+    "taskRef": { "type": "string", "pattern": "^task:[a-z][a-z0-9_-]{0,63}$" },
+    "criterionRef": { "type": "string", "pattern": "^criterion:[a-z][a-z0-9_-]{0,63}$" },
+    "project": {
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": ["string", "null"], "maxLength": 2000 }
+      }
+    },
+    "epic": {
+      "type": "object", "additionalProperties": false, "required": ["ref", "title"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/epicRef" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": ["string", "null"], "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["planning", "archived"], "default": "planning" }
+      }
+    },
+    "task": {
+      "type": "object", "additionalProperties": false, "required": ["ref", "title"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/taskRef" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": ["string", "null"], "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["todo", "in_progress", "done"], "default": "todo" },
+        "position": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "criterion": {
+      "type": "object", "additionalProperties": false, "required": ["ref", "description"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/criterionRef" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 5000 },
+        "satisfied": { "type": "boolean", "default": false },
+        "position": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "feature": {
+      "type": "object", "additionalProperties": false, "required": ["ref", "title"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/featureRef" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": ["string", "null"], "maxLength": 5000 },
+        "goal": { "type": ["string", "null"], "maxLength": 5000 },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"], "default": "medium" },
+        "status": { "type": "string", "enum": ["backlog", "refining", "ready", "in_progress", "verify", "done"], "default": "backlog" },
+        "epic_ref": { "anyOf": [{ "$ref": "#/$defs/epicRef" }, { "type": "null" }] },
+        "tasks": { "type": "array", "maxItems": 2000, "items": { "$ref": "#/$defs/task" } },
+        "acceptance_criteria": { "type": "array", "maxItems": 2000, "items": { "$ref": "#/$defs/criterion" } }
+      }
+    },
+    "dependency": {
+      "type": "object", "additionalProperties": false, "required": ["blocking_feature_ref", "blocked_feature_ref"],
+      "properties": {
+        "blocking_feature_ref": { "$ref": "#/$defs/featureRef" },
+        "blocked_feature_ref": { "$ref": "#/$defs/featureRef" }
+      }
+    }
+  }
+}

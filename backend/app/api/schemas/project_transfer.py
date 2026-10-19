@@ -1,0 +1,43 @@
+"""Compatibility imports for the public project transfer API contract."""
+
+from app.application.project_transfer_contract import (
+    CRITERION_REF_PATTERN,
+    EPIC_REF_PATTERN,
+    FEATURE_REF_PATTERN,
+    SCHEMA_VERSION,
+    TASK_REF_PATTERN,
+    GeneratedReference,
+    ProjectImportCommitRequest,
+    ProjectImportCounts,
+    ProjectImportCriterion,
+    ProjectImportDependency,
+    ProjectImportDocument,
+    ProjectImportEpic,
+    ProjectImportFeature,
+    ProjectImportPreviewResponse,
+    ProjectImportProject,
+    ProjectImportResponse,
+    ProjectImportTask,
+    SchemaVersion,
+)
+
+__all__ = [
+    "CRITERION_REF_PATTERN",
+    "EPIC_REF_PATTERN",
+    "FEATURE_REF_PATTERN",
+    "SCHEMA_VERSION",
+    "TASK_REF_PATTERN",
+    "GeneratedReference",
+    "ProjectImportCommitRequest",
+    "ProjectImportCounts",
+    "ProjectImportCriterion",
+    "ProjectImportDependency",
+    "ProjectImportDocument",
+    "ProjectImportEpic",
+    "ProjectImportFeature",
+    "ProjectImportPreviewResponse",
+    "ProjectImportProject",
+    "ProjectImportResponse",
+    "ProjectImportTask",
+    "SchemaVersion",
+]

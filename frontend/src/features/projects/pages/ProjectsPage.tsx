@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { forgeApi, type Workspace } from "../../../api";
 import { ProjectCard } from "../components/ProjectCard";
 import { ProjectForm } from "../components/ProjectForm";
+import { ProjectImportPanel } from "../components/ProjectImportPanel";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
@@ -22,6 +23,7 @@ export function ProjectsPage({
   const [createOpen, setCreateOpen] = useState(
     () => new URLSearchParams(window.location.search).get("create") === "1",
   );
+  const [importOpen, setImportOpen] = useState(false);
   const { projects, loading, error, reload } = useProjects(
     workspace?.id ?? null,
     search,
@@ -55,14 +57,24 @@ export function ProjectsPage({
             Manage the intent and status of projects in the selected workspace.
           </p>
         </div>
-        <button
-          className="button primary"
-          disabled={!workspace}
-          onClick={() => setCreateOpen(true)}
-          type="button"
-        >
-          + New project
-        </button>
+        <div className="detail-actions">
+          <button
+            className="button secondary"
+            disabled={!workspace}
+            onClick={() => setImportOpen(true)}
+            type="button"
+          >
+            Import project
+          </button>
+          <button
+            className="button primary"
+            disabled={!workspace}
+            onClick={() => setCreateOpen(true)}
+            type="button"
+          >
+            + New project
+          </button>
+        </div>
       </section>
       {createOpen && (
         <section className="form-panel">
@@ -83,6 +95,13 @@ export function ProjectsPage({
             submitLabel="Create project"
           />
         </section>
+      )}
+      {importOpen && workspace && (
+        <ProjectImportPanel
+          onClose={() => setImportOpen(false)}
+          onImported={(projectId) => navigate(`/projects/${projectId}`)}
+          workspace={workspace}
+        />
       )}
       <section className="list-toolbar" aria-label="Project filters">
         <label className="search-field">

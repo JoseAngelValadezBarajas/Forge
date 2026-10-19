@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = PROJECT_ROOT / ".forge" / "data"
 DEFAULT_DATABASE_PATH = DEFAULT_DATA_DIR / "forge.db"
+PROJECT_IMPORT_MAX_BYTES = 8 * 1024 * 1024
 
 
 def sqlite_url(path: Path) -> str:

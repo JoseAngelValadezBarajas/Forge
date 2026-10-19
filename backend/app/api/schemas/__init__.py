@@ -57,6 +57,14 @@ from app.api.schemas.planning import (
     TaskResponse,
     TaskUpdate,
 )
+from app.api.schemas.project_transfer import (
+    GeneratedReference,
+    ProjectImportCommitRequest,
+    ProjectImportCounts,
+    ProjectImportDocument,
+    ProjectImportPreviewResponse,
+    ProjectImportResponse,
+)
 from app.api.schemas.readiness import (
     ReadinessBlocker,
     ReadinessEvaluationResponse,
@@ -117,6 +125,7 @@ __all__ = [
     "FeatureRepositoryLinkResponse",
     "FeatureResponse",
     "FeatureUpdate",
+    "GeneratedReference",
     "GateCheckResponse",
     "GateEvaluationResponse",
     "GitObservationResponse",
@@ -136,6 +145,11 @@ __all__ = [
     "ManifestResponse",
     "ManifestSaveRequest",
     "ProjectCreate",
+    "ProjectImportCommitRequest",
+    "ProjectImportCounts",
+    "ProjectImportDocument",
+    "ProjectImportPreviewResponse",
+    "ProjectImportResponse",
     "ProjectPlanningOverview",
     "ProjectResponse",
     "ProjectUpdate",

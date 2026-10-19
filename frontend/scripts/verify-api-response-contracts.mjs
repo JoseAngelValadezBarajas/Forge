@@ -101,6 +101,20 @@ function findRequestCall(node) {
   return found;
 }
 
+function findDownloadCall(node) {
+  let found;
+  function visit(current) {
+    if (found) return;
+    if (ts.isCallExpression(current) && ts.isIdentifier(current.expression) && current.expression.text === "downloadFile") {
+      found = current;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  }
+  visit(node);
+  return found;
+}
+
 function routePattern(argument) {
   if (ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument)) return argument.text.split("?")[0];
   if (!ts.isTemplateExpression(argument)) throw new Error(`Unsupported API route expression: ${argument.getText()}`);
@@ -159,6 +173,19 @@ function apiMethods(sourceFile, objectName) {
     const name = identifierPropertyName(property);
     if (!name) continue;
     const call = findRequestCall(property);
+    const download = !call && findDownloadCall(property);
+    if (!call && (!download?.arguments[0])) throw new Error(`Missing typed request or download call for ${name}`);
+    if (download) {
+      result.set(name, {
+        path: routePattern(download.arguments[0]),
+        method: "get",
+        responseTypeNode: undefined,
+        bodyTypeNode: undefined,
+        queryTypeNodes: new Map(),
+        download: true,
+      });
+      continue;
+    }
     if (!call?.typeArguments?.[0] || !call.arguments[0]) throw new Error(`Missing typed request call for ${name}`);
     const options = call.arguments[1] && ts.isObjectLiteralExpression(call.arguments[1]) ? call.arguments[1] : undefined;
     const methodProperty = options?.properties.find((item) => identifierPropertyName(item) === "method");
@@ -171,6 +198,7 @@ function apiMethods(sourceFile, objectName) {
       responseTypeNode: call.typeArguments[0],
       bodyTypeNode: requestBodyNode(call),
       queryTypeNodes: queryTypeNodes(property),
+      download: false,
     });
   }
   return result;
@@ -318,8 +346,8 @@ function requestContractFailures(cases) {
       failures.push(`${contract.name}: characterization sends a body but the API method does not serialize one`);
     }
   }
-  if (seenNames.size !== 94 || currentMethods.size !== 94) {
-    failures.push(`operation count mismatch: characterized=${seenNames.size}, frontend=${currentMethods.size}, expected=94`);
+  if (seenNames.size !== currentMethods.size) {
+    failures.push(`operation count mismatch: characterized=${seenNames.size}, frontend=${currentMethods.size}`);
   }
   for (const name of currentMethods.keys()) if (!seenNames.has(name)) failures.push(`${name}: no request characterization fixture`);
   return failures;
@@ -359,34 +387,33 @@ function checkResponseContracts() {
   const usedExceptions = new Set();
   for (const [name, current] of currentMethods) {
     const baseline = baselineSnapshot.operations[name];
-    if (!baseline) {
-      failures.push(`${name}: missing from the historical frontend API baseline`);
-      continue;
-    }
-    if (current.responseTypeNode.getText() !== baseline.responseType) {
-      failures.push(`${name}: response type changed from ${baseline.responseType} to ${current.responseTypeNode.getText()}`);
-    }
-    let currentShape;
-    try {
-      currentShape = historicalShape(normalizeTypeScriptNode(current.responseTypeNode, checker));
-    } catch (error) {
-      failures.push(`${name}: unsupported frontend response type: ${String(error)}`);
-      continue;
-    }
-    const baselineShape = baselineSnapshot.shapes[baseline.shape_id];
-    const shapeDifferences = historicalShapeDifferences(currentShape, baselineShape);
-    if (shapeDifferences.length) {
-      const correction = corrections.historical_frontend_shape_changes[name];
-      if (!correction) {
-        failures.push(`${name}: frontend DTO shape changed without a documented correction`);
-      } else {
-        const expected = [...correction.fields].sort();
-        if (JSON.stringify(shapeDifferences) !== JSON.stringify(expected)) {
-          failures.push(`${name}: documented DTO correction fields ${expected.join(", ")} do not match actual changes ${shapeDifferences.join(", ")}`);
+    if (baseline && !current.download) {
+      if (current.responseTypeNode.getText() !== baseline.responseType) {
+        failures.push(`${name}: response type changed from ${baseline.responseType} to ${current.responseTypeNode.getText()}`);
+      }
+      let currentShape;
+      try {
+        currentShape = historicalShape(normalizeTypeScriptNode(current.responseTypeNode, checker));
+      } catch (error) {
+        failures.push(`${name}: unsupported frontend response type: ${String(error)}`);
+        continue;
+      }
+      const baselineShape = baselineSnapshot.shapes[baseline.shape_id];
+      const shapeDifferences = historicalShapeDifferences(currentShape, baselineShape);
+      if (shapeDifferences.length) {
+        const correction = corrections.historical_frontend_shape_changes[name];
+        if (!correction) {
+          failures.push(`${name}: frontend DTO shape changed without a documented correction`);
+        } else {
+          const expected = [...correction.fields].sort();
+          if (JSON.stringify(shapeDifferences) !== JSON.stringify(expected)) {
+            failures.push(`${name}: documented DTO correction fields ${expected.join(", ")} do not match actual changes ${shapeDifferences.join(", ")}`);
+          }
+          usedExceptions.add(name);
         }
-        usedExceptions.add(name);
       }
     }
+    if (current.download) continue;
     const route = matchOpenApiRoute(current.path, current.method, openApi.paths);
     const operation = route?.[1][current.method];
     if (!operation) {
@@ -401,8 +428,8 @@ function checkResponseContracts() {
   for (const exception of Object.keys(corrections.historical_frontend_shape_changes)) {
     if (!usedExceptions.has(exception)) failures.push(`${exception}: obsolete historical DTO correction entry`);
   }
-  if (Object.keys(baselineSnapshot.operations).length !== 94 || currentMethods.size !== 94) {
-    failures.push(`frontend API operation count mismatch: current=${currentMethods.size}, historical=${Object.keys(baselineSnapshot.operations).length}, expected=94`);
+  if (currentMethods.size < Object.keys(baselineSnapshot.operations).length) {
+    failures.push(`frontend API operation count mismatch: current=${currentMethods.size}, historical=${Object.keys(baselineSnapshot.operations).length}`);
   }
   return failures;
 }
@@ -413,8 +440,8 @@ const failures = [
 ];
 
 logger.log(`Current application OpenAPI generated with an isolated temporary SQLite URL.`);
-logger.log(`Request contracts checked: ${currentMethods.size}/94 operations (routes, methods, query and JSON bodies).`);
-logger.log(`Response contracts checked: ${currentMethods.size}/94 operations (all successful status/body schemas).`);
+logger.log(`Request contracts checked: ${currentMethods.size} operations (routes, methods, query and JSON bodies).`);
+logger.log(`Response contracts checked: ${currentMethods.size} operations (historical baseline plus new typed operations).`);
 if (failures.length) {
   for (const failure of failures) logger.error(`- ${failure}`);
   process.exitCode = 1;

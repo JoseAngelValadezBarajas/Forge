@@ -133,15 +133,27 @@ def _apply_rfx_org_03a_openapi_delta(expected: dict[str, Any]) -> dict[str, Any]
     return corrected
 
 
+def _apply_imp01_openapi_delta(expected: dict[str, Any]) -> dict[str, Any]:
+    corrected = deepcopy(expected)
+    delta = json.loads((FIXTURES / "imp01-openapi-delta.json").read_text(encoding="utf-8"))
+    corrected["components"]["schemas"].update(delta["components"])
+    corrected["paths"].update(delta["paths"])
+    return corrected
+
+
 def test_complete_openapi_matches_frozen_baseline_plus_rfx_org_03a_corrections() -> None:
     expected = json.loads((FIXTURES / "rfx01b-openapi-baseline.json").read_text(encoding="utf-8"))
 
-    assert OPENAPI == _apply_rfx_org_03a_openapi_delta(expected)
+    expected = _apply_rfx_org_03a_openapi_delta(expected)
+    assert OPENAPI == _apply_imp01_openapi_delta(expected)
 
 
 def test_runtime_route_registry_preserves_all_105_registrations() -> None:
     expected = json.loads(
         (FIXTURES / "rfx01b-route-registry-baseline.json").read_text(encoding="utf-8")
+    )
+    expected.extend(
+        json.loads((FIXTURES / "imp01-route-registry-delta.json").read_text(encoding="utf-8"))
     )
     actual = _route_records(ROUTES)
     # Endpoint modules also change by design; function names and all route metadata
@@ -162,8 +174,8 @@ def test_runtime_route_registry_preserves_all_105_registrations() -> None:
         (method, route.path) for route in ROUTES for method in route.methods or []
     ]
 
-    assert len(ROUTES) == 105
-    assert len(method_paths) == 105
+    assert len(ROUTES) == 108
+    assert len(method_paths) == 108
     assert len(set(method_paths)) == len(method_paths)
     assert all(route.endpoint.__module__.startswith("app.api.routers.") for route in ROUTES)
     assert comparable_actual == comparable_expected

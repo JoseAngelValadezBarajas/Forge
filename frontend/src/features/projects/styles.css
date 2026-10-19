@@ -17,6 +17,33 @@
 .button.secondary { background: var(--surface-tag); border: 1px solid var(--border); color: var(--text); }
 .button.secondary:hover { background: var(--surface-raised); border-color: var(--text-subtle); }
 .button:disabled { cursor: not-allowed; opacity: .5; }
+.import-panel { margin: 18px 0; }
+.import-panel > label { display: grid; gap: 6px; margin-top: 13px; }
+.file-picker { align-items: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); display: flex; gap: 12px; padding: 12px; }
+.file-picker input { color: var(--text); font-size: 12px; }
+.import-json-input { font-family: "IBM Plex Mono", Consolas, monospace; font-size: 11px; line-height: 17px; min-height: 180px; width: 100%; }
+.import-preview { background: var(--surface-raised); border: 1px solid var(--accent); border-radius: var(--radius-sm); margin-top: 14px; padding: 13px; }
+.import-preview p { margin: 6px 0; }
+.import-preview ul { color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0; padding-left: 17px; }
+.import-preview code { color: var(--text-subtle); display: block; font-size: 10px; overflow-wrap: anywhere; }
+.import-preview-tree { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 12px; }
+.import-preview-tree h4, .import-preview-tree h5 { margin: 0 0 7px; }
+.import-preview-tree h4 { font-size: 14px; }
+.import-preview-tree h5 { color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.import-preview-tree ol, .import-preview-tree ul { margin: 7px 0 10px; padding-left: 22px; }
+.import-preview-tree section { margin-top: 12px; }
+.import-preview-node { margin: 7px 0; }
+.import-preview-node details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
+.import-preview-node summary { align-items: center; cursor: pointer; display: flex; gap: 10px; justify-content: space-between; list-style-position: outside; }
+.import-preview-node summary::marker { color: var(--accent); }
+.import-preview-node summary .mono-label { overflow-wrap: anywhere; text-align: right; }
+.import-preview-association { color: var(--text-muted); font-size: 11px; margin: 8px 0 0; }
+.import-preview-columns { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
+.import-preview-columns ul { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; }
+@media (max-width: 720px) {
+  .import-preview-columns { grid-template-columns: 1fr; }
+  .import-preview-node summary { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
 .quiet-empty-row { align-items: center; color: var(--text-muted); display: flex; font-size: 12px; gap: 12px; height: 56px; margin-bottom: 28px; padding: 0 15px; }
 .recent-row { border-radius: var(--radius-sm); margin-bottom: 6px; text-decoration: none; }
 .recent-row:hover { background: var(--surface-interactive); color: var(--text); }

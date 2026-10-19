@@ -7,10 +7,11 @@ export type ApiContractCase = {
   method?: string;
   body?: string;
   signal?: AbortSignal;
+  download?: boolean;
 };
 
 export const apiMethodInventory = {
-  workspacesProjects: ["listWorkspaces", "createWorkspace", "updateWorkspace", "listProjects", "getProject", "createProject", "updateProject", "archiveProject", "restoreProject", "getPlanningOverview"],
+  workspacesProjects: ["listWorkspaces", "createWorkspace", "updateWorkspace", "listProjects", "getProject", "createProject", "updateProject", "archiveProject", "restoreProject", "getPlanningOverview", "previewProjectImport", "importProject", "exportProject"],
   planning: ["listEpics", "createEpic", "updateEpic", "listFeatures", "createFeature", "getFeature", "updateFeature", "listTasks", "createTask", "updateTask", "reorderTasks", "listCriteria", "createCriterion", "updateCriterion", "reorderCriteria", "listDependencies", "createDependency", "deleteDependency"],
   decisionsInvariantsReadiness: ["listDecisions", "createDecision", "updateDecision", "acceptDecision", "supersedeDecision", "listDecisionRevisions", "linkDecision", "unlinkDecision", "listFeatureDecisions", "listInvariants", "createInvariant", "updateInvariant", "retireInvariant", "listInvariantRevisions", "listFeatureInvariants", "acknowledgeInvariant", "previewReadiness", "saveReadiness", "listReadinessEvaluations"],
   repositories: ["listRepositories", "connectRepository", "observeRepository", "listObservations", "disconnectRepository", "listFeatureRepositories", "linkFeatureRepository", "unlinkFeatureRepository", "previewContextPackage", "listContextPackages", "saveContextPackage"],
@@ -21,7 +22,10 @@ export const apiMethodInventory = {
 
 export type ApiContractDomain = keyof typeof apiMethodInventory;
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 export function characterizeApiContracts(domain: ApiContractDomain, cases: ApiContractCase[]): void {
   test(`${domain} contract inventory covers every public operation`, () => {
@@ -29,7 +33,7 @@ export function characterizeApiContracts(domain: ApiContractDomain, cases: ApiCo
     expect(represented).toEqual([...apiMethodInventory[domain]].sort());
   });
 
-  test.each(cases)("$name", async ({ invoke, url, method, body, signal }) => {
+  test.each(cases)("$name", async ({ invoke, url, method, body, signal, download }) => {
     const result = { fixture: "response" };
     const fetchMock = vi.fn<(...args: Parameters<typeof fetch>) => Promise<Response>>();
     fetchMock.mockResolvedValue(
@@ -39,14 +43,22 @@ export function characterizeApiContracts(domain: ApiContractDomain, cases: ApiCo
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
+    if (download) {
+      vi.stubGlobal("URL", {
+        createObjectURL: vi.fn(() => "blob:forge-test"),
+        revokeObjectURL: vi.fn(),
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    }
 
-    await expect(invoke()).resolves.toEqual(result);
+    if (download) await expect(invoke()).resolves.toBeUndefined();
+    else await expect(invoke()).resolves.toEqual(result);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [actualUrl, init] = fetchMock.mock.calls[0] ?? [];
     expect(actualUrl).toBe(url);
     expect(init?.method).toBe(method);
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(init?.headers).toEqual(download ? undefined : { "Content-Type": "application/json" });
     expect(init?.body).toBe(body);
     expect(init?.signal).toBe(signal);
   });

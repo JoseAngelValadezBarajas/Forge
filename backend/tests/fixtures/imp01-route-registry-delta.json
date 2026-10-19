@@ -1,0 +1,69 @@
+[
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routers.project_transfer",
+    "endpoint_name": "preview_project_import",
+    "index": 105,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/import/preview",
+    "response_model": "app.application.project_transfer_contract.ProjectImportPreviewResponse",
+    "route_name": "preview_project_import",
+    "status_code": null
+  },
+  {
+    "body_parameters": [
+      "payload"
+    ],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routers.project_transfer",
+    "endpoint_name": "import_project",
+    "index": 106,
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/import",
+    "response_model": "app.application.project_transfer_contract.ProjectImportResponse",
+    "route_name": "import_project",
+    "status_code": 201
+  },
+  {
+    "body_parameters": [],
+    "dependencies": [
+      {
+        "call": "app.db.get_db",
+        "dependencies": [],
+        "scope": null,
+        "use_cache": true
+      }
+    ],
+    "endpoint_module": "app.api.routers.project_transfer",
+    "endpoint_name": "export_project",
+    "index": 107,
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspaces/{workspace_id}/projects/{project_id}/export",
+    "response_model": null,
+    "route_name": "export_project",
+    "status_code": null
+  }
+]

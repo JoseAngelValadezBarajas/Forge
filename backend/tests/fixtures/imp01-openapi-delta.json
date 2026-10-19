@@ -1,0 +1,614 @@
+{
+  "components": {
+    "GeneratedReference": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_id": {
+          "title": "Generated Id",
+          "type": "string"
+        },
+        "parent_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Ref"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "generated_id"
+      ],
+      "title": "GeneratedReference",
+      "type": "object"
+    },
+    "ProjectImportCommitRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "$ref": "#/components/schemas/ProjectImportDocument"
+        },
+        "expected_fingerprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Fingerprint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document",
+        "expected_fingerprint"
+      ],
+      "title": "ProjectImportCommitRequest",
+      "type": "object"
+    },
+    "ProjectImportCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "title": "Acceptance Criteria",
+          "type": "integer"
+        },
+        "dependencies": {
+          "title": "Dependencies",
+          "type": "integer"
+        },
+        "epics": {
+          "title": "Epics",
+          "type": "integer"
+        },
+        "features": {
+          "title": "Features",
+          "type": "integer"
+        },
+        "tasks": {
+          "title": "Tasks",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "epics",
+        "features",
+        "tasks",
+        "acceptance_criteria",
+        "dependencies"
+      ],
+      "title": "ProjectImportCounts",
+      "type": "object"
+    },
+    "ProjectImportCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Position"
+        },
+        "ref": {
+          "pattern": "^criterion:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "satisfied": {
+          "default": false,
+          "title": "Satisfied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "description"
+      ],
+      "title": "ProjectImportCriterion",
+      "type": "object"
+    },
+    "ProjectImportDependency": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_feature_ref": {
+          "pattern": "^feature:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Blocked Feature Ref",
+          "type": "string"
+        },
+        "blocking_feature_ref": {
+          "pattern": "^feature:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Blocking Feature Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "blocking_feature_ref",
+        "blocked_feature_ref"
+      ],
+      "title": "ProjectImportDependency",
+      "type": "object"
+    },
+    "ProjectImportDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencies": {
+          "items": {
+            "$ref": "#/components/schemas/ProjectImportDependency"
+          },
+          "maxItems": 5000,
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "epics": {
+          "items": {
+            "$ref": "#/components/schemas/ProjectImportEpic"
+          },
+          "maxItems": 100,
+          "title": "Epics",
+          "type": "array"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/components/schemas/ProjectImportFeature"
+          },
+          "maxItems": 500,
+          "title": "Features",
+          "type": "array"
+        },
+        "project": {
+          "$ref": "#/components/schemas/ProjectImportProject"
+        },
+        "schema_version": {
+          "const": "forge-project-import-v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "project"
+      ],
+      "title": "ProjectImportDocument",
+      "type": "object"
+    },
+    "ProjectImportEpic": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "ref": {
+          "pattern": "^epic:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/EpicStatus",
+          "default": "planning"
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "title"
+      ],
+      "title": "ProjectImportEpic",
+      "type": "object"
+    },
+    "ProjectImportFeature": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/components/schemas/ProjectImportCriterion"
+          },
+          "maxItems": 2000,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "epic_ref": {
+          "anyOf": [
+            {
+              "pattern": "^epic:[a-z][a-z0-9_-]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Epic Ref"
+        },
+        "goal": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Goal"
+        },
+        "priority": {
+          "$ref": "#/components/schemas/FeaturePriority",
+          "default": "medium"
+        },
+        "ref": {
+          "pattern": "^feature:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/FeatureStatus",
+          "default": "backlog"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/components/schemas/ProjectImportTask"
+          },
+          "maxItems": 2000,
+          "title": "Tasks",
+          "type": "array"
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "title"
+      ],
+      "title": "ProjectImportFeature",
+      "type": "object"
+    },
+    "ProjectImportPreviewResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "$ref": "#/components/schemas/ProjectImportCounts"
+        },
+        "document": {
+          "$ref": "#/components/schemas/ProjectImportDocument"
+        },
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "project_name_conflict": {
+          "title": "Project Name Conflict",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "forge-project-import-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "workspace_id": {
+          "title": "Workspace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "workspace_id",
+        "fingerprint",
+        "project_name_conflict",
+        "document",
+        "counts"
+      ],
+      "title": "ProjectImportPreviewResponse",
+      "type": "object"
+    },
+    "ProjectImportProject": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProjectImportProject",
+      "type": "object"
+    },
+    "ProjectImportResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "$ref": "#/components/schemas/ProjectImportCounts"
+        },
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/components/schemas/GeneratedReference"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "forge-project-import-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "workspace_id": {
+          "title": "Workspace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "workspace_id",
+        "fingerprint",
+        "project_id",
+        "references",
+        "counts"
+      ],
+      "title": "ProjectImportResponse",
+      "type": "object"
+    },
+    "ProjectImportTask": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Position"
+        },
+        "ref": {
+          "pattern": "^task:[a-z][a-z0-9_-]{0,63}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/components/schemas/TaskStatus",
+          "default": "todo"
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "title"
+      ],
+      "title": "ProjectImportTask",
+      "type": "object"
+    }
+  },
+  "paths": {
+    "/api/workspaces/{workspace_id}/projects/import": {
+      "post": {
+        "operationId": "import_project_api_workspaces__workspace_id__projects_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectImportCommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Project"
+      }
+    },
+    "/api/workspaces/{workspace_id}/projects/import/preview": {
+      "post": {
+        "operationId": "preview_project_import_api_workspaces__workspace_id__projects_import_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectImportDocument"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectImportPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Project Import"
+      }
+    },
+    "/api/workspaces/{workspace_id}/projects/{project_id}/export": {
+      "get": {
+        "operationId": "export_project_api_workspaces__workspace_id__projects__project_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Project"
+      }
+    }
+  }
+}

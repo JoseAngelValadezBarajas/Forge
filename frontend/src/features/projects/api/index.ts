@@ -1,5 +1,11 @@
-import { request } from "../../../shared/api/client";
-import type { Project, ProjectPlanningOverview } from "./contracts";
+import { downloadFile, request } from "../../../shared/api/client";
+import type {
+  Project,
+  ProjectImportDocument,
+  ProjectImportPreview,
+  ProjectImportResult,
+  ProjectPlanningOverview,
+} from "./contracts";
 
 export const projectsApi = {
   listProjects: (
@@ -30,4 +36,25 @@ export const projectsApi = {
     request<Project>(`/workspaces/${workspaceId}/projects/${projectId}/restore`, { method: "POST" }),
   getPlanningOverview: (workspaceId: string, projectId: string, signal?: AbortSignal) =>
     request<ProjectPlanningOverview>(`/workspaces/${workspaceId}/projects/${projectId}/planning/overview`, { signal }),
+  previewProjectImport: (
+    workspaceId: string,
+    document: ProjectImportDocument,
+    signal?: AbortSignal,
+  ) =>
+    request<ProjectImportPreview>(`/workspaces/${workspaceId}/projects/import/preview`, {
+      method: "POST",
+      body: JSON.stringify(document),
+      signal,
+    }),
+  importProject: (
+    workspaceId: string,
+    document: ProjectImportDocument,
+    expectedFingerprint: string,
+  ) =>
+    request<ProjectImportResult>(`/workspaces/${workspaceId}/projects/import`, {
+      method: "POST",
+      body: JSON.stringify({ document, expected_fingerprint: expectedFingerprint }),
+    }),
+  exportProject: (workspaceId: string, projectId: string) =>
+    downloadFile(`/api/workspaces/${workspaceId}/projects/${projectId}/export`, "forge-project-import-v1.json"),
 };

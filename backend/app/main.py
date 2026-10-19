@@ -13,7 +13,7 @@ from starlette.responses import FileResponse, PlainTextResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from app.api.routes import router
-from app.config import Settings, get_settings
+from app.config import PROJECT_IMPORT_MAX_BYTES, Settings, get_settings
 from app.local_runtime import (
     has_valid_local_host_header,
     is_browser_navigation,
@@ -96,6 +96,36 @@ def create_app(
             allow_headers=["*"],
         )
     application.include_router(router)
+
+    @application.middleware("http")
+    async def project_import_body_limit(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        is_import = request.method == "POST" and request.url.path.endswith(
+            ("/projects/import", "/projects/import/preview")
+        )
+        if is_import:
+            content_length = request.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    declared_length = int(content_length)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"detail": "Invalid Content-Length header"},
+                    )
+                if declared_length > PROJECT_IMPORT_MAX_BYTES:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Project import payload exceeds the 8 MiB limit"},
+                    )
+            body = await request.body()
+            if len(body) > PROJECT_IMPORT_MAX_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Project import payload exceeds the 8 MiB limit"},
+                )
+        return await call_next(request)
 
     @application.middleware("http")
     async def same_origin_mutations(
