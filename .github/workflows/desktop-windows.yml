@@ -66,14 +66,63 @@ jobs:
       - name: Ensure NSIS is available
         shell: pwsh
         run: |
-          if (-not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
-            choco install nsis --yes --no-progress
-          }
+          $ErrorActionPreference = "Stop"
+          $expectedNsisVersion = "3.13.0"
+          $expectedNsisVersionPattern = [regex]::Escape($expectedNsisVersion)
+          $officialChocolateySource = "https://community.chocolatey.org/api/v2/"
+          $maxAttempts = 4
+          $backoffSeconds = @(5, 15, 30)
           $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
           $nsis = Join-Path $programFilesX86 "NSIS"
-          if (-not (Test-Path (Join-Path $nsis "makensis.exe"))) { throw "NSIS makensis.exe was not found after setup." }
+          $makensis = Join-Path $nsis "makensis.exe"
+
+          $versionOutput = $null
+          if (Test-Path -LiteralPath $makensis -PathType Leaf) {
+            $versionOutput = (& $makensis /VERSION 2>&1 | Out-String).Trim()
+          }
+
+          if ($versionOutput -notmatch "(?<!\d)$expectedNsisVersionPattern(?!\d)") {
+            $installed = $false
+            $lastExitCode = $null
+            $attemptErrors = @()
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              Write-Host "Installing pinned NSIS $expectedNsisVersion from the official Chocolatey Community feed (attempt $attempt/$maxAttempts)."
+              $lastExitCode = 1
+              try {
+                & choco install nsis --version=$expectedNsisVersion --allow-downgrade --source=$officialChocolateySource --yes --no-progress --limit-output
+                $lastExitCode = $LASTEXITCODE
+              } catch {
+                $attemptErrors += $_.Exception.Message
+              }
+              if ($lastExitCode -eq 0) {
+                $installed = $true
+                break
+              }
+              Write-Warning "Pinned NSIS installation attempt $attempt/$maxAttempts failed with Chocolatey exit code $lastExitCode."
+              if ($attempt -lt $maxAttempts) {
+                Start-Sleep -Seconds $backoffSeconds[$attempt - 1]
+              }
+            }
+            if (-not $installed) {
+              $details = if ($attemptErrors.Count -gt 0) { " Errors: $($attemptErrors -join ' | ')" } else { "" }
+              throw "Unable to install pinned NSIS $expectedNsisVersion from the official Chocolatey source after $maxAttempts attempts (last exit code: $lastExitCode). Installer build and installed-product smoke remain required and were not skipped.$details"
+            }
+          }
+
+          if (-not (Test-Path -LiteralPath $makensis -PathType Leaf)) {
+            throw "NSIS makensis.exe was not found at the expected installation path after setup."
+          }
+          $resolvedMakensis = (Resolve-Path -LiteralPath $makensis).Path
+          $verifiedVersion = (& $resolvedMakensis /VERSION 2>&1 | Out-String).Trim()
+          $versionExitCode = $LASTEXITCODE
+          if ($versionExitCode -ne 0) {
+            throw "NSIS makensis.exe exists but could not be executed (exit code: $versionExitCode)."
+          }
+          if ($verifiedVersion -notmatch "(?<!\d)$expectedNsisVersionPattern(?!\d)") {
+            throw "NSIS version mismatch. Expected $expectedNsisVersion; makensis reported: $verifiedVersion"
+          }
           $nsis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & (Join-Path $nsis "makensis.exe") /VERSION
+          Write-Host "Verified executable $resolvedMakensis reports NSIS $expectedNsisVersion."
 
       - name: Install frontend dependencies
         working-directory: frontend
