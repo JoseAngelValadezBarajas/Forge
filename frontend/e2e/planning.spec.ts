@@ -85,11 +85,16 @@ test("completes the planning workflow in Chromium", async ({ page }) => {
   await page.getByLabel("Task state for Task one").selectOption("in_progress");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Task one edited", { exact: true })).toBeVisible();
+  const taskReordered = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/tasks/reorder"),
+  );
   await page.getByRole("button", { name: /Move task Task two down/ }).click();
+  expect((await taskReordered).status()).toBe(200);
+  await expect(page.getByLabel("New acceptance criterion")).toBeEnabled();
 
   for (const description of ["Criterion one", "Criterion two", "Criterion three"]) {
     await page.getByLabel("New acceptance criterion").fill(description);
-    await page.locator("form.inline-add").nth(1).getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByLabel("New acceptance criterion").press("Enter");
     await expect(page.getByText(description, { exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: "Edit criterion Criterion one", exact: true }).click();
