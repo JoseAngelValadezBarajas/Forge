@@ -56,6 +56,8 @@ test("IMP-01 imports a reviewed planning document, exports it, and preserves arc
   });
   expect(secondWorkspaceResponse.status()).toBe(201);
   const secondWorkspace = (await secondWorkspaceResponse.json()) as { id: string; name: string };
+  await page.getByRole("link", { name: "Projects", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await page.reload();
   await page.locator("button.workspace-switcher").click();
   await page.getByRole("menuitem", { name: secondWorkspace.name, exact: true }).click();
