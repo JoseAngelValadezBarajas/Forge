@@ -12,6 +12,7 @@ import { label, priorities, statuses } from "../utils";
 export function FeatureEditForm({
   feature,
   epics,
+  id,
   onSubmit,
   actionPending,
 }: {
@@ -19,6 +20,7 @@ export function FeatureEditForm({
   epics: Epic[];
   onSubmit: (payload: FeatureFormPayload) => Promise<boolean>;
   actionPending: boolean;
+  id?: string;
 }) {
   const [title, setTitle] = useState(feature.title);
   const [description, setDescription] = useState(feature.description ?? "");
@@ -46,6 +48,7 @@ export function FeatureEditForm({
   };
   return (
     <form
+      id={id}
       className="planning-form feature-edit-form"
       onSubmit={(event) => void submit(event)}
     >

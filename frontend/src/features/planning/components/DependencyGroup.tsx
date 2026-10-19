@@ -7,6 +7,7 @@ export function DependencyGroup({
   onRemove,
   empty,
   disabled,
+  readOnly = false,
 }: {
   labelText: string;
   items: FeatureDependency[];
@@ -14,6 +15,7 @@ export function DependencyGroup({
   onRemove: (id: string) => Promise<boolean>;
   empty: string;
   disabled: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <section className="dependency-group">
@@ -32,14 +34,14 @@ export function DependencyGroup({
                     : dependency.blocked_feature_id,
                 )}
               </span>
-              <button
+              {!readOnly && <button
                 className="button ghost"
                 disabled={disabled}
                 onClick={() => void onRemove(dependency.id)}
                 type="button"
               >
                 Remove
-              </button>
+              </button>}
             </li>
           ))}
         </ul>

@@ -9,6 +9,7 @@ export function TaskRow({
   first,
   last,
   disabled,
+  readOnly = false,
 }: {
   task: Task;
   onSave: (payload: {
@@ -20,6 +21,7 @@ export function TaskRow({
   first: boolean;
   last: boolean;
   disabled: boolean;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
@@ -113,7 +115,7 @@ export function TaskRow({
             </strong>
             {task.description && <small>{task.description}</small>}
           </span>
-          <select
+          {!readOnly && <select
             aria-label={`Status for ${task.title}`}
             disabled={disabled || saving}
             onChange={(event) => {
@@ -125,8 +127,9 @@ export function TaskRow({
             <option value="todo">To do</option>
             <option value="in_progress">In progress</option>
             <option value="done">Done</option>
-          </select>
-          <button
+          </select>}
+          {readOnly && <small className="read-only-item-state">{task.status.replace("_", " ")}</small>}
+          {!readOnly && <button
             aria-label={`Edit task ${task.title}`}
             className="button ghost"
             disabled={disabled || saving}
@@ -134,10 +137,10 @@ export function TaskRow({
             type="button"
           >
             Edit
-          </button>
+          </button>}
         </>
       )}
-      <div className="reorder-controls">
+      {!readOnly && <div className="reorder-controls">
         <button
           aria-label={`Move task ${task.title} up`}
           className="icon-button"
@@ -156,7 +159,7 @@ export function TaskRow({
         >
           ↓
         </button>
-      </div>
+      </div>}
       {error && (
         <span className="form-error" role="alert">
           {error}

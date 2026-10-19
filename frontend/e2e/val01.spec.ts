@@ -33,12 +33,9 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   test.setTimeout(180_000);
   const consoleErrors: string[] = [];
   const httpErrors: string[] = [];
-  let expectedArchivedSaveError = false;
-  let expectedConsoleErrors = 0;
   page.on("console", (entry) => {
     if (entry.type() === "error") {
-      if (expectedArchivedSaveError && entry.text().includes("422")) expectedConsoleErrors += 1;
-      else consoleErrors.push(entry.text());
+      consoleErrors.push(entry.text());
     }
   });
   page.on("response", (response) => {
@@ -160,7 +157,9 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   await capture(page, "invariants");
 
   await page.goto(featureUrl);
-  await expect(page.getByText("NOT READY", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("NOT READY", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("CURRENT PREVIEW", { exact: true })).toBeVisible();
   await expect(page.getByText("Every plan names its intended outcome", { exact: true })).toBeVisible();
   await expect(page.getByText("The team must be able to review intent", { exact: false })).toBeVisible();
@@ -172,7 +171,9 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   await expect(acknowledgementButtons).toHaveCount(2);
   await acknowledgementButtons.nth(0).click();
   await acknowledgementButtons.nth(0).click();
-  await expect(page.getByText("READY TO START", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("READY TO START", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Evaluate & save", exact: true }).click();
   await expect(page.locator(".history-row")).toHaveCount(1);
   await expect(page.getByText("Saved evaluation snapshots", { exact: true })).toBeVisible();
@@ -181,10 +182,14 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   await page.getByLabel("Feature goal").fill("A changed planning context requires reevaluation");
   await page.getByRole("button", { name: "Save feature", exact: true }).click();
   await expect(page.locator(".history-stale")).toHaveCount(1);
-  await expect(page.getByText("STALE", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("STALE", { exact: true }),
+  ).toBeVisible();
   await capture(page, "readiness-stale");
   await page.getByRole("button", { name: "Preview current", exact: true }).click();
-  await expect(page.getByText("STALE", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("STALE", { exact: true }),
+  ).toBeVisible();
   await expect(page.locator(".history-row")).toHaveCount(1);
 
   await page.goto(projectUrl);
@@ -192,10 +197,8 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   await page.getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByText("Project archived.", { exact: true })).toBeVisible();
   await page.goto(featureUrl);
-  expectedArchivedSaveError = true;
-  await page.getByRole("button", { name: "Evaluate & save", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("read-only");
-  expectedArchivedSaveError = false;
+  await expect(page.getByRole("button", { name: "Evaluate & save", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText(/archived project.*read-only/i);
   await page.getByRole("button", { name: "Preview current", exact: true }).click();
   await expect(page.getByText("CURRENT PREVIEW", { exact: true })).toBeVisible();
   await page.goto(projectUrl);
@@ -211,8 +214,7 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
   await expect(page.getByText(`VAL01 Project ${suffix}`, { exact: true })).toHaveCount(0);
   console.log(`VAL01_HTTP_ERRORS ${JSON.stringify(httpErrors)}`);
   expect(httpErrors.filter((item) => item.startsWith("404 "))).toEqual([]);
-  expect(httpErrors.filter((item) => item.startsWith("422 "))).toHaveLength(1);
-  expect(expectedConsoleErrors).toBe(1);
+  expect(httpErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
 });
 

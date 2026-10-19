@@ -8,6 +8,7 @@ import {
   type Feature,
   type FeatureDependency,
   type Project,
+  type ReadinessEvaluation,
   type Task,
   type TaskStatus,
   type Workspace,
@@ -49,6 +50,8 @@ export function FeatureDetailPage({
   const [actionError, setActionError] = useState<string | null>(null);
   const [mutationPending, setMutationPending] = useState(false);
   const [readinessRefreshKey, setReadinessRefreshKey] = useState(0);
+  const [readinessPreview, setReadinessPreview] =
+    useState<ReadinessEvaluation | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newCriterionDescription, setNewCriterionDescription] = useState("");
   const [dependencyTarget, setDependencyTarget] = useState("");
@@ -131,7 +134,7 @@ export function FeatureDetailPage({
     action: () => Promise<void>,
     fallback: string,
   ): Promise<boolean> => {
-    if (mutationPending) return false;
+    if (mutationPending || project?.status === "archived") return false;
     setMutationPending(true);
     setActionError(null);
     try {
@@ -146,6 +149,8 @@ export function FeatureDetailPage({
       setMutationPending(false);
     }
   };
+
+  const archived = project?.status === "archived";
 
   const saveFeature = (payload: FeatureFormPayload): Promise<boolean> => {
     if (!workspace || !projectId || !featureId) return Promise.resolve(false);
@@ -334,19 +339,53 @@ export function FeatureDetailPage({
           Overview
         </Link>
       </div>
+      <nav className="feature-section-nav" aria-label="Feature detail sections">
+        <a href="#feature-definition">Definition</a>
+        <a href="#tasks">Tasks</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#dependencies">Dependencies</a>
+        <a href="#readiness">Readiness</a>
+      </nav>
       {loading ? (
         <LoadingPanel label="Loading feature" />
       ) : error ? (
         <ErrorPanel message={error} onRetry={() => void load()} />
       ) : feature ? (
         <>
-          <FeatureEditForm
-            key={`${feature.id}-${feature.updated_at}`}
-            actionPending={mutationPending}
-            epics={epics}
-            feature={feature}
-            onSubmit={saveFeature}
-          />
+          <section className="feature-planning-summary" aria-label="Feature planning summary">
+            <div>
+              <span className="mono-label">{feature.key}</span>
+              <h2>{feature.title}</h2>
+              <p>{feature.goal || "Add a functional goal to make this feature actionable."}</p>
+            </div>
+            <dl>
+              <div><dt>Epic</dt><dd>{feature.epic_id ? epics.find((epic) => epic.id === feature.epic_id)?.title ?? "Unknown epic" : "Unassigned"}</dd></div>
+              <div><dt>Status</dt><dd>{feature.status}</dd></div>
+              <div><dt>Priority</dt><dd>{feature.priority}</dd></div>
+              <div><dt>Readiness</dt><dd>{readinessPreview?.outcome === "READY_TO_START" ? "READY TO START" : readinessPreview ? "NOT READY" : "Loading preview"}</dd></div>
+              <div><dt>Criteria</dt><dd>{criteria.length}</dd></div>
+              <div><dt>Blocked dependencies</dt><dd>{blockedBy.length}</dd></div>
+            </dl>
+          </section>
+          {archived ? (
+            <section className="detail-section archived-feature-definition" id="feature-definition" aria-label="Feature definition">
+              <div className="section-heading">
+                <div><span className="mono-label">{feature.key}</span><h2>Feature definition</h2></div>
+                <span className="planning-disclaimer">Read-only</span>
+              </div>
+              <p>{feature.description || "No description provided."}</p>
+              <p className="feature-goal">{feature.goal || "No functional goal provided."}</p>
+            </section>
+          ) : (
+            <FeatureEditForm
+              id="feature-definition"
+              key={`${feature.id}-${feature.updated_at}`}
+              actionPending={mutationPending}
+              epics={epics}
+              feature={feature}
+              onSubmit={saveFeature}
+            />
+          )}
           {actionError && (
             <div className="feedback-panel error-panel" role="alert">
               <span>{actionError}</span>
@@ -361,19 +400,21 @@ export function FeatureDetailPage({
           )}
           {workspace && projectId && (
             <ReadinessPanel
+              archived={archived}
               feature={feature}
+              onPreviewChange={setReadinessPreview}
               projectId={projectId}
               refreshKey={readinessRefreshKey}
               workspace={workspace}
             />
           )}
           <div className="feature-detail-grid">
-            <section className="detail-section">
+            <section className="detail-section" id="tasks">
               <div className="section-heading">
                 <h2>Tasks</h2>
                 <span>{tasks.length}</span>
               </div>
-              <form
+              {!archived && <form
                 className="inline-add"
                 onSubmit={(event) => void addTask(event)}
               >
@@ -391,7 +432,7 @@ export function FeatureDetailPage({
                 >
                   Add
                 </button>
-              </form>
+              </form>}
               {tasks.length ? (
                 <ul className="planning-list">
                   {tasks.map((task, index) => (
@@ -404,6 +445,7 @@ export function FeatureDetailPage({
                         reorderTasks(moveIds(tasks, index, direction))
                       }
                       onSave={(payload) => saveTask(task, payload)}
+                      readOnly={archived}
                       task={task}
                     />
                   ))}
@@ -414,7 +456,7 @@ export function FeatureDetailPage({
                 </div>
               )}
             </section>
-            <section className="detail-section">
+            <section className="detail-section" id="acceptance-criteria">
               <div className="section-heading">
                 <h2>Acceptance criteria</h2>
                 <span>
@@ -425,7 +467,7 @@ export function FeatureDetailPage({
               <p className="planning-disclaimer">
                 Manual declaration only; this is not verification evidence.
               </p>
-              <form
+              {!archived && <form
                 className="inline-add"
                 onSubmit={(event) => void addCriterion(event)}
               >
@@ -445,7 +487,7 @@ export function FeatureDetailPage({
                 >
                   Add
                 </button>
-              </form>
+              </form>}
               {criteria.length ? (
                 <ul className="planning-list criteria-list">
                   {criteria.map((criterion, index) => (
@@ -459,6 +501,7 @@ export function FeatureDetailPage({
                         reorderCriteria(moveIds(criteria, index, direction))
                       }
                       onSave={(payload) => saveCriterion(criterion, payload)}
+                      readOnly={archived}
                     />
                   ))}
                 </ul>
@@ -467,12 +510,12 @@ export function FeatureDetailPage({
               )}
             </section>
           </div>
-          <section className="detail-section dependencies-section">
+          <section className="detail-section dependencies-section" id="dependencies">
             <div className="section-heading">
               <h2>Dependencies</h2>
               <span>{dependencies.length}</span>
             </div>
-            <form
+            {!archived && <form
               className="dependency-form"
               onSubmit={(event) => void addDependency(event)}
             >
@@ -513,7 +556,7 @@ export function FeatureDetailPage({
               >
                 Add dependency
               </button>
-            </form>
+            </form>}
             <div className="dependency-groups">
               <DependencyGroup
                 disabled={mutationPending}
@@ -522,6 +565,7 @@ export function FeatureDetailPage({
                 onRemove={removeDependency}
                 resolve={dependencyLabel}
                 empty="No features block this feature."
+                readOnly={archived}
               />
               <DependencyGroup
                 disabled={mutationPending}
@@ -530,6 +574,7 @@ export function FeatureDetailPage({
                 onRemove={removeDependency}
                 resolve={dependencyLabel}
                 empty="This feature blocks nothing yet."
+                readOnly={archived}
               />
             </div>
           </section>
