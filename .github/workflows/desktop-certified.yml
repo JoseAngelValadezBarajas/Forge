@@ -83,9 +83,9 @@ jobs:
           $expectedNsisToolVersion = "3.13"
           $expectedNsisToolVersionPattern = [regex]::Escape($expectedNsisToolVersion)
           $officialChocolateySource = "https://community.chocolatey.org/api/v2/"
-          $officialNsisPackageUrl = "https://community.chocolatey.org/api/v2/package/nsis.install/3.13.0"
-          $officialNsisPackageSha256 = "CEFD57D4EBBC56D3AB104034044F54D61918642D51F6FCC44FF8D6C960533F91"
-          $officialNsisInstallerSha256 = "DB9A1038BBC0E53FEF24F423FD609979BD578E942F1BE1198DB186D1C42652A3"
+          $officialNsisZipUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.13/nsis-3.13.zip"
+          $officialNsisZipSha256 = "BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8"
+          $officialNsisZipSize = 2363925
           $maxAttempts = 4
           $backoffSeconds = @(5, 15, 30)
           $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
@@ -120,14 +120,14 @@ jobs:
               }
             }
             if (-not $installed) {
-              Write-Warning "Chocolatey could not resolve pinned NSIS package $expectedNsisPackageVersion after $maxAttempts attempts; trying the official Chocolatey package endpoint with fixed SHA-256 values."
-              $fallbackRoot = Join-Path $env:RUNNER_TEMP "nsis-package-$expectedNsisToolVersion"
-              $fallbackPackage = Join-Path $env:RUNNER_TEMP "nsis.install-$expectedNsisPackageVersion.nupkg"
+              Write-Warning "Chocolatey could not resolve pinned NSIS package $expectedNsisPackageVersion after $maxAttempts attempts; trying the official NSIS SourceForge ZIP with fixed size and SHA-256 values."
+              $fallbackRoot = Join-Path $env:RUNNER_TEMP "nsis-$expectedNsisToolVersion"
+              $fallbackZip = Join-Path $env:RUNNER_TEMP "nsis-$expectedNsisToolVersion.zip"
               $fallbackDownloaded = $false
               $fallbackErrors = @()
               for ($attempt = 1; $attempt -le 3; $attempt++) {
                 try {
-                  Invoke-WebRequest -Uri $officialNsisPackageUrl -OutFile $fallbackPackage -UseBasicParsing
+                  Invoke-WebRequest -Uri $officialNsisZipUrl -OutFile $fallbackZip -UseBasicParsing
                   $fallbackDownloaded = $true
                   break
                 } catch {
@@ -139,36 +139,28 @@ jobs:
               }
               if (-not $fallbackDownloaded) {
                 $details = if ($attemptErrors.Count -gt 0) { " Chocolatey errors: $($attemptErrors -join ' | ')" } else { "" }
-                $fallbackDetails = if ($fallbackErrors.Count -gt 0) { " Package endpoint errors: $($fallbackErrors -join ' | ')" } else { "" }
-                throw "Unable to obtain pinned NSIS $expectedNsisToolVersion from the official Chocolatey source or its official package endpoint after bounded retries.$details$fallbackDetails Installer build and installed-product smoke remain required and were not skipped."
+                $fallbackDetails = if ($fallbackErrors.Count -gt 0) { " SourceForge errors: $($fallbackErrors -join ' | ')" } else { "" }
+                throw "Unable to obtain pinned NSIS $expectedNsisToolVersion from the official Chocolatey source or official NSIS SourceForge distribution after bounded retries.$details$fallbackDetails Installer build and installed-product smoke remain required and were not skipped."
               }
-              $actualPackageSha256 = (Get-FileHash -LiteralPath $fallbackPackage -Algorithm SHA256).Hash
-              if ($actualPackageSha256 -ine $officialNsisPackageSha256) {
-                throw "Official NSIS Chocolatey package integrity check failed. Expected SHA-256 $officialNsisPackageSha256; received $actualPackageSha256."
+              $downloadedSize = (Get-Item -LiteralPath $fallbackZip).Length
+              if ($downloadedSize -ne $officialNsisZipSize) {
+                throw "Official NSIS SourceForge ZIP size mismatch. Expected $officialNsisZipSize bytes; received $downloadedSize."
+              }
+              $actualZipSha256 = (Get-FileHash -LiteralPath $fallbackZip -Algorithm SHA256).Hash
+              if ($actualZipSha256 -ine $officialNsisZipSha256) {
+                throw "Official NSIS SourceForge ZIP integrity check failed. Expected SHA-256 $officialNsisZipSha256; received $actualZipSha256."
               }
               if (Test-Path -LiteralPath $fallbackRoot) {
                 Remove-Item -LiteralPath $fallbackRoot -Recurse -Force
               }
-              $fallbackZip = Join-Path $env:RUNNER_TEMP "nsis.install-$expectedNsisPackageVersion.zip"
-              Copy-Item -LiteralPath $fallbackPackage -Destination $fallbackZip -Force
               Expand-Archive -LiteralPath $fallbackZip -DestinationPath $fallbackRoot -Force
-              $embeddedInstaller = Join-Path $fallbackRoot "tools\nsis-3.13-setup.exe"
-              if (-not (Test-Path -LiteralPath $embeddedInstaller -PathType Leaf)) {
-                throw "Verified NSIS Chocolatey package did not contain its expected official installer."
+              $extractedMakensis = Get-ChildItem -LiteralPath $fallbackRoot -Filter "makensis.exe" -File -Recurse | Select-Object -First 1
+              if ($null -eq $extractedMakensis) {
+                throw "Verified NSIS SourceForge ZIP did not contain makensis.exe."
               }
-              $actualInstallerSha256 = (Get-FileHash -LiteralPath $embeddedInstaller -Algorithm SHA256).Hash
-              if ($actualInstallerSha256 -ine $officialNsisInstallerSha256) {
-                throw "Embedded NSIS installer integrity check failed. Expected SHA-256 $officialNsisInstallerSha256; received $actualInstallerSha256."
-              }
-              $fallbackSource = Join-Path $env:RUNNER_TEMP "nsis-package-source-$expectedNsisToolVersion"
-              New-Item -ItemType Directory -Path $fallbackSource -Force | Out-Null
-              Copy-Item -LiteralPath $fallbackPackage -Destination (Join-Path $fallbackSource (Split-Path $fallbackPackage -Leaf)) -Force
-              & choco install nsis.install --version=$expectedNsisPackageVersion --source=$fallbackSource --yes --no-progress --limit-output
-              $installerExitCode = $LASTEXITCODE
-              if ($installerExitCode -notin @(0, 3010)) {
-                throw "Verified NSIS Chocolatey package installation failed with exit code $installerExitCode."
-              }
-              $makensis = Join-Path $programFilesX86 "NSIS\makensis.exe"
+              New-Item -ItemType Directory -Path $nsis -Force | Out-Null
+              Copy-Item -Path (Join-Path $extractedMakensis.Directory.FullName "*") -Destination $nsis -Recurse -Force
+              $makensis = Join-Path $nsis "makensis.exe"
             }
           }
 

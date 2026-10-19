@@ -51,7 +51,7 @@ No se agregó caché de Cargo/`target`: el baseline no proporcionaba una compara
 El workflow reusable `.github/workflows/desktop-certified.yml` recibe un SHA explícito y ejecuta con el lockfile existente:
 
 - Rust metadata, fmt, tests y Clippy con `--locked`.
-- NSIS 3.13.0 con reintentos acotados, fallback oficial y SHA-256 fijados.
+- NSIS 3.13.0 con reintentos acotados de Chocolatey y fallback al ZIP oficial de NSIS en SourceForge, con tamaño y SHA-256 fijados.
 - Build del instalador NSIS.
 - UI Automation nativa sobre el producto instalado.
 - Seguridad Desktop, importación JSON, jerarquía, persistencia, exportación, desinstalación y reinstalación.
