@@ -44,7 +44,7 @@ The document is a strict object with `extra="forbid"` and this shape:
 }
 ```
 
-`ref` values are local, case-sensitive identifiers scoped to their collection. They use the corresponding prefix (`epic:`, `feature:`, `task:`, `criterion:`) followed by 1–64 lowercase letters, numbers, `_` or `-`. Duplicate references, missing references, self-dependencies and dependency cycles are invalid.
+`ref` values are local, case-sensitive identifiers unique across the document. They use the corresponding prefix (`epic:`, `feature:`, `task:`, `criterion:`) followed by 1–64 lowercase letters, numbers, `_` or `-`. Duplicate references, missing references, self-dependencies and dependency cycles are invalid.
 
 Omitted descriptions/goals default to `null`; omitted feature priority/status default to `medium`/`backlog`; omitted task status defaults to `todo`; omitted criterion satisfaction defaults to `false`. Explicit values must be valid Forge domain values. Array order is the declared order when positions are omitted. Positions, when provided, must be non-negative and unique within the containing Feature; import preserves the declared order and uses normalized contiguous positions.
 
