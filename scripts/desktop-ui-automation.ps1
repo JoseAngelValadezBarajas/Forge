@@ -205,7 +205,13 @@ function Invoke-ForgeFilePicker {
                 # dialog was found through UI Automation; this keeps the smoke
                 # test on the native picker without depending on localized or
                 # virtualized control names.
-                $dialog.SetFocus()
+                try {
+                    $dialog.SetFocus()
+                } catch [System.InvalidOperationException] {
+                    # The native picker is already foreground after the
+                    # trigger invocation, but its Window element can reject
+                    # SetFocus on some hosted Windows runners.
+                }
                 Start-Sleep -Milliseconds 100
                 [System.Windows.Forms.SendKeys]::SendWait('%n')
                 Start-Sleep -Milliseconds 100
