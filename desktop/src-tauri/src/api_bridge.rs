@@ -120,8 +120,14 @@ fn candidate_path(directory: &Path, filename: &str, suffix: u32) -> PathBuf {
         return directory.join(filename);
     }
     let path = Path::new(filename);
-    let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("download");
-    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("download");
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
     let name = if extension.is_empty() {
         format!("{stem} ({suffix})")
     } else {
@@ -143,7 +149,11 @@ fn save_download_bytes(
     );
     for suffix in 0..1000 {
         let target = candidate_path(directory, &filename, suffix);
-        match OpenOptions::new().write(true).create_new(true).open(&target) {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+        {
             Ok(mut file) => {
                 if let Err(error) = file.write_all(bytes) {
                     let _ = fs::remove_file(&target);
