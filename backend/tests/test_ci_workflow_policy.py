@@ -21,6 +21,14 @@ def test_pr_desktop_workflow_keeps_check_and_classifies_at_job_level() -> None:
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
 
 
+def test_pr_classifier_fails_closed_when_policy_script_is_absent_from_baseline() -> None:
+    workflow = DESKTOP_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "if [[ -f scripts/ci_change_policy.py ]]; then" in workflow
+    assert "desktop_required=true" in workflow
+    assert "classifier is unavailable in the trusted baseline" in workflow
+
+
 def test_shared_desktop_workflow_is_locked_and_checks_exact_sha() -> None:
     workflow = REUSABLE_WORKFLOW.read_text(encoding="utf-8")
 
