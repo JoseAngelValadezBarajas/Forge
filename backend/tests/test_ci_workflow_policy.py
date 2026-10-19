@@ -80,6 +80,26 @@ def test_main_workflow_is_main_only_and_verifies_codeql_same_sha() -> None:
     assert "cancel-in-progress: false" in workflow
 
 
+def test_main_guard_checks_out_validated_commit_before_running_policy_code() -> None:
+    workflow = MAIN_WORKFLOW.read_text(encoding="utf-8")
+
+    validation_index = workflow.index("id: validate")
+    checkout_index = workflow.index("- name: Checkout validated certification commit")
+    policy_index = workflow.index("python scripts/main_certification_policy.py")
+
+    assert validation_index < checkout_index < policy_index
+    assert (
+        "python scripts/main_certification_policy.py"
+        not in workflow[validation_index:checkout_index]
+    )
+    checkout_block = workflow[checkout_index:policy_index]
+    assert "uses: actions/checkout@v4" in checkout_block
+    assert "ref: ${{ steps.validate.outputs.commit_sha }}" in checkout_block
+    assert "fetch-depth: 1" in checkout_block
+    assert "persist-credentials: false" in checkout_block
+    assert "[[ -f scripts/main_certification_policy.py ]]" in checkout_block
+
+
 @pytest.mark.parametrize(
     ("runs", "state"),
     [
