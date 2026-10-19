@@ -10,6 +10,7 @@ import {
   assertBuildPrerequisites,
   createInstalledAppEnvironment,
   createInstalledDiagnosticPaths,
+  downloadDirectories,
   describeInstalledSmokeFailure,
   findNsiInstaller,
   resolveGeneratedPath,
@@ -120,6 +121,16 @@ test("installed diagnostics build exact Windows sidecar and local log paths", ()
     sidecar: path.win32.join("D:\\temp\\forge\\install-1", "resources", "forge-sidecar", "forge-sidecar.exe"),
     log: path.win32.join("C:\\Users\\runner\\AppData\\Local", "Forge", "logs", "forge-desktop.log"),
   });
+});
+
+test("installed smoke observes the system and isolated WebView download directories", () => {
+  assert.deepEqual(
+    downloadDirectories("C:\\Users\\runner", "D:\\temp\\forge-profile"),
+    [
+      path.win32.join("C:\\Users\\runner\\Downloads"),
+      path.win32.join("D:\\temp\\forge-profile", "Default", "Downloads"),
+    ],
+  );
 });
 
 test("cleanup failures preserve the primary installed-app error and process diagnostics", () => {

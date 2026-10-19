@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   createInstalledAppEnvironment,
   createInstalledDiagnosticPaths,
+  downloadDirectories,
   describeInstalledSmokeFailure,
   sha256File,
 } from "./desktop-build-utils.mjs";
@@ -332,14 +333,19 @@ async function createWorkspaceAndProject(ui, nameSuffix) {
   return { workspaceName, projectName, featureName };
 }
 
-const downloadDirectory = path.join(process.env.USERPROFILE ?? "", "Downloads");
+const downloadSearchDirectories = downloadDirectories(process.env.USERPROFILE ?? "", webviewProfile);
 
 async function downloadedFiles() {
-  return new Set(
-    (await readdir(downloadDirectory, { withFileTypes: true }).catch(() => []))
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map((entry) => entry.name),
-  );
+  const files = new Set();
+  for (const directory of downloadSearchDirectories) {
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".json")) {
+        files.add(`${directory}|${entry.name}`);
+      }
+    }
+  }
+  return files;
 }
 
 async function exportAndVerify(ui, expectedProjectName, expectedFeatureName) {
@@ -349,9 +355,16 @@ async function exportAndVerify(ui, expectedProjectName, expectedFeatureName) {
   ui.click("Button", "Download JSON");
   const fileName = await waitFor(async () => {
     const current = await downloadedFiles();
-    return [...current].find((name) => !before.has(name) && name.startsWith("forge-project-"));
+    const downloaded = [...current].find((entry) => {
+      const separator = entry.lastIndexOf("|");
+      const name = entry.slice(separator + 1);
+      return !before.has(entry) && name.startsWith("forge-project-");
+    });
+    if (!downloaded) return undefined;
+    const separator = downloaded.lastIndexOf("|");
+    return { directory: downloaded.slice(0, separator), name: downloaded.slice(separator + 1) };
   }, "the exported Project JSON in Downloads");
-  const downloadedPath = path.join(downloadDirectory, fileName);
+  const downloadedPath = path.join(fileName.directory, fileName.name);
   try {
     const document = JSON.parse(await readFile(downloadedPath, "utf8"));
     assert.equal(document.schema_version, "forge-project-import-v1");

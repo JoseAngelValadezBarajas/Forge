@@ -35,6 +35,14 @@ export function createInstalledAppEnvironment(parentEnvironment, userDataFolder)
   return childEnvironment;
 }
 
+export function downloadDirectories(userProfile, webviewProfile) {
+  const directories = [
+    path.join(userProfile, "Downloads"),
+    path.join(webviewProfile, "Default", "Downloads"),
+  ];
+  return [...new Set(directories)];
+}
+
 export function createInstalledDiagnosticPaths(installDirectory, localDataRoot) {
   return {
     sidecar: path.win32.join(installDirectory, "resources", "forge-sidecar", "forge-sidecar.exe"),
