@@ -151,9 +151,13 @@ function Invoke-ForgeFilePicker {
     if (-not $path) { throw "FORGE_UIA_FILE_PATH is required for file picker automation." }
     $deadline = [DateTime]::UtcNow.AddSeconds([int]$env:FORGE_UIA_TIMEOUT_SECONDS)
     do {
+        $windowCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Window
+        )
         $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-            [System.Windows.Automation.TreeScope]::Children,
-            [System.Windows.Automation.Condition]::TrueCondition
+            [System.Windows.Automation.TreeScope]::Descendants,
+            $windowCondition
         )
         foreach ($dialog in $windows) {
             try {
@@ -179,11 +183,11 @@ function Invoke-ForgeFilePicker {
                         }
                     }
                 }
-                $buttonCondition = [System.Windows.Automation.PropertyCondition]::new(
-                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                    [System.Windows.Automation.ControlType]::Button
+                $actionControls = $dialog.FindAll(
+                    [System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition
                 )
-                foreach ($button in $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)) {
+                foreach ($button in $actionControls) {
                     if ([string]$button.Current.Name -notmatch '^&?(Open|Choose|Select)$') { continue }
                     $buttonPattern = $null
                     if ($fileNameEdit -and $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$buttonPattern)) {
