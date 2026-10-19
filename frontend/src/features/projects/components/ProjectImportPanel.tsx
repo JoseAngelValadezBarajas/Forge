@@ -9,6 +9,15 @@ import {
 
 type ImportState = "idle" | "previewing" | "ready" | "importing";
 
+const PREVIEW_FEATURE_LIMIT = 20;
+const PREVIEW_CHILD_LIMIT = 20;
+
+type ImportFeature = NonNullable<ProjectImportDocument["features"]>[number];
+
+function visibleItems<T>(items: T[] | undefined, limit: number): T[] {
+  return (items ?? []).slice(0, limit);
+}
+
 export function ProjectImportPanel({
   workspace,
   onClose,
@@ -88,6 +97,73 @@ export function ProjectImportPanel({
     }
   };
 
+  const epics = preview?.document.epics ?? [];
+  const features = preview?.document.features ?? [];
+  const dependencies = preview?.document.dependencies ?? [];
+  const epicByRef = new Map(epics.map((epic) => [epic.ref, epic.title]));
+  const visibleFeatures = visibleItems(features, PREVIEW_FEATURE_LIMIT);
+  const featureByRef = new Map(features.map((feature) => [feature.ref, feature.title]));
+  const featuresForEpic = (epicRef: string) =>
+    visibleFeatures.filter((feature) => feature.epic_ref === epicRef);
+  const unassignedFeatures = visibleFeatures.filter(
+    (feature) => !feature.epic_ref || !epicByRef.has(feature.epic_ref),
+  );
+
+  const renderFeature = (feature: ImportFeature) => {
+    const tasks = feature.tasks ?? [];
+    const criteria = feature.acceptance_criteria ?? [];
+    const epicName = feature.epic_ref
+      ? epicByRef.get(feature.epic_ref) ?? feature.epic_ref
+      : "Unassigned";
+    return (
+      <li className="import-preview-node" key={feature.ref}>
+        <details open>
+          <summary>
+            <span>{feature.title}</span>
+            <span className="mono-label">{feature.ref}</span>
+          </summary>
+          <p className="import-preview-association">Epic: {epicName}</p>
+          <div className="import-preview-columns">
+            <section aria-labelledby={`${feature.ref}-tasks`}>
+              <h5 id={`${feature.ref}-tasks`}>Tasks ({tasks.length})</h5>
+              {tasks.length ? (
+                <ul>
+                  {visibleItems(tasks, PREVIEW_CHILD_LIMIT).map((task) => (
+                    <li key={task.ref}>{task.title}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="field-hint">No tasks</p>
+              )}
+              {tasks.length > PREVIEW_CHILD_LIMIT && (
+                <p className="field-hint">
+                  Showing {PREVIEW_CHILD_LIMIT} of {tasks.length} tasks
+                </p>
+              )}
+            </section>
+            <section aria-labelledby={`${feature.ref}-criteria`}>
+              <h5 id={`${feature.ref}-criteria`}>Acceptance Criteria ({criteria.length})</h5>
+              {criteria.length ? (
+                <ul>
+                  {visibleItems(criteria, PREVIEW_CHILD_LIMIT).map((criterion) => (
+                    <li key={criterion.ref}>{criterion.description}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="field-hint">No acceptance criteria</p>
+              )}
+              {criteria.length > PREVIEW_CHILD_LIMIT && (
+                <p className="field-hint">
+                  Showing {PREVIEW_CHILD_LIMIT} of {criteria.length} acceptance criteria
+                </p>
+              )}
+            </section>
+          </div>
+        </details>
+      </li>
+    );
+  };
+
   return (
     <section aria-labelledby="project-import-title" className="form-panel import-panel">
       <div className="section-heading">
@@ -153,6 +229,63 @@ export function ProjectImportPanel({
             </p>
           )}
           <code>Fingerprint: {preview.fingerprint}</code>
+          <div className="import-preview-tree" aria-label="Project import hierarchy">
+            <h4>Planning hierarchy</h4>
+            <p className="field-hint">
+              Inspect names, associations, Tasks, criteria and dependencies before confirming.
+            </p>
+            {epics.length ? (
+              <ol>
+                {visibleItems(epics, PREVIEW_FEATURE_LIMIT).map((epic) => (
+                  <li className="import-preview-node" key={epic.ref}>
+                    <details open>
+                      <summary>
+                        <span>{epic.title}</span>
+                        <span className="mono-label">{epic.ref}</span>
+                      </summary>
+                      {featuresForEpic(epic.ref).length ? (
+                        <ol>{featuresForEpic(epic.ref).map(renderFeature)}</ol>
+                      ) : (
+                        <p className="field-hint">No features in this Epic</p>
+                      )}
+                    </details>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+            {unassignedFeatures.length ? (
+              <section>
+                <h5>Features without a listed Epic</h5>
+                <ol>{unassignedFeatures.map(renderFeature)}</ol>
+              </section>
+            ) : null}
+            {features.length > PREVIEW_FEATURE_LIMIT && (
+              <p className="field-hint">
+                Showing {PREVIEW_FEATURE_LIMIT} of {features.length} features
+              </p>
+            )}
+            {dependencies.length ? (
+              <section>
+                <h5>Dependencies ({dependencies.length})</h5>
+                <ul>
+                  {visibleItems(dependencies, PREVIEW_CHILD_LIMIT).map((dependency) => (
+                    <li key={`${dependency.blocking_feature_ref}-${dependency.blocked_feature_ref}`}>
+                      {featureByRef.get(dependency.blocking_feature_ref) ?? dependency.blocking_feature_ref}
+                      {" → "}
+                      {featureByRef.get(dependency.blocked_feature_ref) ?? dependency.blocked_feature_ref}
+                    </li>
+                  ))}
+                </ul>
+                {dependencies.length > PREVIEW_CHILD_LIMIT && (
+                  <p className="field-hint">
+                    Showing {PREVIEW_CHILD_LIMIT} of {dependencies.length} dependencies
+                  </p>
+                )}
+              </section>
+            ) : (
+              <p className="field-hint">No feature dependencies</p>
+            )}
+          </div>
         </div>
       )}
       <div className="form-actions">

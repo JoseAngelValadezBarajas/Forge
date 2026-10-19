@@ -25,6 +25,6 @@ Desde **Project overview**, **Export project** descarga un JSON estable y ordena
 
 ## Límites y seguridad
 
-El API limita el cuerpo de importación a 8 MiB y limita cantidades por tipo. La operación queda aislada por Workspace, aplica la unicidad transaccional de nombre y conserva los datos existentes. El transporte Desktop usa la misma ruta autorizada y el mismo límite; no se habilita acceso directo al sistema de archivos desde React.
+El API limita el cuerpo de importación a 8 MiB, hasta 100 Epics, 500 Features, 5,000 dependencias y, de forma global en todo el documento, 2,000 Tasks y 2,000 Acceptance Criteria aunque estén repartidos entre varias Features. Cada Feature también conserva sus límites individuales de 2,000 Tasks y 2,000 Acceptance Criteria. La operación queda aislada por Workspace, aplica la unicidad transaccional de nombre y conserva los datos existentes. El transporte Desktop usa la misma ruta autorizada y el mismo límite; no se habilita acceso directo al sistema de archivos desde React.
 
 Los fingerprints se calculan sobre JSON canónico, con orden estable de claves, arrays normalizados y dependencias ordenadas. No deben usarse como firma de autenticidad ni como prueba de que el contenido fue ejecutado.

@@ -48,6 +48,9 @@ from app.persistence.models import (
 )
 from app.persistence.repositories import ProjectRepository, WorkspaceRepository
 
+MAX_TOTAL_TASKS = 2_000
+MAX_TOTAL_ACCEPTANCE_CRITERIA = 2_000
+
 
 def canonical_import_json(document: ProjectImportDocument) -> str:
     normalized = ProjectTransferService.normalize(document)
@@ -147,10 +150,24 @@ class ProjectTransferService:
             raise ValueError("duplicate local reference")
         epic_refs = {epic.ref for epic in normalized.epics}
         feature_refs = {feature.ref for feature in normalized.features}
+        total_tasks = sum(len(feature.tasks) for feature in normalized.features)
+        if total_tasks > MAX_TOTAL_TASKS:
+            raise ValueError(
+                f"Project import exceeds the maximum of {MAX_TOTAL_TASKS} tasks"
+            )
+        total_acceptance_criteria = sum(
+            len(feature.acceptance_criteria) for feature in normalized.features
+        )
+        if total_acceptance_criteria > MAX_TOTAL_ACCEPTANCE_CRITERIA:
+            raise ValueError(
+                "Project import exceeds the maximum of "
+                f"{MAX_TOTAL_ACCEPTANCE_CRITERIA} acceptance criteria"
+            )
         for feature in normalized.features:
             if feature.epic_ref is not None and feature.epic_ref not in epic_refs:
                 raise ValueError(f"Epic reference not found: {feature.epic_ref}")
         graph: dict[str, set[str]] = {feature_ref: set() for feature_ref in feature_refs}
+        dependency_edges: set[tuple[str, str]] = set()
         for dependency in normalized.dependencies:
             if dependency.blocking_feature_ref not in feature_refs:
                 raise ValueError(f"Feature reference not found: {dependency.blocking_feature_ref}")
@@ -158,6 +175,13 @@ class ProjectTransferService:
                 raise ValueError(f"Feature reference not found: {dependency.blocked_feature_ref}")
             if dependency.blocking_feature_ref == dependency.blocked_feature_ref:
                 raise ValueError("A feature dependency cannot point to itself")
+            edge = (dependency.blocking_feature_ref, dependency.blocked_feature_ref)
+            if edge in dependency_edges:
+                raise ValueError(
+                    "duplicate dependency edge: "
+                    f"{dependency.blocking_feature_ref} -> {dependency.blocked_feature_ref}"
+                )
+            dependency_edges.add(edge)
             graph[dependency.blocking_feature_ref].add(dependency.blocked_feature_ref)
         visiting: set[str] = set()
         visited: set[str] = set()

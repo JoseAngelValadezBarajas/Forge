@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from pathlib import Path
 from threading import Barrier
 from typing import Any
@@ -191,6 +192,89 @@ def test_reference_validation_rejects_invalid_graph(field: str, message: str) ->
     document = ProjectImportDocument.model_validate(payload)
     with pytest.raises(ValueError, match=message):
         ProjectTransferService.validate(document)
+
+
+@pytest.mark.parametrize("collection", ["tasks", "acceptance_criteria"])
+def test_preview_rejects_global_child_limits_across_multiple_features(
+    transfer_client: tuple[TestClient, sessionmaker[Session]], collection: str
+) -> None:
+    client, sessions = transfer_client
+    workspace_id = create_workspace(client, f"Global {collection} limit workspace")
+    base_feature = valid_document()["features"][0]
+    features: list[dict[str, Any]] = []
+    for feature_index in range(2):
+        feature = deepcopy(base_feature)
+        feature["ref"] = f"feature:limit-{feature_index}"
+        feature["title"] = f"Limit feature {feature_index}"
+        feature["epic_ref"] = None
+        feature["tasks"] = []
+        feature["acceptance_criteria"] = []
+        if collection == "tasks":
+            feature["tasks"] = [
+                {"ref": f"task:limit-{feature_index}-{item}", "title": f"Task {item}"}
+                for item in range(1001)
+            ]
+        else:
+            feature["acceptance_criteria"] = [
+                {
+                    "ref": f"criterion:limit-{feature_index}-{item}",
+                    "description": f"Criterion {item}",
+                }
+                for item in range(1001)
+            ]
+        features.append(feature)
+    payload = valid_document()
+    payload["features"] = features
+
+    response = client.post(
+        f"/api/workspaces/{workspace_id}/projects/import/preview", json=payload
+    )
+
+    assert response.status_code == 422
+    assert "maximum of 2000" in response.json()["detail"]
+    with sessions() as session:
+        assert session.scalar(select(func.count()).select_from(ProjectModel)) == 0
+        assert session.scalar(select(func.count()).select_from(TaskModel)) == 0
+        assert session.scalar(select(func.count()).select_from(AcceptanceCriterionModel)) == 0
+
+
+def test_duplicate_dependency_edges_are_rejected_before_import_writes(
+    transfer_client: tuple[TestClient, sessionmaker[Session]],
+) -> None:
+    client, sessions = transfer_client
+    workspace_id = create_workspace(client, "Duplicate dependency workspace")
+    payload = valid_document()
+    payload["features"].append(
+        {
+            "ref": "feature:delivery",
+            "title": "Delivery",
+            "tasks": [],
+            "acceptance_criteria": [],
+        }
+    )
+    payload["dependencies"] = [
+        {
+            "blocking_feature_ref": "feature:bootstrap",
+            "blocked_feature_ref": "feature:delivery",
+        },
+        {
+            "blocking_feature_ref": "feature:bootstrap",
+            "blocked_feature_ref": "feature:delivery",
+        },
+    ]
+
+    response = client.post(
+        f"/api/workspaces/{workspace_id}/projects/import",
+        json={"document": payload, "expected_fingerprint": "0" * 64},
+    )
+
+    assert response.status_code == 422
+    assert "duplicate dependency edge" in response.json()["detail"].lower()
+    with sessions() as session:
+        assert session.scalar(select(func.count()).select_from(ProjectModel)) == 0
+        assert session.scalar(select(func.count()).select_from(EpicModel)) == 0
+        assert session.scalar(select(func.count()).select_from(FeatureModel)) == 0
+        assert session.scalar(select(func.count()).select_from(FeatureDependencyModel)) == 0
 
 
 def test_canonical_fingerprint_is_independent_of_json_key_order() -> None:

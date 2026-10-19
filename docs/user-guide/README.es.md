@@ -60,6 +60,8 @@ La confirmación importa exactamente lo que viste en el preview. Si el contenido
 
 En **Project overview**, selecciona **Export project** para descargar el Project actual como JSON estable. La acción también está disponible para Projects archivados porque es de lectura. Puedes importar el archivo exportado en otro Workspace; los IDs se generan de nuevo y los estados siguen siendo declaraciones de planeación, no evidencia de implementación o verificación.
 
+El documento tiene límites de seguridad: máximo 100 Epics, 500 Features, 5,000 dependencias y, sumados entre todas las Features, 2,000 Tasks y 2,000 Acceptance Criteria. Un preview que supera estos límites se rechaza antes de crear registros.
+
 El contrato, el esquema y ejemplos están documentados en [la especificación de transferencia](../product/imp-01-project-import-export.md).
 
 ## Epics, Features y Tasks

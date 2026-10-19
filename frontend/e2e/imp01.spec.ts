@@ -3,6 +3,55 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const examplePath = resolve("..", "docs", "product", "examples", "forge-project-import-v1.valid.json");
+const hierarchyDocument = {
+  schema_version: "forge-project-import-v1",
+  project: { name: "Hierarchy preview project" },
+  epics: [{ ref: "epic:foundation", title: "Foundation", status: "planning" }],
+  features: [
+    {
+      ref: "feature:bootstrap",
+      title: "Bootstrap workspace",
+      epic_ref: "epic:foundation",
+      tasks: [{ ref: "task:workspace", title: "Create workspace" }],
+      acceptance_criteria: [
+        { ref: "criterion:empty-state", description: "The empty state explains the next step." },
+      ],
+    },
+    { ref: "feature:delivery", title: "Delivery", tasks: [], acceptance_criteria: [] },
+  ],
+  dependencies: [
+    { blocking_feature_ref: "feature:bootstrap", blocked_feature_ref: "feature:delivery" },
+  ],
+};
+
+test("IMP-01 preview exposes the planning hierarchy before confirmation", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  const workspaces = await (await page.request.get("/api/workspaces")).json() as Array<{ id: string }>;
+  const workspaceId = workspaces[0]?.id;
+  expect(workspaceId).toBeTruthy();
+  await page.addInitScript((id) => {
+    window.localStorage.setItem("forge-active-workspace", id);
+  }, workspaceId);
+
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Import project" }).click();
+  await page.getByRole("textbox", { name: "Project import JSON" }).fill(JSON.stringify(hierarchyDocument));
+  await page.getByRole("button", { name: "Preview import" }).click();
+
+  const preview = page.getByRole("status");
+  await expect(preview).toContainText("Preview validated");
+  await expect(preview.getByText("Foundation", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Bootstrap workspace", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Epic: Foundation", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Create workspace", { exact: true })).toBeVisible();
+  await expect(preview.getByText("The empty state explains the next step.", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Bootstrap workspace → Delivery", { exact: true })).toBeVisible();
+  await expect(preview.getByText(/Fingerprint:/)).toBeVisible();
+  expect(consoleErrors).toEqual([]);
+});
 
 test("IMP-01 imports a reviewed planning document, exports it, and preserves archived reads", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
