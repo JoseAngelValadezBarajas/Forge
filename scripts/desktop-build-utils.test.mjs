@@ -33,7 +33,8 @@ test("desktop Rust tests and installer build require the committed Cargo lockfil
   assert.match(desktopWorkflow, /cargo test --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
   assert.match(desktopWorkflow, /cargo clippy --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
   assert.match(desktopWorkflow, /cargo metadata --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
-  assert.match(desktopWorkflow, /https:\/\/downloads\.sourceforge\.net\/project\/nsis\/NSIS%203\/3\.13\/nsis-3\.13\.zip/);
+  assert.match(desktopWorkflow, /https:\/\/sourceforge\.net\/projects\/nsis\/files\/NSIS%203\/3\.13\/nsis-3\.13\.zip\/download/);
+  assert.match(desktopWorkflow, /\[System\.Net\.WebUtility\]::HtmlDecode/);
   assert.match(desktopWorkflow, /BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8/);
   assert.match(buildScript, /"--",\s*"--locked"/);
 });

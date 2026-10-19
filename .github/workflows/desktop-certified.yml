@@ -83,7 +83,7 @@ jobs:
           $expectedNsisToolVersion = "3.13"
           $expectedNsisToolVersionPattern = [regex]::Escape($expectedNsisToolVersion)
           $officialChocolateySource = "https://community.chocolatey.org/api/v2/"
-          $officialNsisZipUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.13/nsis-3.13.zip"
+          $officialNsisDownloadPageUrl = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.13/nsis-3.13.zip/download"
           $officialNsisZipSha256 = "BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8"
           $officialNsisZipSize = 2363925
           $maxAttempts = 4
@@ -127,7 +127,16 @@ jobs:
               $fallbackErrors = @()
               for ($attempt = 1; $attempt -le 3; $attempt++) {
                 try {
-                  Invoke-WebRequest -Uri $officialNsisZipUrl -OutFile $fallbackZip -UseBasicParsing
+                  $downloadPage = Invoke-WebRequest -Uri $officialNsisDownloadPageUrl -UseBasicParsing
+                  $redirectMatch = [regex]::Match(
+                    $downloadPage.Content,
+                    'https://downloads\.sourceforge\.net/project/nsis/NSIS%203/3\.13/nsis-3\.13\.zip\?[^"<\s]+'
+                  )
+                  if (-not $redirectMatch.Success) {
+                    throw "Official SourceForge download page did not provide a verified ZIP redirect."
+                  }
+                  $sourceForgeZipUrl = [System.Net.WebUtility]::HtmlDecode($redirectMatch.Value)
+                  Invoke-WebRequest -Uri $sourceForgeZipUrl -OutFile $fallbackZip -UseBasicParsing
                   $fallbackDownloaded = $true
                   break
                 } catch {
