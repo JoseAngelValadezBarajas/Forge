@@ -123,6 +123,58 @@ function Find-ForgeElement($root, [bool]$wait) {
     return $null
 }
 
+function Invoke-ForgeFilePicker {
+    $forgeWindow = Get-ForgeWindow
+    $element = Find-ForgeElement $forgeWindow.Root $true
+    if (-not $element) { throw "Could not find the file picker trigger named '$($env:FORGE_UIA_NAME)'." }
+    $pattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+        ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+    } else {
+        throw "File picker trigger '$($env:FORGE_UIA_NAME)' cannot be invoked."
+    }
+    $path = $env:FORGE_UIA_FILE_PATH
+    if (-not $path) { throw "FORGE_UIA_FILE_PATH is required for file picker automation." }
+    $deadline = [DateTime]::UtcNow.AddSeconds([int]$env:FORGE_UIA_TIMEOUT_SECONDS)
+    do {
+        $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Children,
+            [System.Windows.Automation.Condition]::TrueCondition
+        )
+        foreach ($dialog in $windows) {
+            try {
+                $name = [string]$dialog.Current.Name
+                if ($name -notmatch 'Open|Select|Choose|Upload') { continue }
+                $editCondition = [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Edit
+                )
+                $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+                if ($edits.Count -eq 0) { continue }
+                $valuePattern = $edits[0].GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                ([System.Windows.Automation.ValuePattern]$valuePattern).SetValue($path)
+                $buttonCondition = [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Button
+                )
+                foreach ($button in $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)) {
+                    if ([string]$button.Current.Name -notmatch '^Open$|^Choose$|^Select$') { continue }
+                    $buttonPattern = $null
+                    if ($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$buttonPattern)) {
+                        ([System.Windows.Automation.InvokePattern]$buttonPattern).Invoke()
+                        Write-Output "Selected file through the native Windows picker."
+                        return
+                    }
+                }
+            } catch [System.Windows.Automation.ElementNotAvailableException] {
+                continue
+            }
+        }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Timed out waiting for the native Windows file picker."
+}
+
 function Get-ForgeAccessibilityTree($root, [int]$limit = 250) {
     $lines = [System.Collections.Generic.List[string]]::new()
     try {
@@ -195,6 +247,9 @@ try {
             if ($valuePattern.Current.IsReadOnly) { throw "Control '$($env:FORGE_UIA_NAME)' is read-only." }
             $valuePattern.SetValue($env:FORGE_UIA_VALUE)
             Write-Output "Set value on control '$($env:FORGE_UIA_NAME)'."
+        }
+        "choose-file" {
+            Invoke-ForgeFilePicker
         }
         "screenshot" {
             $filePath = $env:FORGE_UIA_SCREENSHOT_PATH

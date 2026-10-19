@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { access, mkdir, readFile, readdir } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -76,6 +76,7 @@ function runUiAutomation(action, processId, options = {}) {
     FORGE_UIA_MATCH: options.match ?? "exact",
     FORGE_UIA_TIMEOUT_SECONDS: String(options.timeoutSeconds ?? 30),
     FORGE_UIA_SCREENSHOT_PATH: options.screenshotPath ?? "",
+    FORGE_UIA_FILE_PATH: options.filePath ?? "",
   };
   const timeoutSeconds = options.timeoutSeconds ?? 30;
   const result = spawnSync("powershell.exe", [
@@ -93,6 +94,7 @@ function createUiAutomation(processId) {
     wait: (controlType, name, timeoutSeconds = 60, match = "exact") => runUiAutomation("wait", processId, { controlType, name, timeoutSeconds, match }),
     click: (controlType, name, match = "exact") => runUiAutomation("click", processId, { controlType, name, match }),
     setValue: (name, value) => runUiAutomation("set-value", processId, { controlType: "Edit", name, value }),
+    chooseFile: (name, filePath) => runUiAutomation("choose-file", processId, { controlType: "Button", name, filePath }),
     screenshot: (screenshotPath) => runUiAutomation("screenshot", processId, { screenshotPath }),
     inspect: () => runUiAutomation("inspect", processId),
   };
@@ -330,6 +332,82 @@ async function createWorkspaceAndProject(ui, nameSuffix) {
   return { workspaceName, projectName, featureName };
 }
 
+const downloadDirectory = path.join(process.env.USERPROFILE ?? "", "Downloads");
+
+async function downloadedFiles() {
+  return new Set(
+    (await readdir(downloadDirectory, { withFileTypes: true }).catch(() => []))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => entry.name),
+  );
+}
+
+async function exportAndVerify(ui, expectedProjectName, expectedFeatureName) {
+  const before = await downloadedFiles();
+  ui.click("Button", "Export project");
+  ui.wait("Text", "Export project", 30, "exact");
+  ui.click("Button", "Download JSON");
+  const fileName = await waitFor(async () => {
+    const current = await downloadedFiles();
+    return [...current].find((name) => !before.has(name) && name.startsWith("forge-project-"));
+  }, "the exported Project JSON in Downloads");
+  const downloadedPath = path.join(downloadDirectory, fileName);
+  try {
+    const document = JSON.parse(await readFile(downloadedPath, "utf8"));
+    assert.equal(document.schema_version, "forge-project-import-v1");
+    assert.equal(document.project?.name, expectedProjectName);
+    assert(Array.isArray(document.features), "the export must contain the planning Features array");
+    if (expectedFeatureName) {
+      assert(document.features.some((feature) => feature.title === expectedFeatureName), "the export must contain the real Feature hierarchy");
+    }
+    return document;
+  } finally {
+    await unlink(downloadedPath);
+  }
+}
+
+async function runProjectTransferJourney(ui, records, nameSuffix) {
+  ui.click("Hyperlink", "Projects");
+  ui.wait("Text", "Projects");
+  ui.click("Button", records.projectName, "contains");
+  ui.wait("Text", records.projectName);
+  await exportAndVerify(ui, records.projectName, records.featureName);
+
+  const importedProjectName = `Imported Desktop Planning ${nameSuffix}`;
+  const importedFeatureName = `Imported Desktop Feature ${nameSuffix}`;
+  const fixturePath = path.join(smokeRoot, `project-transfer-${nameSuffix}.json`);
+  const fixture = {
+    schema_version: "forge-project-import-v1",
+    project: { name: importedProjectName, description: "Installed Project Transfer smoke fixture." },
+    epics: [{ ref: "epic:transfer", title: "Transfer Epic" }],
+    features: [{
+      ref: "feature:transfer",
+      title: importedFeatureName,
+      epic_ref: "epic:transfer",
+      tasks: [{ ref: "task:transfer", title: "Inspect imported hierarchy" }],
+      acceptance_criteria: [{ ref: "criterion:transfer", description: "The imported planning snapshot is visible." }],
+    }],
+    dependencies: [],
+  };
+  await writeFile(fixturePath, JSON.stringify(fixture), "utf8");
+  ui.click("Button", "Back to projects");
+  ui.wait("Text", "Projects");
+  ui.click("Button", "Import project");
+  ui.chooseFile("Choose JSON file", fixturePath);
+  ui.wait("Text", path.basename(fixturePath), 30, "contains");
+  ui.click("Button", "Preview import");
+  ui.wait("Text", importedProjectName, 60, "contains");
+  ui.click("Button", "Confirm import");
+  ui.wait("Text", importedProjectName, 60, "contains");
+  ui.click("Hyperlink", "Features and Epics");
+  ui.wait("Text", importedFeatureName, 60, "contains");
+  ui.click("Hyperlink", "Projects");
+  ui.wait("Text", "Projects");
+  ui.click("Button", importedProjectName, "contains");
+  ui.wait("Text", importedProjectName);
+  await exportAndVerify(ui, importedProjectName, importedFeatureName);
+}
+
 async function assertIndependentProcessCannotAccessApi(port, workspaceName) {
   const normalHost = `127.0.0.1:${port}`;
   const health = await rawApiRequest(port, "GET", "/api/health", normalHost);
@@ -398,6 +476,7 @@ async function runInstalledJourney(targetDirectory, suffix, expectedProject) {
     app.ui.click("Button", records.workspaceName);
     assert(!app.ui.inspect().includes("Create workspace"), "workspace menu must close after its switcher is activated again");
     assert.equal(sentinel.server.received, 0, "the unrelated loopback listener must remain untouched");
+    await runProjectTransferJourney(app.ui, records, suffix);
     await closeInstalledApp(app);
     app = null;
     await assertProcessExited(details.processId);

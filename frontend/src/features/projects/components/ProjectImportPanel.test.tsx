@@ -59,8 +59,7 @@ describe("ProjectImportPanel", () => {
     const onImported = vi.fn();
 
     render(<ProjectImportPanel onClose={vi.fn()} onImported={onImported} workspace={{ id: "w1", name: "Workspace" } as never} />);
-    const confirm = screen.getByRole("button", { name: "Confirm import" });
-    expect(confirm).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Confirm import" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Project import JSON" }), {
       target: { value: "not json" },
     });
@@ -73,10 +72,40 @@ describe("ProjectImportPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Preview validated");
+    expect(screen.getByRole("heading", { name: "Ready to create" })).toBeVisible();
+    const confirm = screen.getByRole("button", { name: "Confirm import" });
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     await waitFor(() => expect(importProject).toHaveBeenCalledWith("w1", document, "a".repeat(64)));
     expect(onImported).toHaveBeenCalledWith("p1");
+  });
+
+  test("preserves the validated hierarchy when Desktop confirmation fails", async () => {
+    previewProjectImport.mockResolvedValue({
+      schema_version: "forge-project-import-v1",
+      workspace_id: "w1",
+      fingerprint: "d".repeat(64),
+      project_name_conflict: false,
+      document: detailedDocument,
+      counts: { epics: 1, features: 2, tasks: 1, acceptance_criteria: 1, dependencies: 1 },
+    });
+    importProject.mockRejectedValue(new Error("desktop API route unavailable"));
+
+    render(<ProjectImportPanel onClose={vi.fn()} onImported={vi.fn()} workspace={{ id: "w1", name: "Workspace" } as never} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Project import JSON" }), {
+      target: { value: JSON.stringify(detailedDocument) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview import" }));
+    const preview = await screen.findByRole("status");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm import" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Import needs attention");
+    expect(alert).toHaveTextContent("Desktop bridge rejected this request");
+    expect(screen.getByText("Step 3 of 3", { exact: false })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+    expect(within(preview).getByText("Foundation", { exact: true })).toBeVisible();
+    expect(within(preview).getByText("Bootstrap workspace", { exact: true })).toBeVisible();
   });
 
   test("renders a bounded hierarchy with associations, children, and dependencies", async () => {

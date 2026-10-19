@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use thiserror::Error;
 use url::form_urlencoded;
@@ -81,9 +82,17 @@ impl RouteManifest {
         let mut matching_routes = self
             .0
             .iter()
-            .filter(|(template, _)| path_matches(template, path));
-        let (_, route) = matching_routes.next().ok_or(ApiBridgeError::Route)?;
-        if matching_routes.next().is_some() {
+            .filter(|(template, route)| {
+                route.contains_key(&normalized_method) && path_matches(template, path)
+            })
+            .collect::<Vec<_>>();
+        matching_routes.sort_by_key(|(template, _)| Reverse(path_specificity(template)));
+        let (_, route) = matching_routes.first().ok_or(ApiBridgeError::Route)?;
+        let best_specificity = path_specificity(matching_routes[0].0);
+        if matching_routes
+            .get(1)
+            .is_some_and(|(template, _)| path_specificity(template) == best_specificity)
+        {
             return Err(ApiBridgeError::Route);
         }
         let operation = route.get(&normalized_method).ok_or(ApiBridgeError::Route)?;
@@ -111,6 +120,14 @@ fn path_matches(template: &str, path: &str) -> bool {
             .all(|(expected, actual)| {
                 (expected.starts_with('{') && expected.ends_with('}')) || expected == actual
             })
+}
+
+fn path_specificity(template: &str) -> usize {
+    template
+        .split('/')
+        .skip(1)
+        .filter(|segment| !(segment.starts_with('{') && segment.ends_with('}')))
+        .count()
 }
 
 #[cfg(test)]
@@ -201,6 +218,96 @@ mod tests {
         .expect("test manifest");
         assert_eq!(
             manifest.validate_request("GET", "/api/projects/features/features", 0),
+            Err(ApiBridgeError::Route)
+        );
+    }
+
+    #[test]
+    fn collision_1_prefers_static_route_over_parameter() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/{resource}": {"get": []},
+              "/api/~": {"get": ["specific"]}
+            }"#,
+        )
+        .expect("test manifest");
+        // `~` sorts after `{` in the manifest map, so this proves specificity
+        // wins rather than relying on the serialized route order.
+        assert!(
+            manifest
+                .validate_request("GET", "/api/~?specific=1", 0)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn collision_2_prefers_static_import_route_over_project_parameter() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/workspaces/{workspace_id}/projects/{project_id}": {"post": []},
+              "/api/workspaces/{workspace_id}/projects/import": {"post": []}
+            }"#,
+        )
+        .expect("test manifest");
+        assert!(manifest
+            .validate_request("POST", "/api/workspaces/w1/projects/import", 0)
+            .is_ok());
+    }
+
+    #[test]
+    fn collision_3_prefers_static_preview_route_over_feature_parameter() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/projects/{project_id}/features/{feature_id}": {"post": []},
+              "/api/projects/{project_id}/features/preview": {"post": []}
+            }"#,
+        )
+        .expect("test manifest");
+        assert!(manifest
+            .validate_request("POST", "/api/projects/p1/features/preview", 0)
+            .is_ok());
+    }
+
+    #[test]
+    fn collision_4_ignores_a_path_match_that_does_not_support_the_method() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/projects/{project_id}": {"get": []},
+              "/api/projects/import": {"post": []}
+            }"#,
+        )
+        .expect("test manifest");
+        assert!(manifest
+            .validate_request("POST", "/api/projects/import", 0)
+            .is_ok());
+    }
+
+    #[test]
+    fn collision_5_rejects_equal_specificity_dynamic_templates() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/projects/{project_id}/features/{feature_id}": {"get": []},
+              "/api/projects/{project_slug}/features/{feature_name}": {"get": []}
+            }"#,
+        )
+        .expect("test manifest");
+        assert_eq!(
+            manifest.validate_request("GET", "/api/projects/features/features/details", 0),
+            Err(ApiBridgeError::Route)
+        );
+    }
+
+    #[test]
+    fn collision_6_rejects_nested_equal_specificity_templates() {
+        let manifest = RouteManifest::from_json(
+            r#"{
+              "/api/workspaces/{workspace_id}/projects/{project_id}/export": {"get": []},
+              "/api/workspaces/{workspace_id}/projects/export/{format}": {"get": []}
+            }"#,
+        )
+        .expect("test manifest");
+        assert_eq!(
+            manifest.validate_request("GET", "/api/workspaces/w1/projects/export/export", 0),
             Err(ApiBridgeError::Route)
         );
     }
