@@ -19,18 +19,23 @@ import {
 
 test("desktop Rust tests and installer build require the committed Cargo lockfile", async () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const [lockfile, workflow, buildScript] = await Promise.all([
+  const [lockfile, workflow, reusableWorkflow, buildScript] = await Promise.all([
     readFile(path.join(root, "desktop/src-tauri/Cargo.lock"), "utf8"),
     readFile(path.join(root, ".github/workflows/desktop-windows.yml"), "utf8"),
+    readFile(path.join(root, ".github/workflows/desktop-certified.yml"), "utf8"),
     readFile(path.join(root, "scripts/run_desktop.mjs"), "utf8"),
   ]);
+  const desktopWorkflow = `${workflow}\n${reusableWorkflow}`;
 
   assert.match(lockfile, /^version = 4/m);
   assert.match(lockfile, /\[\[package\]\]\nname = "forge-desktop"\nversion = "0\.1\.0"\n/);
-  assert.doesNotMatch(workflow, /cargo\s+generate-lockfile/);
-  assert.match(workflow, /cargo test --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
-  assert.match(workflow, /cargo clippy --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
-  assert.match(workflow, /cargo metadata --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.doesNotMatch(desktopWorkflow, /cargo\s+generate-lockfile/);
+  assert.match(desktopWorkflow, /cargo test --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(desktopWorkflow, /cargo clippy --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(desktopWorkflow, /cargo metadata --manifest-path desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(desktopWorkflow, /https:\/\/sourceforge\.net\/projects\/nsis\/files\/NSIS%203\/3\.13\/nsis-3\.13\.zip\/download/);
+  assert.match(desktopWorkflow, /\[System\.Net\.WebUtility\]::HtmlDecode/);
+  assert.match(desktopWorkflow, /BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8/);
   assert.match(buildScript, /"--",\s*"--locked"/);
 });
 

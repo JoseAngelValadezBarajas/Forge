@@ -1,0 +1,316 @@
+name: Forge desktop certification
+
+on:
+  workflow_call:
+    inputs:
+      commit_sha:
+        description: Exact commit to checkout and certify.
+        required: true
+        type: string
+      artifact_name:
+        description: Immutable artifact name for this certification result.
+        required: true
+        type: string
+      artifact_retention_days:
+        description: Retention for the resulting artifact.
+        required: false
+        default: 7
+        type: number
+      publish_certified_artifact:
+        description: Upload this result as the certified main installer.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installed-product:
+    name: Windows x64 build and installed-product smoke
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact certified commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Report runner OS
+        shell: pwsh
+        run: Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install pinned Rust MSVC toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1-x86_64-pc-windows-msvc --profile minimal --component rustfmt --component clippy
+          rustup target add x86_64-pc-windows-msvc --toolchain 1.99.1-x86_64-pc-windows-msvc
+          rustup show active-toolchain
+          $probeSource = Join-Path $env:RUNNER_TEMP "forge-msvc-probe.c"
+          $probeObject = Join-Path $env:RUNNER_TEMP "forge-msvc-probe.obj"
+          Set-Content -LiteralPath $probeSource -Value "int forge_msvc_probe(void) { return 0; }" -Encoding ascii
+          cl.exe /Bv /nologo /c $probeSource "/Fo$probeObject"
+          if ($LASTEXITCODE -ne 0) { throw "MSVC compiler probe failed." }
+
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $expectedNsisPackageVersion = "3.13.0"
+          $expectedNsisToolVersion = "3.13"
+          $expectedNsisToolVersionPattern = [regex]::Escape($expectedNsisToolVersion)
+          $officialChocolateySource = "https://community.chocolatey.org/api/v2/"
+          $officialNsisDownloadPageUrl = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.13/nsis-3.13.zip/download"
+          $officialNsisZipSha256 = "BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8"
+          $officialNsisZipSize = 2363925
+          $maxAttempts = 4
+          $backoffSeconds = @(5, 15, 30)
+          $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
+          $nsis = Join-Path $programFilesX86 "NSIS"
+          $makensis = Join-Path $nsis "makensis.exe"
+
+          $versionOutput = $null
+          if (Test-Path -LiteralPath $makensis -PathType Leaf) {
+            $versionOutput = (& $makensis /VERSION 2>&1 | Out-String).Trim()
+          }
+
+          if ($versionOutput -notmatch "(?<!\d)$expectedNsisToolVersionPattern(?!\d)") {
+            $installed = $false
+            $lastExitCode = $null
+            $attemptErrors = @()
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              Write-Host "Installing pinned NSIS package $expectedNsisPackageVersion from the official Chocolatey Community feed (attempt $attempt/$maxAttempts)."
+              $lastExitCode = 1
+              try {
+                & choco install nsis --version=$expectedNsisPackageVersion --allow-downgrade --source=$officialChocolateySource --yes --no-progress --limit-output
+                $lastExitCode = $LASTEXITCODE
+              } catch {
+                $attemptErrors += $_.Exception.Message
+              }
+              if ($lastExitCode -eq 0) {
+                $installed = $true
+                break
+              }
+              Write-Warning "Pinned NSIS installation attempt $attempt/$maxAttempts failed with Chocolatey exit code $lastExitCode."
+              if ($attempt -lt $maxAttempts) {
+                Start-Sleep -Seconds $backoffSeconds[$attempt - 1]
+              }
+            }
+            if (-not $installed) {
+              Write-Warning "Chocolatey could not resolve pinned NSIS package $expectedNsisPackageVersion after $maxAttempts attempts; trying the official NSIS SourceForge ZIP with fixed size and SHA-256 values."
+              $fallbackRoot = Join-Path $env:RUNNER_TEMP "nsis-$expectedNsisToolVersion"
+              $fallbackZip = Join-Path $env:RUNNER_TEMP "nsis-$expectedNsisToolVersion.zip"
+              $fallbackDownloaded = $false
+              $fallbackErrors = @()
+              for ($attempt = 1; $attempt -le 3; $attempt++) {
+                try {
+                  $downloadPage = Invoke-WebRequest -Uri $officialNsisDownloadPageUrl -UseBasicParsing
+                  $redirectMatch = [regex]::Match(
+                    $downloadPage.Content,
+                    'https://downloads\.sourceforge\.net/project/nsis/NSIS%203/3\.13/nsis-3\.13\.zip\?[^"<\s]+'
+                  )
+                  if (-not $redirectMatch.Success) {
+                    throw "Official SourceForge download page did not provide a verified ZIP redirect."
+                  }
+                  $sourceForgeZipUrl = [System.Net.WebUtility]::HtmlDecode($redirectMatch.Value)
+                  Invoke-WebRequest -Uri $sourceForgeZipUrl -OutFile $fallbackZip -UseBasicParsing
+                  $fallbackDownloaded = $true
+                  break
+                } catch {
+                  $fallbackErrors += $_.Exception.Message
+                  if ($attempt -lt 3) {
+                    Start-Sleep -Seconds $backoffSeconds[$attempt - 1]
+                  }
+                }
+              }
+              if (-not $fallbackDownloaded) {
+                $details = if ($attemptErrors.Count -gt 0) { " Chocolatey errors: $($attemptErrors -join ' | ')" } else { "" }
+                $fallbackDetails = if ($fallbackErrors.Count -gt 0) { " SourceForge errors: $($fallbackErrors -join ' | ')" } else { "" }
+                throw "Unable to obtain pinned NSIS $expectedNsisToolVersion from the official Chocolatey source or official NSIS SourceForge distribution after bounded retries.$details$fallbackDetails Installer build and installed-product smoke remain required and were not skipped."
+              }
+              $downloadedSize = (Get-Item -LiteralPath $fallbackZip).Length
+              if ($downloadedSize -ne $officialNsisZipSize) {
+                throw "Official NSIS SourceForge ZIP size mismatch. Expected $officialNsisZipSize bytes; received $downloadedSize."
+              }
+              $actualZipSha256 = (Get-FileHash -LiteralPath $fallbackZip -Algorithm SHA256).Hash
+              if ($actualZipSha256 -ine $officialNsisZipSha256) {
+                throw "Official NSIS SourceForge ZIP integrity check failed. Expected SHA-256 $officialNsisZipSha256; received $actualZipSha256."
+              }
+              if (Test-Path -LiteralPath $fallbackRoot) {
+                Remove-Item -LiteralPath $fallbackRoot -Recurse -Force
+              }
+              Expand-Archive -LiteralPath $fallbackZip -DestinationPath $fallbackRoot -Force
+              $extractedMakensis = Get-ChildItem -LiteralPath $fallbackRoot -Filter "makensis.exe" -File -Recurse | Select-Object -First 1
+              if ($null -eq $extractedMakensis) {
+                throw "Verified NSIS SourceForge ZIP did not contain makensis.exe."
+              }
+              New-Item -ItemType Directory -Path $nsis -Force | Out-Null
+              Copy-Item -Path (Join-Path $extractedMakensis.Directory.FullName "*") -Destination $nsis -Recurse -Force
+              $makensis = Join-Path $nsis "makensis.exe"
+            }
+          }
+
+          if (-not (Test-Path -LiteralPath $makensis -PathType Leaf)) {
+            throw "NSIS makensis.exe was not found at the expected installation path after setup."
+          }
+          $resolvedMakensis = (Resolve-Path -LiteralPath $makensis).Path
+          $verifiedVersion = (& $resolvedMakensis /VERSION 2>&1 | Out-String).Trim()
+          $versionExitCode = $LASTEXITCODE
+          if ($versionExitCode -ne 0) {
+            throw "NSIS makensis.exe exists but could not be executed (exit code: $versionExitCode)."
+          }
+          if ($verifiedVersion -notmatch "(?<!\d)$expectedNsisToolVersionPattern(?!\d)") {
+            throw "NSIS version mismatch. Expected $expectedNsisToolVersion; makensis reported: $verifiedVersion"
+          }
+          $nsis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Verified executable $resolvedMakensis reports NSIS $expectedNsisToolVersion."
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install locked desktop Python dependencies
+        run: uv sync --locked --dev --group desktop-build
+
+      - name: Prepare bundled frontend, route policy, sidecar and icons
+        working-directory: frontend
+        run: npm run desktop:prepare
+
+      - name: Validate committed Rust lockfile
+        run: cargo metadata --manifest-path desktop/src-tauri/Cargo.toml --locked --format-version 1 --no-deps
+
+      - name: Rust format
+        run: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all -- --check
+
+      - name: Rust unit tests
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --all-targets
+
+      - name: Rust Clippy
+        run: cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Build unsigned per-user NSIS installer
+        working-directory: frontend
+        run: npm run desktop:build
+
+      - name: Verify native Windows UI Automation helper
+        run: node --test scripts/desktop-ui-automation.test.mjs
+
+      - name: Configure installed-product smoke inputs
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -LiteralPath "desktop/bundle" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Expected the built NSIS installer." }
+          "FORGE_DESKTOP_INSTALLER=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $evidence = Join-Path $env:RUNNER_TEMP "forge-desktop-evidence"
+          "FORGE_DESKTOP_EVIDENCE=$evidence" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install, launch, secure, persist, uninstall and reinstall smoke
+        run: node scripts/installed_desktop_smoke.mjs
+
+      - name: Verify installer checksum and write provenance
+        if: success()
+        shell: pwsh
+        env:
+          FORGE_COMMIT_SHA: ${{ inputs.commit_sha }}
+          FORGE_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          FORGE_OFFICIAL: ${{ inputs.publish_certified_artifact }}
+          FORGE_WORKFLOW_RUN_ID: ${{ github.run_id }}
+        run: |
+          $installer = Get-ChildItem -LiteralPath "desktop/bundle" -Filter "*-setup.exe" | Select-Object -First 1
+          $checksum = Get-Item -LiteralPath "$($installer.FullName).sha256"
+          $declared = (Get-Content -LiteralPath $checksum.FullName -Raw).Trim().Split()[0].ToLowerInvariant()
+          $actual = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($declared -ne $actual) {
+            throw "Installer checksum mismatch. Declared $declared; actual $actual."
+          }
+          $certificationOutcome = if ($env:FORGE_OFFICIAL -eq "true") { "CERTIFIED_MAIN" } else { "PR_VALIDATION" }
+          $provenance = [ordered]@{
+            schema_version = "forge-ci-provenance-v1"
+            artifact_name = $env:FORGE_ARTIFACT_NAME
+            commit_sha = $env:FORGE_COMMIT_SHA
+            workflow_run_id = $env:FORGE_WORKFLOW_RUN_ID
+            runner_os = $env:RUNNER_OS
+            runner_image = "windows-2025"
+            installer_filename = $installer.Name
+            installer_sha256 = $actual
+            certification_outcome = $certificationOutcome
+            toolchain = [ordered]@{
+              node = (node --version).Trim()
+              npm = (npm --version).Trim()
+              python = (python --version 2>&1 | Out-String).Trim()
+              uv = (uv --version).Trim()
+              rustc = (rustc --version).Trim()
+              cargo = (cargo --version).Trim()
+              nsis = ((Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) "NSIS\makensis.exe") | ForEach-Object { (& $_ /VERSION 2>&1 | Out-String).Trim() })
+            }
+          }
+          $provenance | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "desktop/bundle/desktop-provenance.json" -Encoding utf8
+          Write-Host "Verified installer SHA-256: $actual"
+
+      - name: Upload certified main artifact
+        if: success() && inputs.publish_certified_artifact == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: error
+          path: |
+            desktop/bundle/*-setup.exe
+            desktop/bundle/*-setup.exe.sha256
+            desktop/bundle/desktop-provenance.json
+            ${{ runner.temp }}/forge-desktop-evidence/*.png
+
+      - name: Upload PR validation artifact
+        if: success() && inputs.publish_certified_artifact == false
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: error
+          path: |
+            desktop/bundle/*-setup.exe
+            desktop/bundle/*-setup.exe.sha256
+            desktop/bundle/desktop-provenance.json
+            ${{ runner.temp }}/forge-desktop-evidence/*.png
+
+      - name: Upload desktop diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-windows-diagnostics-${{ inputs.commit_sha }}-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/forge-desktop-evidence/**
+
+      - name: Export Cargo lockfile for bootstrap review
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-desktop-cargo-lock-${{ inputs.commit_sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: desktop/src-tauri/Cargo.lock
