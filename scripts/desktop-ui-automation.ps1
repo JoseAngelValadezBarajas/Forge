@@ -123,6 +123,20 @@ function Find-ForgeElement($root, [bool]$wait) {
     return $null
 }
 
+function ConvertTo-SendKeysLiteral([string]$value) {
+    $builder = [System.Text.StringBuilder]::new()
+    foreach ($character in $value.ToCharArray()) {
+        if ([string]$character -in @('+', '^', '%', '~', '(', ')', '{', '}', '[', ']')) {
+            [void]$builder.Append('{')
+            [void]$builder.Append($character)
+            [void]$builder.Append('}')
+        } else {
+            [void]$builder.Append($character)
+        }
+    }
+    return $builder.ToString()
+}
+
 function Invoke-ForgeFilePicker {
     $forgeWindow = Get-ForgeWindow
     $element = Find-ForgeElement $forgeWindow.Root $true
@@ -150,22 +164,52 @@ function Invoke-ForgeFilePicker {
                     [System.Windows.Automation.ControlType]::Edit
                 )
                 $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
-                if ($edits.Count -eq 0) { continue }
-                $valuePattern = $edits[0].GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-                ([System.Windows.Automation.ValuePattern]$valuePattern).SetValue($path)
+                $fileNameEdit = $null
+                foreach ($edit in $edits) {
+                    $editName = [string]$edit.Current.Name
+                    if ($editName -match 'File name|File name:|^Name$') {
+                        try {
+                            $candidatePattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                            if (-not ([System.Windows.Automation.ValuePattern]$candidatePattern).Current.IsReadOnly) {
+                                $fileNameEdit = $edit
+                                break
+                            }
+                        } catch [System.Windows.Automation.ElementNotAvailableException] {
+                            continue
+                        }
+                    }
+                }
                 $buttonCondition = [System.Windows.Automation.PropertyCondition]::new(
                     [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
                     [System.Windows.Automation.ControlType]::Button
                 )
                 foreach ($button in $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)) {
-                    if ([string]$button.Current.Name -notmatch '^Open$|^Choose$|^Select$') { continue }
+                    if ([string]$button.Current.Name -notmatch '^&?(Open|Choose|Select)$') { continue }
                     $buttonPattern = $null
-                    if ($button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$buttonPattern)) {
+                    if ($fileNameEdit -and $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$buttonPattern)) {
+                        $valuePattern = $fileNameEdit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                        ([System.Windows.Automation.ValuePattern]$valuePattern).SetValue($path)
                         ([System.Windows.Automation.InvokePattern]$buttonPattern).Invoke()
                         Write-Output "Selected file through the native Windows picker."
                         return
                     }
                 }
+
+                # Windows 11's common picker can expose the dialog as a Pane
+                # without an actionable Open button or a named file-name edit.
+                # Use its documented keyboard accelerators only after the
+                # dialog was found through UI Automation; this keeps the smoke
+                # test on the native picker without depending on localized or
+                # virtualized control names.
+                $dialog.SetFocus()
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait('%n')
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait((ConvertTo-SendKeysLiteral $path))
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait('%o')
+                Write-Output "Selected file through the native Windows picker keyboard fallback."
+                return
             } catch [System.Windows.Automation.ElementNotAvailableException] {
                 continue
             }
