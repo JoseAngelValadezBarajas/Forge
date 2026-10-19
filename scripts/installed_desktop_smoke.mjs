@@ -94,7 +94,7 @@ function createUiAutomation(processId) {
     wait: (controlType, name, timeoutSeconds = 60, match = "exact") => runUiAutomation("wait", processId, { controlType, name, timeoutSeconds, match }),
     click: (controlType, name, match = "exact") => runUiAutomation("click", processId, { controlType, name, match }),
     setValue: (name, value) => runUiAutomation("set-value", processId, { controlType: "Edit", name, value }),
-    chooseFile: (name, filePath) => runUiAutomation("choose-file", processId, { controlType: "Button", name, filePath }),
+    chooseFile: (name, filePath, match = "contains") => runUiAutomation("choose-file", processId, { controlType: "Button", name, filePath, match }),
     screenshot: (screenshotPath) => runUiAutomation("screenshot", processId, { screenshotPath }),
     inspect: () => runUiAutomation("inspect", processId),
   };
@@ -393,7 +393,7 @@ async function runProjectTransferJourney(ui, records, nameSuffix) {
   ui.click("Button", "Back to projects");
   ui.wait("Text", "Projects");
   ui.click("Button", "Import project");
-  ui.chooseFile("Choose JSON file", fixturePath);
+  ui.chooseFile("Choose project JSON file", fixturePath);
   ui.wait("Text", path.basename(fixturePath), 30, "contains");
   ui.click("Button", "Preview import");
   ui.wait("Text", importedProjectName, 60, "contains");
