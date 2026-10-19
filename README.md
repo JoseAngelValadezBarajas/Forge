@@ -4,6 +4,8 @@ Forge is a local-first workspace for connecting product intent, optional local G
 
 The current product slice is an internal alpha. See the [Planning MVP alpha readiness guide](docs/releases/alpha-01-readiness.md) for the validated local workflow, isolated smoke tests, data backup/restore procedure, and current limitations.
 
+For practical Desktop use in Mexican Spanish, see the illustrated [Forge user guide](docs/user-guide/README.es.md). It documents the implemented local workflows, explicit limits, exports and recovery guidance.
+
 ## Windows Desktop Alpha
 
 DESK-01 packages the same product as a per-user Windows x64 application with a Rust-owned authenticated FastAPI sidecar and SQLite under `%LOCALAPPDATA%\Forge`. The architecture and threat model are in [DESK-01 architecture](docs/desktop/desk-01-architecture.md); build prerequisites, user-data recovery, Git authorization and installer-verification instructions are in the [Windows Desktop Alpha guide](docs/desktop/desk-01-windows-alpha.md). Installer acceptance is not claimed until the real Windows workflow installs and exercises the built product.

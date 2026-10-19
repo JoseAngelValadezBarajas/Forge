@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Manual de Forge — Desktop Alpha 0.1</title><style>:root { color: #242424; font-family: Arial, Helvetica, sans-serif; line-height: 1.55; }
+body { margin: 0; background: #f4f1ed; }
+.manual { box-sizing: border-box; margin: 0 auto; max-width: 960px; padding: 38px 50px 60px; background: #fffdf9; }
+.manual-cover { min-height: 620px; display: flex; flex-direction: column; justify-content: center; border-left: 8px solid #b65b33; padding-left: 32px; page-break-after: always; }
+.manual-cover h1 { font-size: 48px; margin: 8px 0; color: #292626; }
+.eyebrow, .cover-version { color: #9a4828; font-weight: 700; letter-spacing: .09em; }
+.cover-date { color: #67615c; }
+.manual-toc { page-break-after: always; }
+.manual-toc h2, h2 { color: #8c3f25; margin-top: 36px; border-bottom: 1px solid #d8cbc1; padding-bottom: 8px; }
+.manual-toc a { color: #6c301d; text-decoration: none; }
+.manual-content h1 { display: none; }
+.manual-content h3 { color: #3a342f; margin-top: 28px; }
+.manual-content img { display: block; max-width: 100%; max-height: 680px; height: auto; margin: 20px auto 30px; border: 1px solid #c9bbb1; border-radius: 6px; box-shadow: 0 4px 14px #0002; page-break-inside: avoid; }
+.manual-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+.manual-content th, .manual-content td { border: 1px solid #d8cbc1; padding: 8px; text-align: left; vertical-align: top; }
+.manual-content th { background: #f4ece5; }
+code { background: #f1ece7; padding: 2px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+pre { background: #292626; color: #fff8f2; padding: 14px; overflow: auto; }
+.page-footer { display: none; }
+@media print { body { background: white; } .manual { max-width: none; padding: 0; } h2 { break-after: avoid; } p, li { orphans: 3; widows: 3; } }
+</style></head>
+<body><main class="manual">
+<section class="manual-cover"><p class="eyebrow">FORGE · DESKTOP ALPHA</p><h1>Manual de usuario</h1><p class="cover-version">Desktop Alpha 0.1</p><p>Guía práctica para planear, registrar contexto y revisar evidencia localmente.</p><p class="cover-date">Actualizado: 2026-10-18</p></section>
+<nav class="manual-toc" aria-label="Contenido"><h2>Contenido</h2><ol><li><a href="#que-es-forge">Qué es Forge</a></li>
+<li><a href="#instalacion-de-forge-desktop-en-windows">Instalación de Forge Desktop en Windows</a></li>
+<li><a href="#primer-inicio-y-recorrido-de-la-interfaz">Primer inicio y recorrido de la interfaz</a></li>
+<li><a href="#workspaces">Workspaces</a></li>
+<li><a href="#projects">Projects</a></li>
+<li><a href="#epics-features-y-tasks">Epics, Features y Tasks</a></li>
+<li><a href="#project-board-y-transiciones-de-estado">Project Board y transiciones de estado</a></li>
+<li><a href="#acceptance-criteria-y-dependencias">Acceptance Criteria y dependencias</a></li>
+<li><a href="#decisions-e-invariants">Decisions e Invariants</a></li>
+<li><a href="#readiness">Readiness</a></li>
+<li><a href="#conexiones-de-repositorios-git">Conexiones de repositorios Git</a></li>
+<li><a href="#context-packages">Context Packages</a></li>
+<li><a href="#workbench-runs-y-handoffs">Workbench: Runs y Handoffs</a></li>
+<li><a href="#evidence-y-verifications">Evidence y Verifications</a></li>
+<li><a href="#release-candidates-y-gates">Release Candidates y gates</a></li>
+<li><a href="#busqueda-atajos-y-temas-visuales">Búsqueda, atajos y temas visuales</a></li>
+<li><a href="#exports">Exports</a></li>
+<li><a href="#datos-locales-respaldos-y-recuperacion">Datos locales, respaldos y recuperación</a></li>
+<li><a href="#solucion-de-problemas">Solución de problemas</a></li>
+<li><a href="#glosario-y-limitaciones-conocidas">Glosario y limitaciones conocidas</a></li></ol></nav>
+<article class="manual-content"><h1 id="manual-de-forge">Manual de Forge</h1>
+<p>Esta guía describe Forge Desktop Alpha tal como está implementado. Los nombres de botones y pantallas se conservan en inglés porque son los que aparecen en la aplicación.</p>
+<h2 id="que-es-forge">Qué es Forge</h2>
+<p>Forge es un espacio local-first para organizar la intención de producto, la planeación, el contexto de repositorios locales y la evidencia declarada de un proyecto de software. Úsalo cuando necesites que el equipo pueda consultar por qué se planificó algo, qué reglas aplican y qué información fue registrada antes de comenzar o entregar trabajo.</p>
+<p>Forge no ejecuta agentes, pruebas, CI, despliegues ni comandos Git que modifiquen un repositorio. Al observar una conexión autorizada, consulta metadatos Git locales de solo lectura de forma acotada; no hace commit, push, checkout ni acciones remotas.</p>
+<p><img src="assets/workspace-home.png" alt="Workspace Home"></p>
+<h2 id="instalacion-de-forge-desktop-en-windows">Instalación de Forge Desktop en Windows</h2>
+<p>Usa el instalador para Windows x64 proporcionado por tu organización. Ejecútalo para instalar Forge por usuario; no requiere elevar permisos para su ruta normal. Al abrirse, Forge inicia su backend local de forma automática.</p>
+<ol>
+<li>Cierra una instancia anterior de Forge si está abierta.</li>
+<li>Ejecuta el archivo <code>Forge-...-setup.exe</code> recibido de una fuente autorizada.</li>
+<li>Sigue el asistente y abre <strong>Forge</strong> desde el menú Inicio.</li>
+<li>Espera a que aparezca <strong>Workspace</strong>. La primera apertura puede tardar mientras Forge prepara sus datos locales.</li>
+</ol>
+<p>El instalador actual no está firmado. Confirma el origen y checksum entregados por tu organización antes de instalarlo. Forge funciona sólo en el equipo local; no abre un servicio de red para otros equipos.</p>
+<h2 id="primer-inicio-y-recorrido-de-la-interfaz">Primer inicio y recorrido de la interfaz</h2>
+<p>La barra lateral contiene <strong>Home</strong>, <strong>Projects</strong> y <strong>Workbench</strong>. El selector superior izquierdo indica el Workspace activo. La cabecera de cada pantalla muestra el nombre y un botón <strong>Search or command</strong>.</p>
+<p>En el primer inicio encontrarás un Workspace local vacío. Crea un Workspace antes de crear proyectos. Para abrir el formulario, selecciona el nombre del Workspace y después <strong>Create workspace</strong>.</p>
+<p><img src="assets/workspace-create.png" alt="Crear Workspace"></p>
+<p>Resultado esperado: el nuevo Workspace queda seleccionado y la página <strong>Workspace</strong> muestra su estado inicial. Si el nombre está vacío, Forge muestra el error <strong>Workspace name is required.</strong></p>
+<h2 id="workspaces">Workspaces</h2>
+<p>Un Workspace agrupa Projects independientes. Úsalo para separar clientes, productos o áreas de trabajo.</p>
+<ol>
+<li>Selecciona el botón del Workspace activo en la barra lateral.</li>
+<li>Elige un Workspace existente para cambiarlo, o selecciona <strong>Create workspace</strong>.</li>
+<li>Escribe <strong>Name</strong> y, si ayuda a tu equipo, <strong>Description</strong>.</li>
+<li>Selecciona <strong>Create</strong>.</li>
+</ol>
+<p>El cambio se guarda en el navegador y los Projects visibles se actualizan para el Workspace elegido. Un Workspace no comparte Projects con otro Workspace.</p>
+<h2 id="projects">Projects</h2>
+<p>Un Project es el registro durable de un producto o iniciativa. Para crear uno, abre <strong>Projects</strong>, selecciona <strong>New project</strong>, captura <strong>Project name</strong> y <strong>Project description</strong>, y elige <strong>Create project</strong>.</p>
+<p>En <strong>Project overview</strong> puedes usar <strong>Edit project</strong> para cambiar nombre o descripción. Usa <strong>Archive</strong> cuando el Project ya no deba aceptar cambios; confirma el diálogo. Un Project archivado sigue siendo consultable. Selecciona <strong>Restore</strong> para permitir nuevas mutaciones otra vez.</p>
+<p><img src="assets/project-overview.png" alt="Project Overview"></p>
+<p>No uses Archive como borrado: Forge conserva el historial. Las operaciones de planeación que intenten escribir en un Project archivado se rechazan.</p>
+<h2 id="epics-features-y-tasks">Epics, Features y Tasks</h2>
+<p>Abre <strong>Open board</strong> o la pestaña <strong>Features</strong> desde el Project. <strong>+ Epic</strong> crea un contenedor de planeación; <strong>+ Feature</strong> crea una unidad de intención implementable. Una Feature puede tener objetivo, prioridad, estado y Epic asociado.</p>
+<p>En el detalle de una Feature agrega Tasks con el campo <strong>New task</strong> y el botón <strong>Add</strong>. Cada Task se puede editar, mover y pasar a estados de planeación. Estos estados son declaraciones manuales; no prueban que exista código ni entrega.</p>
+<p>Para crear un Epic o Feature desde teclado, abre <strong>Search or command</strong> con <code>Ctrl+K</code>, busca la acción y completa el formulario que se abre en la ruta correspondiente.</p>
+<h2 id="project-board-y-transiciones-de-estado">Project Board y transiciones de estado</h2>
+<p><strong>Project Board</strong> muestra Features por estado. Usa las acciones de cada tarjeta para cambiar el estado permitido. El Board organiza la planeación, no es evidencia de implementación.</p>
+<ol>
+<li>Ve a <strong>Project Board</strong>.</li>
+<li>Crea o abre una Feature.</li>
+<li>Selecciona el cambio de estado disponible en la tarjeta o edita la Feature.</li>
+<li>Vuelve al Board para confirmar la columna nueva.</li>
+</ol>
+<p>Puedes filtrar la lista <strong>Features &amp; Epics</strong> con <strong>Search features</strong> y <strong>Feature priority</strong>. Si no hay coincidencias, aparece <strong>No features exist yet. Create the first planning record.</strong>; cambia o borra los filtros para volver a ver los registros.</p>
+<p><img src="assets/project-board.png" alt="Project Board"></p>
+<h2 id="acceptance-criteria-y-dependencias">Acceptance Criteria y dependencias</h2>
+<p>En el detalle de una Feature, captura un criterio en <strong>New acceptance criterion</strong> y selecciona <strong>Add</strong>. Puedes editarlo, moverlo y marcarlo como satisfecho. La marca es una declaración manual: Forge muestra que no es evidencia de verificación.</p>
+<p>Para relacionar Features, selecciona una relación en <strong>Dependency relationship</strong>, una Feature en <strong>Dependency feature</strong> y presiona <strong>Add dependency</strong>. Forge evita ciclos. Si una dependencia bloquea la Feature, el panel <strong>Blocked by</strong> explica el vínculo.</p>
+<p><img src="assets/feature-detail.png" alt="Feature Detail"></p>
+<h2 id="decisions-e-invariants">Decisions e Invariants</h2>
+<p>Usa <strong>Decisions</strong> para documentar una elección relevante. Crea una con <strong>+ New decision</strong>, captura contexto, decisión y justificación; después selecciona <strong>Accept decision</strong> cuando la revisión sea la que el equipo aprueba. Las correcciones crean revisiones: acepta la revisión actual, no una anterior.</p>
+<p>Usa <strong>Invariants</strong> para condiciones que deben seguir siendo explícitas. Crea una con <strong>+ New invariant</strong>, escribe <strong>Statement</strong> y <strong>Rationale</strong>, y vincúlala a un Project o Feature según aplique. Una edición aumenta la revisión y requiere reconocimiento de la nueva versión cuando la Feature la evalúa.</p>
+<h2 id="readiness">Readiness</h2>
+<p>El panel <strong>Readiness</strong> de la Feature explica si la planeación está lista para comenzar. <strong>Preview current</strong> calcula el estado actual sin guardar historial; <strong>Evaluate &amp; save</strong> guarda un snapshot inmutable. <strong>READY TO START</strong> significa sólo que las reglas de planeación configuradas se cumplen; no significa que haya código, pruebas o verificación técnica.</p>
+<p>Para resolver bloqueos, agrega criterios, revisa dependencias, acepta Decisions y reconoce las Invariants aplicables con <strong>Acknowledge review</strong>. Si cambia una entrada relevante, un snapshot anterior aparece como <strong>STALE</strong> y debes revisarlo de nuevo.</p>
+<p><img src="assets/decisions-readiness.png" alt="Decisions y Readiness"></p>
+<h2 id="conexiones-de-repositorios-git">Conexiones de repositorios Git</h2>
+<p>Abre <strong>Repositories</strong> en un Project para conectar un árbol de trabajo Git local. Escribe la ruta en <strong>Local repository path</strong> y selecciona <strong>Connect local repo</strong>. Después usa <strong>Observe now</strong> para registrar metadatos de lectura.</p>
+<p>Forge no modifica el repositorio conectado: no hace commit, push, checkout ni ejecuta acciones remotas. La ruta debe pertenecer a una raíz local autorizada por el operador. Si no lo está, Forge rechaza la conexión y no crea un registro. Un Project archivado mantiene la lectura histórica pero no admite nuevas observaciones.</p>
+<h2 id="context-packages">Context Packages</h2>
+<p>En una Feature, abre <strong>Context package</strong>. Selecciona un repositorio conectado, usa <strong>Link</strong>, y elige <strong>Preview package</strong> para inspeccionar la información sin escribir historial. <strong>Generate &amp; save</strong> guarda un paquete inmutable y deduplicado cuando los inputs no cambian.</p>
+<p>Puedes abrir <strong>Tasks &amp; criteria</strong>, <strong>Git observations</strong> y <strong>Provenance &amp; limits</strong> para entender qué se incluyó. Los enlaces <strong>Download JSON</strong> y <strong>Download Markdown</strong> exportan la revisión almacenada. No incluyas secretos en datos de planeación o rutas de repositorio.</p>
+<p><img src="assets/context-packages.png" alt="Context Packages"></p>
+<h2 id="workbench-runs-y-handoffs">Workbench: Runs y Handoffs</h2>
+<p><strong>Workbench</strong> conserva Runs declarados por personas. Para registrar uno, abre <strong>Agent Runs</strong>, selecciona <strong>Record a New Run</strong>, escoge el Project y Feature, completa <strong>Run title</strong> y <strong>Executor label</strong>, y usa <strong>Record run</strong>. Forge no inicia ni controla al agente indicado.</p>
+<p>En el detalle de Run puedes agregar eventos y outputs declarados. Para preparar un reporte, usa <strong>Prepare handoff</strong>. Un Handoff necesita título, <strong>summary</strong> y <strong>next_actions</strong> significativos antes de <strong>Mark ready</strong>. Cuando esté listo, se publica una revisión inmutable que puede descargarse como JSON o Markdown.</p>
+<p>Quien recibe el Handoff abre la revisión actual y selecciona <strong>Acknowledge</strong>. Si cambió la revisión, Forge no reconoce automáticamente una que la persona no vio; recarga y confirma la revisión vigente.</p>
+<p><img src="assets/workbench-handoffs.png" alt="Workbench y Handoffs"></p>
+<h2 id="evidence-y-verifications">Evidence y Verifications</h2>
+<p>En <strong>Delivery</strong>, abre <strong>Evidence</strong> para registrar evidencia declarada. Usa <strong>Register evidence</strong> y describe fuente, resultado y proveniencia con precisión. Un registro <strong>REPORTED</strong> no implica que Forge haya ejecutado ni validado el sistema externo.</p>
+<p>En <strong>Verification center</strong> configura o consulta reglas deterministas sobre snapshots de Forge. Un resultado <strong>PASS</strong> prueba sólo la regla indicada y los inputs guardados. Los cambios relevantes pueden volver un resultado <strong>STALE</strong>.</p>
+<h2 id="release-candidates-y-gates">Release Candidates y gates</h2>
+<p>Una Release Candidate agrupa Features, Context Packages, evidencia y verificaciones. Crea una desde <strong>Release candidates</strong>, completa título y versión prevista, y usa <strong>Freeze candidate snapshot</strong>. Después, <strong>Evaluate release gates</strong> muestra condiciones bloqueadas o satisfechas con explicación.</p>
+<p><strong>READY BY DEFINED GATES</strong> no publica nada y no prueba por sí solo una entrega funcional. <strong>Generate &amp; save manifest</strong> genera un manifiesto local con estado <strong>NOT PUBLISHED</strong>; los enlaces de exportación sólo descargan ese registro.</p>
+<p><img src="assets/evidence-release-candidates.png" alt="Evidence y Release Candidates"></p>
+<h2 id="busqueda-atajos-y-temas-visuales">Búsqueda, atajos y temas visuales</h2>
+<p>Selecciona <strong>Search or command</strong> o presiona <code>Ctrl+K</code> para abrir la Command Palette. Escribe para filtrar acciones, usa flechas arriba/abajo y <code>Enter</code> para ejecutar una navegación local. <code>Esc</code> cierra la paleta y regresa el foco al botón que la abrió.</p>
+<p>El botón de tema cambia entre <strong>Dark mode</strong> y <strong>Light mode</strong>. La preferencia se conserva localmente. La interfaz está diseñada para escritorio y tiene una vista compacta en móvil; el Board puede desplazarse horizontalmente porque conserva columnas de planeación legibles.</p>
+<h2 id="exports">Exports</h2>
+<p>Forge permite descargar Context Packages, revisiones de Handoff y manifiestos de Release Candidate en JSON o Markdown mediante sus enlaces <strong>Download</strong> o <strong>Export</strong>. Estas descargas contienen el snapshot seleccionado; no son publicación, despliegue ni sincronización cloud.</p>
+<p>Antes de compartir un export, revisa rutas locales, títulos, referencias y datos declarados. Forge no elimina secretos que una persona haya escrito en esos campos.</p>
+<h2 id="datos-locales-respaldos-y-recuperacion">Datos locales, respaldos y recuperación</h2>
+<p>La aplicación Desktop guarda SQLite, logs y respaldos de migración en <code>%LOCALAPPDATA%\Forge</code>. Los datos sobreviven reinicios y reinstalaciones normales del producto. No copies una base mientras Forge está escribiendo: primero cierra la aplicación y conserva una copia fechada de la carpeta de datos.</p>
+<p>Si una actualización falla, conserva la carpeta antes de reinstalar y consulta el log local. La migración de datos se ejecuta al iniciar el producto empaquetado. Para el entorno de desarrollo, consulta <a href="../development.md">la guía de desarrollo</a>.</p>
+<h2 id="solucion-de-problemas">Solución de problemas</h2>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Qué hacer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>No aparece un Project</td>
+<td>Confirma el Workspace activo y abre <strong>Projects</strong>. Los Projects de otro Workspace no se muestran.</td>
+</tr>
+<tr>
+<td>No puedes crear o editar</td>
+<td>Revisa si el Project está <strong>archived</strong>; usa <strong>Restore</strong> si el equipo autorizó reanudarlo.</td>
+</tr>
+<tr>
+<td>La conexión de repositorio falla</td>
+<td>Verifica que sea un repositorio Git local bajo una raíz autorizada. Forge no acepta rutas arbitrarias.</td>
+</tr>
+<tr>
+<td>Readiness está STALE</td>
+<td>Revisa cambios de criterios, dependencias, Decisions o Invariants y guarda una evaluación nueva.</td>
+</tr>
+<tr>
+<td>No puedes marcar un Handoff READY</td>
+<td>Completa título, <strong>summary</strong> y <strong>next_actions</strong> con contenido no vacío.</td>
+</tr>
+<tr>
+<td>Un gate no pasa</td>
+<td>Abre la explicación del gate; registra o actualiza sólo la evidencia/verificación requerida. No declares éxito por una condición no evaluada.</td>
+</tr>
+</tbody></table>
+<h2 id="glosario-y-limitaciones-conocidas">Glosario y limitaciones conocidas</h2>
+<ul>
+<li><strong>Workspace:</strong> contenedor local de Projects aislados.</li>
+<li><strong>Project:</strong> registro durable de una iniciativa; puede archivarse y restaurarse.</li>
+<li><strong>Feature:</strong> unidad de intención con objetivo, criterios, Tasks y dependencias.</li>
+<li><strong>Context Package:</strong> snapshot inmutable del contexto de una Feature.</li>
+<li><strong>Run:</strong> registro declarado de trabajo; no una ejecución iniciada por Forge.</li>
+<li><strong>Handoff:</strong> reporte versionado y reconocible para transferencia de contexto.</li>
+<li><strong>Evidence:</strong> información reportada o observada con proveniencia explícita.</li>
+<li><strong>Verification:</strong> evaluación determinista de una regla sobre inputs guardados.</li>
+<li><strong>Release Candidate:</strong> snapshot local con gates explicables, nunca una publicación automática.</li>
+</ul>
+<p>Limitaciones actuales: Forge es local-first, sin cuentas, multiusuario, sincronización cloud, proveedor LLM, GitHub, ejecución de CI o despliegues. Git es opcional y sólo se observa de manera local y de lectura. La validación instalada de Desktop se mantiene mediante Windows UI Automation; esta guía no habilita depuración remota del WebView.</p>
+</article>
+</main><footer class="page-footer">Forge Desktop Alpha · Guía de usuario</footer></body></html>

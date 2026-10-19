@@ -88,10 +88,15 @@ test("accepts Planning MVP journeys with real API and persisted SQLite state", a
     await page.locator("form.inline-add").first().getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText(title, { exact: true })).toBeVisible();
   }
+  const taskReordered = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/tasks/reorder"),
+  );
   await page.getByRole("button", { name: /Move task Task two down/ }).click();
+  expect((await taskReordered).status()).toBe(200);
+  await expect(page.getByLabel("New acceptance criterion")).toBeEnabled();
   for (const description of ["Criterion one", "Criterion two", "Criterion three"]) {
     await page.getByLabel("New acceptance criterion").fill(description);
-    await page.locator("form.inline-add").nth(1).getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByLabel("New acceptance criterion").press("Enter");
     await expect(page.getByText(description, { exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: /Move criterion Criterion two down/ }).click();

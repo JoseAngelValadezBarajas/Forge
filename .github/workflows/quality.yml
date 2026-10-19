@@ -118,3 +118,17 @@ jobs:
       - name: Verify E2E isolation
         working-directory: frontend
         run: npm run test:isolation
+      - name: Build and validate Spanish user guide
+        working-directory: frontend
+        run: |
+          uv sync --locked --dev --group docs
+          npm run docs:build
+      - name: Upload user guide PDF
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-user-guide-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            docs/user-guide/Forge-User-Guide.es.html
+            docs/user-guide/generated/Forge-User-Guide.es.pdf

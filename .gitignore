@@ -30,6 +30,7 @@ frontend/coverage/
 playwright-report/
 test-results/
 frontend/artifacts/rfx-org-03b/candidate/
+docs/user-guide/generated/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/schemas/
 desktop/src-tauri/icons/*

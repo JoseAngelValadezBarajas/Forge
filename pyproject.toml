@@ -21,6 +21,9 @@ dev = [
 desktop-build = [
   "pyinstaller==6.22.3",
 ]
+docs = [
+  "pymupdf==1.26.7",
+]
 
 [tool.ruff]
 target-version = "py312"

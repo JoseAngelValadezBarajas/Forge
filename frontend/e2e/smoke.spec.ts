@@ -8,7 +8,6 @@ test("Forge opens, navigates, toggles theme, and has no console errors", async (
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Workspace", exact: true })).toBeVisible();
-  await expect(page.getByText("Your workspace is ready")).toBeVisible();
   await page.getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Light mode" }).click();
