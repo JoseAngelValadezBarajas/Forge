@@ -7,7 +7,11 @@ use reqwest::header::{
 };
 use reqwest::{Client, Method, Response};
 use serde::{Deserialize, Serialize};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tauri::{AppHandle, Manager};
 use tokio_util::sync::CancellationToken;
 
 const MAX_RESPONSE_BODY: usize = 32 * 1024 * 1024;
@@ -28,6 +32,176 @@ pub struct ApiResponse {
     pub content_type: Option<String>,
     pub content_disposition: Option<String>,
     pub body_base64: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiDownloadResponse {
+    pub status: u16,
+    pub content_type: Option<String>,
+    pub content_disposition: Option<String>,
+    pub body_base64: String,
+    pub saved: bool,
+}
+
+fn disposition_filename(value: Option<&str>) -> Option<&str> {
+    let value = value?;
+    let lower = value.to_ascii_lowercase();
+    let start = lower.find("filename=")? + "filename=".len();
+    let candidate = value[start..].trim_start();
+    if let Some(quoted) = candidate.strip_prefix('"') {
+        quoted.split('"').next().filter(|item| !item.is_empty())
+    } else {
+        candidate
+            .split(';')
+            .next()
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+    }
+}
+
+fn sanitize_filename(candidate: &str, fallback: &str) -> String {
+    let leaf = candidate.rsplit(['\\', '/']).next().unwrap_or("");
+    let mut name = leaf
+        .chars()
+        .map(|character| {
+            if matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*')
+                || character.is_control()
+            {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect::<String>();
+    while matches!(name.chars().last(), Some('.') | Some(' ')) {
+        name.pop();
+    }
+    name = name.trim().to_owned();
+    if name.is_empty() || name == "." || name == ".." {
+        name = fallback.to_owned();
+    }
+    let stem = name
+        .split_once('.')
+        .map_or(name.as_str(), |(stem, _)| stem)
+        .to_ascii_uppercase();
+    if matches!(
+        stem.as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    ) {
+        name.insert(0, '_');
+    }
+    name.chars().take(180).collect()
+}
+
+fn candidate_path(directory: &Path, filename: &str, suffix: u32) -> PathBuf {
+    if suffix == 0 {
+        return directory.join(filename);
+    }
+    let path = Path::new(filename);
+    let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("download");
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+    let name = if extension.is_empty() {
+        format!("{stem} ({suffix})")
+    } else {
+        format!("{stem} ({suffix}).{extension}")
+    };
+    directory.join(name)
+}
+
+fn save_download_bytes(
+    directory: &Path,
+    bytes: &[u8],
+    content_disposition: Option<&str>,
+    fallback_filename: &str,
+) -> Result<String, String> {
+    fs::create_dir_all(directory).map_err(|_| "Forge download folder is unavailable".to_owned())?;
+    let filename = sanitize_filename(
+        disposition_filename(content_disposition).unwrap_or(fallback_filename),
+        "forge-download",
+    );
+    for suffix in 0..1000 {
+        let target = candidate_path(directory, &filename, suffix);
+        match OpenOptions::new().write(true).create_new(true).open(&target) {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(bytes) {
+                    let _ = fs::remove_file(&target);
+                    return Err(format!("Forge could not save the download: {error}"));
+                }
+                return Ok(target
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("forge-download")
+                    .to_owned());
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(_) => return Err("Forge could not save the download".to_owned()),
+        }
+    }
+    Err("Forge could not choose a unique download filename".to_owned())
+}
+
+pub fn save_download(
+    app: &AppHandle,
+    response: ApiResponse,
+    fallback_filename: &str,
+) -> Result<ApiDownloadResponse, String> {
+    let ApiResponse {
+        status,
+        content_type,
+        content_disposition,
+        body_base64,
+    } = response;
+    if (200..300).contains(&status) {
+        let bytes = STANDARD
+            .decode(body_base64.as_bytes())
+            .map_err(|_| "desktop backend response was invalid".to_owned())?;
+        let directory = app
+            .path()
+            .download_dir()
+            .map_err(|_| "Forge download folder is unavailable".to_owned())?;
+        save_download_bytes(
+            &directory,
+            &bytes,
+            content_disposition.as_deref(),
+            fallback_filename,
+        )?;
+        return Ok(ApiDownloadResponse {
+            status,
+            content_type,
+            content_disposition,
+            body_base64: String::new(),
+            saved: true,
+        });
+    }
+    Ok(ApiDownloadResponse {
+        status,
+        content_type,
+        content_disposition,
+        body_base64,
+        saved: false,
+    })
 }
 
 pub fn validate_request_manifest(
@@ -137,11 +311,12 @@ pub async fn forward_request(
 
 #[cfg(test)]
 mod tests {
-    use super::{ApiRequest, forward_request, validate_request_manifest};
+    use super::{ApiRequest, forward_request, save_download_bytes, validate_request_manifest};
     use crate::route_policy::RouteManifest;
     use crate::session::Session;
     use base64::Engine;
     use base64::engine::general_purpose::STANDARD;
+    use std::fs;
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread;
@@ -316,5 +491,40 @@ mod tests {
             result.expect_err("cancelled request rejected"),
             "request cancelled"
         );
+    }
+
+    #[test]
+    fn saves_download_bytes_with_a_safe_unique_filename() {
+        let directory = std::env::temp_dir().join(format!(
+            "forge-desktop-download-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&directory);
+        let first = save_download_bytes(
+            &directory,
+            br#"{"project":"Forge"}"#,
+            Some(r#"attachment; filename="../../CON.json""#),
+            "fallback.json",
+        )
+        .expect("first download");
+        let second = save_download_bytes(
+            &directory,
+            br#"{"project":"Forge"}"#,
+            Some(r#"attachment; filename="../../CON.json""#),
+            "fallback.json",
+        )
+        .expect("second download");
+
+        assert_eq!(first, "_CON.json");
+        assert_eq!(second, "_CON (1).json");
+        assert_eq!(
+            fs::read(directory.join(&first)).expect("first bytes"),
+            br#"{"project":"Forge"}"#
+        );
+        assert_eq!(
+            fs::read(directory.join(&second)).expect("second bytes"),
+            br#"{"project":"Forge"}"#
+        );
+        fs::remove_dir_all(directory).expect("remove test directory");
     }
 }

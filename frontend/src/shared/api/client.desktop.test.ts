@@ -25,12 +25,14 @@ function desktopResponse(status: number, body: unknown, headers: Record<string, 
 
 async function captureDownloadedFilename(contentDisposition: string | null, fallback = "fallback.txt") {
   vi.useFakeTimers();
-  invokeMock.mockResolvedValue({
+  isTauriMock.mockReturnValue(false);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("download bytes", {
     status: 200,
-    contentType: "application/octet-stream",
-    contentDisposition,
-    bodyBase64: btoa("download bytes"),
-  });
+    headers: {
+      "Content-Type": "application/octet-stream",
+      ...(contentDisposition ? { "Content-Disposition": contentDisposition } : {}),
+    },
+  })));
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:forge-test") });
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
   let downloadedName = "";
@@ -127,14 +129,36 @@ describe("desktop API transport", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  test("preserves downloaded bytes and sanitizes the backend filename", async () => {
-    vi.useFakeTimers();
+  test("saves desktop downloads through the Rust-owned download transport", async () => {
     invokeMock.mockResolvedValue({
       status: 200,
-      contentType: "text/plain; charset=utf-8",
-      contentDisposition: 'attachment; filename="../../report.txt"',
-      bodyBase64: btoa("download bytes"),
+      contentType: "application/json",
+      contentDisposition: 'attachment; filename="project.json"',
+      bodyBase64: "",
+      saved: true,
     });
+
+    await expect(downloadFile("/api/workspaces/w1/export", "fallback.json")).resolves.toBeUndefined();
+
+    expect(invokeMock).toHaveBeenCalledWith("desktop_save_download", {
+      request: expect.objectContaining({
+        method: "GET",
+        path_and_query: "/api/workspaces/w1/export",
+      }),
+      fallbackFilename: "fallback.json",
+    });
+  });
+
+  test("preserves downloaded bytes and sanitizes the backend filename", async () => {
+    vi.useFakeTimers();
+    isTauriMock.mockReturnValue(false);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("download bytes", {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="../../report.txt"',
+      },
+    })));
     const createObjectUrl = vi.fn().mockReturnValue("blob:forge-test");
     const revokeObjectUrl = vi.fn();
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectUrl });
@@ -147,9 +171,7 @@ describe("desktop API transport", () => {
     await downloadFile("/api/workspaces/w1/export", "fallback.txt");
     expect(downloadedName).toBe("report.txt");
     expect(createObjectUrl).toHaveBeenCalledWith(expect.any(Blob));
-    expect(invokeMock).toHaveBeenCalledWith("desktop_api_request", {
-      request: expect.objectContaining({ path_and_query: "/api/workspaces/w1/export", method: "GET" }),
-    });
+    expect(invokeMock).not.toHaveBeenCalled();
     vi.runOnlyPendingTimers();
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:forge-test");
     click.mockRestore();
@@ -180,7 +202,10 @@ describe("desktop API transport", () => {
   });
 
   test("preserves download error status and backend detail", async () => {
-    invokeMock.mockResolvedValue(desktopResponse(404, { detail: "Export was not found" }));
+    invokeMock.mockResolvedValue({
+      ...desktopResponse(404, { detail: "Export was not found" }),
+      saved: false,
+    });
 
     await expect(downloadFile("/api/export")).rejects.toEqual(
       new ApiError(404, "Export was not found"),
