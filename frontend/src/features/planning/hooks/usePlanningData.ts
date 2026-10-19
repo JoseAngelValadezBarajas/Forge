@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { forgeApi, type Epic, type Feature, type FeatureDependency, type FeaturePriority, type ProjectPlanningOverview, type Workspace } from "../../../api";
+import { forgeApi, type Epic, type Feature, type FeatureDependency, type FeaturePriority, type FeatureStatus, type Project, type ProjectPlanningOverview, type Workspace } from "../../../api";
 import { errorMessage } from "../utils";
 
 export type PlanningData = {
+  project: Project;
   overview: ProjectPlanningOverview;
   epics: Epic[];
   features: Feature[];
   dependencies: FeatureDependency[];
 };
 
+export type PlanningFilters = {
+  search?: string;
+  status?: FeatureStatus;
+  priority?: FeaturePriority;
+  epicId?: string;
+};
+
 export function usePlanningData(
   workspace: Workspace | null,
   projectId: string | undefined,
-  search = "",
-  priority?: FeaturePriority,
+  filters: PlanningFilters = {},
 ) {
   const [data, setData] = useState<PlanningData | null>(null);
   const [loading, setLoading] = useState(Boolean(workspace && projectId));
@@ -33,14 +40,15 @@ export function usePlanningData(
     }
     setLoading(true);
     try {
-      const [overview, epics, features, dependencies] = await Promise.all([
+      const [project, overview, epics, features, dependencies] = await Promise.all([
+        forgeApi.getProject(workspace.id, projectId, controller.signal),
         forgeApi.getPlanningOverview(workspace.id, projectId, controller.signal),
         forgeApi.listEpics(workspace.id, projectId, controller.signal),
-        forgeApi.listFeatures(workspace.id, projectId, { search, priority }, controller.signal),
+        forgeApi.listFeatures(workspace.id, projectId, filters, controller.signal),
         forgeApi.listDependencies(workspace.id, projectId, controller.signal),
       ]);
       if (currentRequest !== requestId.current) return;
-      setData({ overview, epics, features, dependencies });
+      setData({ project, overview, epics, features, dependencies });
       setError(null);
     } catch (cause) {
       if (controller.signal.aborted || currentRequest !== requestId.current) return;
@@ -48,7 +56,7 @@ export function usePlanningData(
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
-  }, [priority, projectId, search, workspace]);
+  }, [filters, projectId, workspace]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

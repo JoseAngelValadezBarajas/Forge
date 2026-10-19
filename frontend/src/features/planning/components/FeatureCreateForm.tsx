@@ -19,11 +19,13 @@ export type FeatureFormPayload = {
 
 export function FeatureCreateForm({
   epics,
+  initialEpicId,
   onSubmit,
   onCancel,
   actionPending,
 }: {
   epics: Epic[];
+  initialEpicId?: string;
   onSubmit: (
     payload: Omit<FeatureFormPayload, "clear_epic">,
   ) => Promise<boolean>;
@@ -35,7 +37,7 @@ export function FeatureCreateForm({
   const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState<FeaturePriority>("medium");
   const [status, setStatus] = useState<FeatureStatus>("backlog");
-  const [epicId, setEpicId] = useState("");
+  const [epicId, setEpicId] = useState(initialEpicId ?? "");
   const [error, setError] = useState<string | null>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();

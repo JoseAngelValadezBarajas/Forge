@@ -1,16 +1,19 @@
-import { type Feature, type FeatureStatus } from "../../../api";
+import { type Epic, type Feature, type FeatureStatus } from "../../../api";
 import { statuses, label } from "../utils";
 import { FeatureCard } from "./FeatureCard";
 
 export function Board({
   features,
+  epics,
   onStatusChange,
   disabled,
 }: {
   features: Feature[];
+  epics: Epic[];
   onStatusChange: (feature: Feature, status: FeatureStatus) => Promise<boolean>;
   disabled: boolean;
 }) {
+  const epicNames = new Map(epics.map((epic) => [epic.id, epic.title]));
   return (
     <section className="kanban-board" aria-label="Feature workflow board">
       {statuses.map((status) => (
@@ -28,6 +31,7 @@ export function Board({
                 <FeatureCard
                   disabled={disabled}
                   feature={feature}
+                  epicTitle={feature.epic_id ? epicNames.get(feature.epic_id) : undefined}
                   key={feature.id}
                   onStatusChange={onStatusChange}
                 />

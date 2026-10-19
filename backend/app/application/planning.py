@@ -150,7 +150,8 @@ class PlanningService:
         if search and search.strip():
             pattern = f"%{search.strip()}%"
             query = query.where(
-                FeatureModel.title.ilike(pattern)
+                FeatureModel.readable_id.ilike(pattern)
+                | FeatureModel.title.ilike(pattern)
                 | FeatureModel.description.ilike(pattern)
                 | FeatureModel.goal.ilike(pattern)
             )

@@ -2,16 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   forgeApi,
-  type Epic,
   type Project,
-  type ProjectPlanningOverview,
   type Workspace,
 } from "../../../api";
 import { ProjectForm } from "../components/ProjectForm";
 import { ProjectExportPanel } from "../components/ProjectExportPanel";
+import { ProjectPlanningHome } from "../components/ProjectPlanningHome";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
+import { ProjectBreadcrumbs } from "../../../shared/ui/ProjectBreadcrumbs";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 
@@ -113,6 +113,15 @@ export function ProjectOverviewPage({
   };
   return (
     <PageFrame
+      breadcrumbs={
+        project ? (
+          <ProjectBreadcrumbs
+            current="Overview"
+            project={project}
+            workspace={workspace}
+          />
+        ) : undefined
+      }
       onOpenPalette={onOpenPalette}
       subtitle="A real project record, with persistent planning data and no simulated delivery state."
       title={project?.name ?? "Project overview"}
@@ -264,7 +273,7 @@ export function ProjectOverviewPage({
               />
             </section>
           )}
-          <PlanningSummary projectId={project.id} workspace={workspace} />
+          <ProjectPlanningHome project={project} workspace={workspace} />
           <section className="future-grid">
             <div>
               <span className="eyebrow">REPOSITORY</span>
@@ -280,137 +289,5 @@ export function ProjectOverviewPage({
         </>
       ) : null}
     </PageFrame>
-  );
-}
-
-function PlanningSummary({
-  workspace,
-  projectId,
-}: {
-  workspace: Workspace | null;
-  projectId: string;
-}) {
-  const [overview, setOverview] = useState<ProjectPlanningOverview | null>(
-    null,
-  );
-  const [epics, setEpics] = useState<Epic[]>([]);
-  const [decisionCount, setDecisionCount] = useState(0);
-  const [invariantCount, setInvariantCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    if (!workspace) return () => controller.abort();
-    void Promise.all([
-      forgeApi.getPlanningOverview(workspace.id, projectId, controller.signal),
-      forgeApi.listEpics(workspace.id, projectId, controller.signal),
-      forgeApi.listDecisions(workspace.id, projectId, controller.signal),
-      forgeApi.listInvariants(workspace.id, projectId, true, controller.signal),
-    ])
-      .then(([nextOverview, nextEpics, nextDecisions, nextInvariants]) => {
-        setOverview(nextOverview);
-        setEpics(Array.isArray(nextEpics) ? nextEpics : []);
-        setDecisionCount(
-          Array.isArray(nextDecisions) ? nextDecisions.length : 0,
-        );
-        setInvariantCount(
-          Array.isArray(nextInvariants)
-            ? nextInvariants.filter((item) => item.status === "active").length
-            : 0,
-        );
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not load planning summary.",
-          );
-      });
-    return () => controller.abort();
-  }, [projectId, workspace]);
-  return (
-    <section className="planning-summary">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">PLANNING CONTEXT</span>
-          <h2>Intent, decisions and constraints</h2>
-        </div>
-        <div className="detail-actions">
-          <Link
-            className="button secondary"
-            to={`/projects/${projectId}/board`}
-          >
-            Open board
-          </Link>
-          <Link
-            className="button ghost"
-            to={`/projects/${projectId}/decisions`}
-          >
-            Decisions
-          </Link>
-          <Link
-            className="button ghost"
-            to={`/projects/${projectId}/invariants`}
-          >
-            Invariants
-          </Link>
-        </div>
-      </div>
-      {error ? (
-        <p className="status-error" role="alert">
-          {error}
-        </p>
-      ) : overview ? (
-        <>
-          <div className="planning-metrics">
-            <div>
-              <strong>{overview.epics}</strong>
-              <span>Epics</span>
-            </div>
-            <div>
-              <strong>{overview.features}</strong>
-              <span>Features</span>
-            </div>
-            <div>
-              <strong>{overview.tasks}</strong>
-              <span>Tasks</span>
-            </div>
-            <div>
-              <strong>
-                {overview.satisfied_criteria}/{overview.acceptance_criteria}
-              </strong>
-              <span>Criteria declared</span>
-            </div>
-            <div>
-              <strong>{overview.dependencies}</strong>
-              <span>Dependencies</span>
-            </div>
-            <div>
-              <strong>{decisionCount}</strong>
-              <span>Decisions</span>
-            </div>
-            <div>
-              <strong>{invariantCount}</strong>
-              <span>Active invariants</span>
-            </div>
-          </div>
-          <p className="planning-disclaimer">
-            Manual planning state only. No repository, CI, verification or
-            release evidence is inferred.
-          </p>
-          {epics.length > 0 && (
-            <div className="summary-epics">
-              {epics.slice(0, 4).map((epic) => (
-                <span className="status-chip neutral" key={epic.id}>
-                  {epic.title}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <LoadingPanel label="Loading planning summary" />
-      )}
-    </section>
   );
 }

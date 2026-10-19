@@ -13,6 +13,8 @@ const baselinePaths = [
   "/projects/:projectId/repositories",
   "/projects/:projectId/board",
   "/projects/:projectId/features",
+  "/projects/:projectId/epics",
+  "/projects/:projectId/epics/:epicId",
   "/projects/:projectId/features/:featureId",
   "/projects/:projectId/features/:featureId/context",
   "/projects/:projectId/decisions",

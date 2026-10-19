@@ -12,7 +12,8 @@ import {
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
-import { usePlanningData } from "../hooks/usePlanningData";
+import { ProjectBreadcrumbs } from "../../../shared/ui/ProjectBreadcrumbs";
+import { usePlanningData, type PlanningFilters } from "../hooks/usePlanningData";
 import { errorMessage, label, priorities } from "../utils";
 import { FeatureCreateForm } from "../components/FeatureCreateForm";
 import { EpicCreateForm } from "../components/EpicCreateForm";
@@ -32,6 +33,7 @@ export function PlanningPage({
   const { projectId } = useParams<{ projectId: string }>();
   const location = useLocation();
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<FeatureStatus | undefined>();
   const [priority, setPriority] = useState<FeaturePriority | undefined>();
   const [localCreateForm, setLocalCreateForm] = useState<
     "feature" | "epic" | null
@@ -39,18 +41,25 @@ export function PlanningPage({
   const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
-  const { data, loading, error, reload } = usePlanningData(
-    workspace,
-    projectId,
-    search,
-    priority,
+  const epicFilter = useMemo(
+    () => new URLSearchParams(location.search).get("epic") ?? undefined,
+    [location.search],
   );
+  const filters = useMemo<PlanningFilters>(
+    () => ({ search, status, priority, epicId: epicFilter }),
+    [epicFilter, priority, search, status],
+  );
+  const { data, loading, error, reload } = usePlanningData(workspace, projectId, filters);
+  const canMutate = data?.project.status === "active";
   const navigate = useNavigate();
   const routeCreateForm = useMemo<"feature" | "epic" | null>(() => {
     const intent = new URLSearchParams(location.search).get("create");
     return intent === "1" ? "feature" : intent === "epic" ? "epic" : null;
   }, [location.search]);
-  const createForm = routeCreateForm ?? localCreateForm;
+  // Do not honor creation intents until the project has been loaded and verified
+  // as active. This also prevents archived deep links from briefly exposing a
+  // form while the planning request is still in flight.
+  const createForm = canMutate ? (routeCreateForm ?? localCreateForm) : null;
   const clearCreateIntent = useCallback(() => {
     const params = new URLSearchParams(location.search);
     if (!params.has("create")) return;
@@ -68,12 +77,29 @@ export function PlanningPage({
     setLocalCreateForm(null);
     clearCreateIntent();
   }, [clearCreateIntent]);
+  const clearFilters = () => {
+    setSearch("");
+    setStatus(undefined);
+    setPriority(undefined);
+    if (new URLSearchParams(location.search).has("epic")) {
+      const params = new URLSearchParams(location.search);
+      params.delete("epic");
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.toString() ? `?${params.toString()}` : "",
+          hash: location.hash,
+        },
+        { replace: true },
+      );
+    }
+  };
 
   const runMutation = async (
     action: () => Promise<void>,
     fallback: string,
   ): Promise<boolean> => {
-    if (actionPending) return false;
+    if (!canMutate || actionPending) return false;
     setActionPending(true);
     setActionError(null);
     try {
@@ -96,7 +122,7 @@ export function PlanningPage({
     status: FeatureStatus;
     epic_id?: string;
   }): Promise<boolean> => {
-    if (!workspace || !projectId || actionPending) return false;
+    if (!workspace || !projectId || !canMutate || actionPending) return false;
     setActionPending(true);
     setActionError(null);
     try {
@@ -118,7 +144,7 @@ export function PlanningPage({
   };
 
   const createEpic = (title: string, description: string): Promise<boolean> => {
-    if (!workspace || !projectId) return Promise.resolve(false);
+    if (!workspace || !projectId || !canMutate) return Promise.resolve(false);
     return runMutation(async () => {
       await forgeApi.createEpic(workspace.id, projectId, {
         title,
@@ -133,7 +159,7 @@ export function PlanningPage({
     epic: Epic,
     payload: { title: string; description: string; status: EpicStatus },
   ): Promise<boolean> => {
-    if (!workspace || !projectId) return Promise.resolve(false);
+    if (!workspace || !projectId || !canMutate) return Promise.resolve(false);
     return runMutation(async () => {
       await forgeApi.updateEpic(workspace.id, projectId, epic.id, payload);
       setEditingEpic(null);
@@ -144,7 +170,7 @@ export function PlanningPage({
     feature: Feature,
     nextStatus: FeatureStatus,
   ): Promise<boolean> => {
-    if (!workspace || !projectId || feature.status === nextStatus)
+    if (!workspace || !projectId || !canMutate || feature.status === nextStatus)
       return Promise.resolve(false);
     return runMutation(
       () =>
@@ -159,6 +185,19 @@ export function PlanningPage({
 
   return (
     <PageFrame
+      breadcrumbs={
+        data?.project ? (
+          <ProjectBreadcrumbs
+            current={mode === "board" ? "Board" : "Features"}
+            parent={{
+              label: "Overview",
+              to: `/projects/${data.project.id}`,
+            }}
+            project={data.project}
+            workspace={workspace}
+          />
+        ) : undefined
+      }
       onOpenPalette={onOpenPalette}
       subtitle="Manual planning state only. Verification and delivery evidence are separate milestones."
       title={mode === "board" ? "Project Board" : "Features & Epics"}
@@ -188,7 +227,7 @@ export function PlanningPage({
         <div className="planning-actions">
           <button
             className="button secondary"
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onClick={() => setLocalCreateForm("epic")}
             type="button"
           >
@@ -196,7 +235,7 @@ export function PlanningPage({
           </button>
           <button
             className="button primary"
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onClick={() => setLocalCreateForm("feature")}
             type="button"
           >
@@ -204,6 +243,11 @@ export function PlanningPage({
           </button>
         </div>
       </div>
+      {data?.project.status === "archived" && (
+        <div className="planning-read-only" role="status">
+          Archived project · planning is read-only.
+        </div>
+      )}
       <section className="planning-filters" aria-label="Feature filters">
         <label className="search-field">
           Search features
@@ -213,6 +257,27 @@ export function PlanningPage({
             placeholder="Search title, goal or description"
             value={search}
           />
+        </label>
+        <label className="filter-field">
+          Status
+          <select
+            aria-label="Feature workflow"
+            onChange={(event) =>
+              setStatus(
+                event.target.value
+                  ? (event.target.value as FeatureStatus)
+                  : undefined,
+              )
+            }
+            value={status ?? ""}
+          >
+            <option value="">All statuses</option>
+            {(["backlog", "refining", "ready", "in_progress", "verify", "done"] as FeatureStatus[]).map((item) => (
+              <option key={item} value={item}>
+                {label(item)}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="filter-field">
           Priority
@@ -235,6 +300,39 @@ export function PlanningPage({
             ))}
           </select>
         </label>
+        <label className="filter-field">
+          Epic
+          <select
+            aria-label="Feature grouping"
+            onChange={(event) => {
+              const value = event.target.value;
+              const params = new URLSearchParams(location.search);
+              if (value) params.set("epic", value);
+              else params.delete("epic");
+              navigate(
+                {
+                  pathname: location.pathname,
+                  search: params.toString() ? `?${params.toString()}` : "",
+                  hash: location.hash,
+                },
+                { replace: true },
+              );
+            }}
+            value={epicFilter ?? ""}
+          >
+            <option value="">All Epics</option>
+            {data?.epics.map((epic) => (
+              <option key={epic.id} value={epic.id}>
+                {epic.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(search || status || priority || epicFilter) && (
+          <button className="button ghost" onClick={clearFilters} type="button">
+            Reset filters
+          </button>
+        )}
       </section>
       {actionError && (
         <div className="feedback-panel error-panel" role="alert">
@@ -252,6 +350,7 @@ export function PlanningPage({
         <FeatureCreateForm
           actionPending={actionPending}
           epics={data?.epics ?? []}
+          initialEpicId={epicFilter}
           onCancel={closeCreateForm}
           onSubmit={createFeature}
         />
@@ -263,7 +362,7 @@ export function PlanningPage({
           onSubmit={createEpic}
         />
       )}
-      {editingEpic && (
+      {editingEpic && canMutate && (
         <EpicEditForm
           actionPending={actionPending}
           epic={editingEpic}
@@ -278,14 +377,15 @@ export function PlanningPage({
       ) : data ? (
         mode === "board" ? (
           <Board
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
+            epics={data.epics}
             features={data.features}
             onStatusChange={updateStatus}
           />
         ) : (
           <FeatureInventory
             data={data}
-            disabled={actionPending}
+            disabled={!canMutate || actionPending}
             onEditEpic={setEditingEpic}
             onStatusChange={updateStatus}
           />

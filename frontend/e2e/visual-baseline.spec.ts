@@ -34,6 +34,19 @@ async function capture(page: Page, name: string) {
     for (const element of elements)
       element.textContent = "Last observation 10/16/2026, 1:00:00 AM";
   });
+  // The fixture uses the current clock for persisted planning records. Keep
+  // visual snapshots stable across calendar days without changing product
+  // behavior or masking layout around the dates.
+  await page.locator("body").evaluate((body) => {
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    let node: Node | null = walker.nextNode();
+    while (node) {
+      if (node.nodeValue) {
+        node.nodeValue = node.nodeValue.replace(/Oct \d{1,2}, 2026/g, "Oct 16, 2026");
+      }
+      node = walker.nextNode();
+    }
+  });
   const options = {
     animations: "disabled" as const,
     caret: "hide" as const,
