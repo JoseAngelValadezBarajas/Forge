@@ -348,22 +348,45 @@ async function downloadedFiles() {
   return files;
 }
 
+async function downloadDiagnostics() {
+  const directories = [];
+  for (const directory of downloadSearchDirectories) {
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+    directories.push({ directory, files: entries.map((entry) => entry.name).sort() });
+  }
+  return directories;
+}
+
 async function exportAndVerify(ui, expectedProjectName, expectedFeatureName) {
   const before = await downloadedFiles();
   ui.click("Button", "Export project");
   ui.wait("Text", "Export project", 30, "exact");
   ui.click("Button", "Download JSON");
-  const fileName = await waitFor(async () => {
-    const current = await downloadedFiles();
-    const downloaded = [...current].find((entry) => {
-      const separator = entry.lastIndexOf("|");
-      const name = entry.slice(separator + 1);
-      return !before.has(entry) && name.startsWith("forge-project-");
-    });
-    if (!downloaded) return undefined;
-    const separator = downloaded.lastIndexOf("|");
-    return { directory: downloaded.slice(0, separator), name: downloaded.slice(separator + 1) };
-  }, "the exported Project JSON in Downloads");
+  let fileName;
+  try {
+    fileName = await waitFor(async () => {
+      const current = await downloadedFiles();
+      const downloaded = [...current].find((entry) => {
+        const separator = entry.lastIndexOf("|");
+        const name = entry.slice(separator + 1);
+        return !before.has(entry) && name.startsWith("forge-project-");
+      });
+      if (!downloaded) return undefined;
+      const separator = downloaded.lastIndexOf("|");
+      return { directory: downloaded.slice(0, separator), name: downloaded.slice(separator + 1) };
+    }, "the exported Project JSON in Downloads");
+  } catch (error) {
+    const evidencePath = path.join(screenshotDirectory, `export-failure-${expectedProjectName.replace(/[^a-z0-9]+/gi, "-")}.png`);
+    let uiTree = "unavailable";
+    try {
+      ui.screenshot(evidencePath);
+      uiTree = ui.inspect();
+    } catch (diagnosticError) {
+      uiTree = `diagnostic failed: ${diagnosticError}`;
+    }
+    const directories = await downloadDiagnostics();
+    throw new Error(`${error.message}; download directories=${JSON.stringify(directories)}; UIA=${uiTree}`);
+  }
   const downloadedPath = path.join(fileName.directory, fileName.name);
   try {
     const document = JSON.parse(await readFile(downloadedPath, "utf8"));
