@@ -8,6 +8,7 @@ import {
   type Workspace,
 } from "../../../api";
 import { ProjectForm } from "../components/ProjectForm";
+import { ProjectExportPanel } from "../components/ProjectExportPanel";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
@@ -32,8 +33,7 @@ export function ProjectOverviewPage({
   >(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const requestId = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -109,20 +109,6 @@ export function ProjectOverviewPage({
       );
     } finally {
       setStatusAction(null);
-    }
-  };
-  const exportProject = async () => {
-    if (!workspace || !project || exporting) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      await forgeApi.exportProject(workspace.id, project.id);
-    } catch (cause) {
-      setExportError(
-        cause instanceof Error ? cause.message : "Could not export project.",
-      );
-    } finally {
-      setExporting(false);
     }
   };
   return (
@@ -223,11 +209,10 @@ export function ProjectOverviewPage({
               </button>
               <button
                 className="button secondary"
-                disabled={exporting}
-                onClick={() => void exportProject()}
+                onClick={() => setExportOpen(true)}
                 type="button"
               >
-                {exporting ? "Exporting..." : "Export project"}
+                Export project
               </button>
               <button
                 className="button ghost"
@@ -247,12 +232,14 @@ export function ProjectOverviewPage({
                 {statusError}
               </p>
             )}
-            {exportError && (
-              <p aria-live="assertive" className="status-error" role="alert">
-                {exportError}
-              </p>
-            )}
           </section>
+          {exportOpen && workspace && (
+            <ProjectExportPanel
+              onClose={() => setExportOpen(false)}
+              project={project}
+              workspace={workspace}
+            />
+          )}
           {editing && (
             <section className="form-panel">
               <div className="section-heading">

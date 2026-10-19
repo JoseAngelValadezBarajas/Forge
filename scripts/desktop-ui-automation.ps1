@@ -123,6 +123,112 @@ function Find-ForgeElement($root, [bool]$wait) {
     return $null
 }
 
+function ConvertTo-SendKeysLiteral([string]$value) {
+    $builder = [System.Text.StringBuilder]::new()
+    foreach ($character in $value.ToCharArray()) {
+        if ([string]$character -in @('+', '^', '%', '~', '(', ')', '{', '}', '[', ']')) {
+            [void]$builder.Append('{')
+            [void]$builder.Append($character)
+            [void]$builder.Append('}')
+        } else {
+            [void]$builder.Append($character)
+        }
+    }
+    return $builder.ToString()
+}
+
+function Invoke-ForgeFilePicker {
+    $forgeWindow = Get-ForgeWindow
+    $element = Find-ForgeElement $forgeWindow.Root $true
+    if (-not $element) { throw "Could not find the file picker trigger named '$($env:FORGE_UIA_NAME)'." }
+    $pattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+        ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+    } else {
+        throw "File picker trigger '$($env:FORGE_UIA_NAME)' cannot be invoked."
+    }
+    $path = $env:FORGE_UIA_FILE_PATH
+    if (-not $path) { throw "FORGE_UIA_FILE_PATH is required for file picker automation." }
+    $deadline = [DateTime]::UtcNow.AddSeconds([int]$env:FORGE_UIA_TIMEOUT_SECONDS)
+    do {
+        $windowCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Window
+        )
+        $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            $windowCondition
+        )
+        foreach ($dialog in $windows) {
+            try {
+                $name = [string]$dialog.Current.Name
+                if ($name -notmatch 'Open|Select|Choose|Upload') { continue }
+                $editCondition = [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Edit
+                )
+                $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+                $fileNameEdit = $null
+                foreach ($edit in $edits) {
+                    $editName = [string]$edit.Current.Name
+                    if ($editName -match 'File name|File name:|^Name$') {
+                        try {
+                            $candidatePattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                            if (-not ([System.Windows.Automation.ValuePattern]$candidatePattern).Current.IsReadOnly) {
+                                $fileNameEdit = $edit
+                                break
+                            }
+                        } catch [System.Windows.Automation.ElementNotAvailableException] {
+                            continue
+                        }
+                    }
+                }
+                $actionControls = $dialog.FindAll(
+                    [System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition
+                )
+                foreach ($button in $actionControls) {
+                    if ([string]$button.Current.Name -notmatch '^&?(Open|Choose|Select)$') { continue }
+                    $buttonPattern = $null
+                    if ($fileNameEdit -and $button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$buttonPattern)) {
+                        $valuePattern = $fileNameEdit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                        ([System.Windows.Automation.ValuePattern]$valuePattern).SetValue($path)
+                        ([System.Windows.Automation.InvokePattern]$buttonPattern).Invoke()
+                        Write-Output "Selected file through the native Windows picker."
+                        return
+                    }
+                }
+
+                # Windows 11's common picker can expose the dialog as a Pane
+                # without an actionable Open button or a named file-name edit.
+                # Use its documented keyboard accelerators only after the
+                # dialog was found through UI Automation; this keeps the smoke
+                # test on the native picker without depending on localized or
+                # virtualized control names.
+                try {
+                    $dialog.SetFocus()
+                } catch [System.InvalidOperationException] {
+                    # The native picker is already foreground after the
+                    # trigger invocation, but its Window element can reject
+                    # SetFocus on some hosted Windows runners.
+                }
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait('%n')
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait((ConvertTo-SendKeysLiteral $path))
+                Start-Sleep -Milliseconds 100
+                [System.Windows.Forms.SendKeys]::SendWait('%o')
+                Write-Output "Selected file through the native Windows picker keyboard fallback."
+                return
+            } catch [System.Windows.Automation.ElementNotAvailableException] {
+                continue
+            }
+        }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Timed out waiting for the native Windows file picker."
+}
+
 function Get-ForgeAccessibilityTree($root, [int]$limit = 250) {
     $lines = [System.Collections.Generic.List[string]]::new()
     try {
@@ -195,6 +301,9 @@ try {
             if ($valuePattern.Current.IsReadOnly) { throw "Control '$($env:FORGE_UIA_NAME)' is read-only." }
             $valuePattern.SetValue($env:FORGE_UIA_VALUE)
             Write-Output "Set value on control '$($env:FORGE_UIA_NAME)'."
+        }
+        "choose-file" {
+            Invoke-ForgeFilePicker
         }
         "screenshot" {
             $filePath = $env:FORGE_UIA_SCREENSHOT_PATH

@@ -1,8 +1,9 @@
 fn main() {
-    static COMMANDS: [&str; 4] = [
+    static COMMANDS: [&str; 5] = [
         "desktop_runtime_status",
         "desktop_retry_start",
         "desktop_api_request",
+        "desktop_save_download",
         "desktop_cancel_api_request",
     ];
     let attributes = tauri_build::Attributes::new()

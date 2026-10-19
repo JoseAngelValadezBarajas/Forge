@@ -1,6 +1,6 @@
 import { ApiError } from "./errors";
 import { isTauri } from "@tauri-apps/api/core";
-import { desktopApiFetch } from "./desktopTransport";
+import { desktopApiDownload, desktopApiFetch } from "./desktopTransport";
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return isTauri() ? desktopApiFetch(path, init) : fetch(path, init);
@@ -52,8 +52,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function downloadFile(path: string, fallbackFilename = "forge-download"): Promise<void> {
-  const response = await apiFetch(path);
+  const response = isTauri()
+    ? await desktopApiDownload(path, fallbackFilename)
+    : await apiFetch(path);
   if (!response.ok) throw new ApiError(response.status, await errorDetail(response));
+  if (isTauri()) return;
   const filename = responseFilename(response.headers.get("Content-Disposition"), fallbackFilename);
   const objectUrl = URL.createObjectURL(await response.blob());
   const anchor = document.createElement("a");

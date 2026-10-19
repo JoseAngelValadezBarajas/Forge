@@ -6,7 +6,7 @@ mod route_policy;
 mod session;
 mod windows_process;
 
-use api_bridge::{ApiRequest, ApiResponse};
+use api_bridge::{ApiDownloadResponse, ApiRequest, ApiResponse, save_download};
 use lifecycle::{DesktopRuntime, RuntimePaths, RuntimeStatus};
 use session::is_trusted_caller;
 use std::io;
@@ -39,6 +39,19 @@ async fn desktop_api_request(
 ) -> Result<ApiResponse, String> {
     verify_bundled_caller(&window)?;
     runtime.api_request(request).await
+}
+
+#[tauri::command]
+async fn desktop_save_download(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    runtime: State<'_, Arc<DesktopRuntime>>,
+    request: ApiRequest,
+    fallback_filename: String,
+) -> Result<ApiDownloadResponse, String> {
+    verify_bundled_caller(&window)?;
+    let response = runtime.api_request(request).await?;
+    save_download(&app, response, &fallback_filename)
 }
 
 #[tauri::command]
@@ -79,6 +92,7 @@ fn main() {
             desktop_runtime_status,
             desktop_retry_start,
             desktop_api_request,
+            desktop_save_download,
             desktop_cancel_api_request
         ])
         .setup(|app| {

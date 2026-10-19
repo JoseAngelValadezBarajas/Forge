@@ -24,7 +24,7 @@ const hierarchyDocument = {
   ],
 };
 
-test("IMP-01 preview exposes the planning hierarchy before confirmation", async ({ page }) => {
+test("IMP-01 preview exposes the planning hierarchy before confirmation", async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -38,6 +38,7 @@ test("IMP-01 preview exposes the planning hierarchy before confirmation", async 
 
   await page.goto("/projects");
   await page.getByRole("button", { name: "Import project" }).click();
+  await page.screenshot({ path: testInfo.outputPath("project-import-select.png"), fullPage: true });
   await page.getByRole("textbox", { name: "Project import JSON" }).fill(JSON.stringify(hierarchyDocument));
   await page.getByRole("button", { name: "Preview import" }).click();
 
@@ -77,14 +78,17 @@ test("IMP-01 imports a reviewed planning document, exports it, and preserves arc
   await page.getByRole("button", { name: "Preview import" }).click();
   await expect(page.getByRole("status")).toContainText("Preview validated");
   await expect(page.getByText(/Fingerprint:/)).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("project-import-preview.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("project-import-review.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Confirm import" }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+$/);
   await expect(page.getByRole("heading", { level: 1, name: "Forge planning example", exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "Export project", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Export project", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("project-export-review.png"), fullPage: true });
   const exportDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export project" }).click();
+  await page.getByRole("button", { name: "Download JSON" }).click();
   const exported = await exportDownload;
   expect(exported.suggestedFilename()).toContain("forge-project-");
   const exportedPath = await exported.path();
@@ -96,8 +100,10 @@ test("IMP-01 imports a reviewed planning document, exports it, and preserves arc
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "Archive" }).click();
   await expect(page.getByRole("status")).toContainText("Project archived");
+  await page.getByRole("button", { name: "Export project", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Export project", exact: true })).toBeVisible();
   const archivedDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export project" }).click();
+  await page.getByRole("button", { name: "Download JSON" }).click();
   await expect((await archivedDownload).path()).resolves.toBeTruthy();
 
   const secondWorkspaceResponse = await page.request.post("/api/workspaces", {
@@ -140,5 +146,39 @@ test("IMP-01 imports a reviewed planning document, exports it, and preserves arc
   await page.getByRole("link", { name: "Home", exact: true }).click();
   await page.getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("button", { name: /Forge planning example/ })).toBeVisible();
+  expect(consoleErrors).toEqual([]);
+});
+
+test("IMP-01 preserves the validated preview when Desktop/API confirmation fails", async ({ page }, testInfo) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && !message.text().includes("503 (Service Unavailable)")) {
+      consoleErrors.push(message.text());
+    }
+  });
+  const workspaces = (await (await page.request.get("/api/workspaces")).json()) as Array<{ id: string }>;
+  const workspaceId = workspaces[0]?.id;
+  expect(workspaceId).toBeTruthy();
+  await page.addInitScript((id) => {
+    window.localStorage.setItem("forge-active-workspace", id);
+  }, workspaceId);
+
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Import project" }).click();
+  await page.getByRole("textbox", { name: "Project import JSON" }).fill(JSON.stringify(hierarchyDocument));
+  await page.getByRole("button", { name: "Preview import" }).click();
+  await expect(page.getByRole("status")).toContainText("Preview validated");
+  await page.route(/\/api\/workspaces\/[^/]+\/projects\/import$/, async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "backend unavailable" }),
+    });
+  });
+  await page.getByRole("button", { name: "Confirm import" }).click();
+  await expect(page.getByRole("alert")).toContainText("Import needs attention");
+  await expect(page.getByRole("alert")).toContainText("validated plan is preserved");
+  await expect(page.getByRole("status")).toContainText("Foundation");
+  await page.screenshot({ path: testInfo.outputPath("project-import-error.png"), fullPage: true });
   expect(consoleErrors).toEqual([]);
 });
