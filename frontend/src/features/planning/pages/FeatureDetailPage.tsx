@@ -7,6 +7,7 @@ import {
   type Epic,
   type Feature,
   type FeatureDependency,
+  type Project,
   type Task,
   type TaskStatus,
   type Workspace,
@@ -14,6 +15,7 @@ import {
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
+import { ProjectBreadcrumbs } from "../../../shared/ui/ProjectBreadcrumbs";
 import { ReadinessPanel } from "../../readiness";
 import { errorMessage, moveIds } from "../utils";
 import { type FeatureFormPayload } from "../components/FeatureCreateForm";
@@ -36,6 +38,7 @@ export function FeatureDetailPage({
     featureId: string;
   }>();
   const [feature, setFeature] = useState<Feature | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [epics, setEpics] = useState<Epic[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [criteria, setCriteria] = useState<AcceptanceCriterion[]>([]);
@@ -66,6 +69,7 @@ export function FeatureDetailPage({
     setLoading(true);
     try {
       const [
+        nextProject,
         nextFeature,
         nextEpics,
         nextTasks,
@@ -73,6 +77,7 @@ export function FeatureDetailPage({
         nextDependencies,
         nextFeatures,
       ] = await Promise.all([
+        forgeApi.getProject(workspace.id, projectId, controller.signal),
         forgeApi.getFeature(
           workspace.id,
           projectId,
@@ -96,6 +101,7 @@ export function FeatureDetailPage({
         forgeApi.listFeatures(workspace.id, projectId, {}, controller.signal),
       ]);
       if (currentRequest !== requestId.current) return;
+      setProject(nextProject);
       setFeature(nextFeature);
       setEpics(nextEpics);
       setTasks(nextTasks);
@@ -287,6 +293,23 @@ export function FeatureDetailPage({
 
   return (
     <PageFrame
+      breadcrumbs={
+        project && feature ? (
+          <ProjectBreadcrumbs
+            current={feature.key}
+            parent={{
+              label: feature.epic_id
+                ? epics.find((epic) => epic.id === feature.epic_id)?.title ?? "Features"
+                : "Features",
+              to: feature.epic_id
+                ? `/projects/${project.id}/epics/${feature.epic_id}`
+                : `/projects/${project.id}/features`,
+            }}
+            project={project}
+            workspace={workspace}
+          />
+        ) : undefined
+      }
       onOpenPalette={onOpenPalette}
       subtitle="Intent, tasks and manual acceptance criteria for one feature."
       title={feature ? `${feature.key} · ${feature.title}` : "Feature detail"}

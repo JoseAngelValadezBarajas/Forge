@@ -103,6 +103,22 @@ def test_feature_id_hierarchy_and_isolation(
     assert client.get("/api/workspaces/invalid/projects/nope/features").status_code == 404
 
 
+def test_feature_search_matches_readable_key(
+    planning_client: tuple[TestClient, str, str],
+) -> None:
+    client, project_id, _other_project_id = planning_client
+    workspace_id = client.get("/api/workspaces").json()[0]["id"]
+    root = f"/api/workspaces/{workspace_id}/projects/{project_id}"
+    created = client.post(
+        f"{root}/features",
+        json={"title": "A title that does not contain the key"},
+    )
+    assert created.status_code == 201
+    result = client.get(f"{root}/features", params={"search": "FEAT-001"})
+    assert result.status_code == 200
+    assert [item["id"] for item in result.json()] == [created.json()["id"]]
+
+
 def test_tasks_criteria_overview_and_archived_read_only(
     planning_client: tuple[TestClient, str, str],
 ) -> None:

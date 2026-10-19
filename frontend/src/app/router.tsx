@@ -5,6 +5,7 @@ import { DecisionsPage } from "../features/decisions";
 import { DeliveryPage } from "../features/delivery";
 import { InvariantsPage } from "../features/invariants";
 import {
+  EpicDetailPage,
   FeatureDetailPage,
   FeaturesPage,
   ProjectBoardPage,
@@ -109,6 +110,24 @@ function WorkspaceRoutes({
           />
         }
         path="/projects/:projectId/features"
+      />
+      <Route
+        element={
+          <FeaturesPage
+            onOpenPalette={onOpenPalette}
+            workspace={activeWorkspace}
+          />
+        }
+        path="/projects/:projectId/epics"
+      />
+      <Route
+        element={
+          <EpicDetailPage
+            onOpenPalette={onOpenPalette}
+            workspace={activeWorkspace}
+          />
+        }
+        path="/projects/:projectId/epics/:epicId"
       />
       <Route
         element={

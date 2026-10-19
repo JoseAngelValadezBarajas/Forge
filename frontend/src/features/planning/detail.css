@@ -27,6 +27,7 @@
 @media (max-width: 1150px) {
   .kanban-board { overflow-x: auto; }
   .planning-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .planning-home-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 680px) {
@@ -37,6 +38,8 @@
   .form-grid { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .planning-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planning-home-grid { grid-template-columns: 1fr; }
+  .planning-home-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .feature-edit-form .section-heading { align-items: start; }

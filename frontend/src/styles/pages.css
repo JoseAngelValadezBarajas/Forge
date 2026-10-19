@@ -1,3 +1,8 @@
+.project-breadcrumbs { margin-bottom: 8px; }
+.project-breadcrumbs ol { align-items: center; color: var(--text-subtle); display: flex; flex-wrap: wrap; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; gap: 7px; list-style: none; margin: 0; padding: 0; text-transform: uppercase; }
+.project-breadcrumbs a { color: var(--text-muted); }
+.project-breadcrumbs a:hover { color: var(--accent); }
+.project-breadcrumbs li[aria-current="page"] { color: var(--accent); }
 .page-intro { align-items: flex-start; display: flex; justify-content: space-between; margin-top: 16px; min-height: 132px; padding: 22px 23px; }
 .page-intro h2, .projects-empty h2, .workbench-placeholder h2 { font-size: 24px; font-weight: 600; letter-spacing: -.5px; line-height: 30px; margin: 12px 0 5px; }
 .page-intro p { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 0; max-width: 560px; }

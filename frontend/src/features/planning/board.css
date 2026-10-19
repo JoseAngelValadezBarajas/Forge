@@ -17,6 +17,10 @@
 .feature-card-link { display: grid; gap: 7px; }
 .feature-card h3, .epic-card h3 { color: var(--text); font-size: 14px; line-height: 20px; margin: 0; }
 .feature-card-meta { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.card-status-control { align-items: center; color: var(--text-subtle); display: flex; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; gap: 8px; justify-content: space-between; text-transform: uppercase; }
+.card-status-select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 11px; min-width: 112px; padding: 6px 7px; }
+.card-status-select:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus); outline: none; }
+.card-status-state { color: var(--text-subtle); font-size: 10px; }
 .priority-chip { border-radius: 999px; font-size: 10px; padding: 3px 7px; text-transform: uppercase; }
 .priority-chip.low { background: var(--surface-tag); color: var(--text-muted); }
 .priority-chip.medium { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
@@ -47,3 +51,22 @@
 .planning-metrics strong { font-size: 24px; line-height: 30px; }
 .planning-metrics span { color: var(--text-muted); font-size: 11px; }
 .summary-epics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.project-planning-home { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-top: 20px; padding: 18px 20px; }
+.project-planning-home .section-heading { align-items: center; }
+.planning-home-subtitle { color: var(--text-muted); font-size: 12px; line-height: 18px; margin: 7px 0 0; }
+.planning-home-metrics { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 16px; }
+.planning-home-metric { background: var(--surface-interactive); border-radius: var(--radius-sm); display: grid; gap: 4px; padding: 12px; }
+.planning-home-metric-value { font-size: 24px; line-height: 30px; }
+.planning-home-metric span { color: var(--text-muted); font-size: 11px; }
+.planning-home-grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); margin-top: 18px; }
+.planning-home-priorities, .planning-home-actions { min-width: 0; }
+.planning-home-feature-list { display: grid; gap: 8px; }
+.planning-home-feature { align-items: center; background: var(--surface-interactive); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); display: flex; gap: 12px; justify-content: space-between; padding: 10px 12px; }
+.planning-home-feature > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.planning-home-feature strong { color: var(--text); font-size: 12px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planning-home-feature small { color: var(--text-muted); font-size: 10px; line-height: 15px; }
+.planning-home-actions { align-content: start; display: grid; gap: 8px; }
+.planning-home-actions .section-heading { margin-bottom: 2px; }
+.planning-home-context { border-top: 1px solid var(--border-subtle); color: var(--text-muted); margin-top: 8px; padding-top: 12px; }
+.planning-home-context strong { color: var(--text); font-size: 12px; }
+.planning-home-context p { font-size: 11px; line-height: 17px; margin: 7px 0 0; }

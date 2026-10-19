@@ -40,7 +40,7 @@ test("completes the planning workflow in Chromium", async ({ page }) => {
   await page.getByLabel("Description").fill("Edited planning context");
   await page.getByLabel("Status").selectOption("archived");
   await page.getByRole("button", { name: "Save epic", exact: true }).click();
-  await expect(page.getByText("Release planning edited", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Release planning edited", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "+ Feature", exact: true }).click();
   await page.getByLabel("Title").fill("Persistent planning slice");

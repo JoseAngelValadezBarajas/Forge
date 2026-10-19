@@ -1,4 +1,5 @@
 import { type Epic, type Feature, type FeatureStatus } from "../../../api";
+import { Link } from "react-router-dom";
 import { type PlanningData } from "../hooks/usePlanningData";
 import { FeatureCard } from "./FeatureCard";
 import { label } from "../utils";
@@ -14,6 +15,7 @@ export function FeatureInventory({
   onEditEpic: (epic: Epic) => void;
   disabled: boolean;
 }) {
+  const epicNames = new Map(data.epics.map((epic) => [epic.id, epic.title]));
   return (
     <div className="inventory-grid">
       <section>
@@ -27,6 +29,7 @@ export function FeatureInventory({
               <FeatureCard
                 disabled={disabled}
                 feature={feature}
+                epicTitle={feature.epic_id ? epicNames.get(feature.epic_id) : undefined}
                 key={feature.id}
                 onStatusChange={onStatusChange}
               />
@@ -48,7 +51,11 @@ export function FeatureInventory({
             {data.epics.map((epic) => (
               <article className="epic-card" key={epic.id}>
                 <span className="mono-label">EPIC</span>
-                <h3>{epic.title}</h3>
+                <h3>
+                  <Link to={`/projects/${epic.project_id}/epics/${epic.id}`}>
+                    {epic.title}
+                  </Link>
+                </h3>
                 <p>{epic.description || "No description yet."}</p>
                 <span className="status-chip neutral">
                   {label(epic.status)}

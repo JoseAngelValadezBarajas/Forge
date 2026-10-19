@@ -105,6 +105,34 @@ describe("FND-02 planning views", () => {
     expect(screen.getByText(/Manual planning state only/)).toBeInTheDocument();
   });
 
+  it("applies status and priority filters through the API and can reset them", async () => {
+    render(
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>,
+    );
+    await screen.findByRole("heading", { name: "Project Board" });
+
+    const requests = () =>
+      vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input));
+    fireEvent.change(screen.getByLabelText("Feature workflow"), {
+      target: { value: "ready" },
+    });
+    fireEvent.change(screen.getByLabelText("Feature priority"), {
+      target: { value: "high" },
+    });
+    await waitFor(() =>
+      expect(
+        requests().some((url) =>
+          url.includes("/features?status=ready&priority=high"),
+        ),
+      ).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getByLabelText("Feature workflow")).toHaveValue("");
+    expect(screen.getByLabelText("Feature priority")).toHaveValue("");
+  });
+
   it("opens the feature form without claiming verification evidence", async () => {
     render(
       <BrowserRouter>
