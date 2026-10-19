@@ -37,8 +37,8 @@ export function createInstalledAppEnvironment(parentEnvironment, userDataFolder)
 
 export function downloadDirectories(userProfile, webviewProfile) {
   const directories = [
-    path.join(userProfile, "Downloads"),
-    path.join(webviewProfile, "Default", "Downloads"),
+    path.win32.join(userProfile, "Downloads"),
+    path.win32.join(webviewProfile, "Default", "Downloads"),
   ];
   return [...new Set(directories)];
 }
