@@ -92,3 +92,48 @@ test("guides a feature from NOT READY to READY and keeps the saved snapshot hone
     ),
   ).toEqual([]);
 });
+
+test("renders Feature Detail at mobile width without document-level overflow", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const suffix = Date.now().toString();
+  const workspaces = await (await page.request.get("/api/workspaces")).json();
+  const workspace = workspaces[0] as { id: string };
+  const projectResponse = await page.request.post(
+    `/api/workspaces/${workspace.id}/projects`,
+    { data: { name: `UX-01B mobile ${suffix}`, description: "Mobile Feature Detail" } },
+  );
+  expect(projectResponse.status()).toBe(201);
+  const project = await projectResponse.json();
+  const base = `/api/workspaces/${workspace.id}/projects/${project.id}`;
+  const featureResponse = await page.request.post(`${base}/features`, {
+    data: {
+      title: `Mobile feature ${suffix}`,
+      goal: "Keep the planning context readable on a small viewport",
+      priority: "medium",
+    },
+  });
+  expect(featureResponse.status()).toBe(201);
+  const feature = await featureResponse.json();
+
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${project.id}/features/${feature.id}`);
+  await expect(page.getByRole("heading", { name: feature.title, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Readiness", exact: true })).toBeVisible();
+
+  const overflow = await page.evaluate(() => ({
+    body: document.body.scrollWidth,
+    document: document.documentElement.scrollWidth,
+    viewport: window.innerWidth,
+  }));
+  expect(overflow.document).toBeLessThanOrEqual(overflow.viewport);
+  expect(overflow.body).toBeLessThanOrEqual(overflow.viewport);
+  expect(consoleErrors).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("ux01b-mobile-feature-detail.png"),
+    fullPage: true,
+  });
+});

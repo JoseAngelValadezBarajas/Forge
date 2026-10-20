@@ -18,18 +18,28 @@ function BlockerAction({
   featureId,
   projectId,
   ruleId,
+  archived,
 }: {
   blocker: ReadinessBlocker;
   featureId: string;
   projectId: string;
   ruleId: string;
+  archived: boolean;
 }) {
   const reference = blocker.references[0];
   if (ruleId === "R01") {
-    return <a href="#feature-definition">Edit definition</a>;
+    return (
+      <a href="#feature-definition">
+        {archived ? "Review definition" : "Edit definition"}
+      </a>
+    );
   }
   if (ruleId === "R02") {
-    return <a href="#acceptance-criteria">Add criteria</a>;
+    return (
+      <a href="#acceptance-criteria">
+        {archived ? "Review acceptance criteria" : "Add criteria"}
+      </a>
+    );
   }
   if (ruleId === "R03") {
     return reference?.kind === "feature" && reference.id !== featureId ? (
@@ -95,6 +105,8 @@ export function ReadinessPanel({
     loadController.current?.abort();
     loadController.current = controller;
     setLoading(true);
+    publishPreview(null);
+    setError(null);
     try {
       const [
         nextPreview,
@@ -129,9 +141,18 @@ export function ReadinessPanel({
         ),
         forgeApi.listDecisions(workspace.id, projectId, controller.signal),
       ]);
-      publishPreview(
-        nextPreview && Array.isArray(nextPreview.results) ? nextPreview : null,
-      );
+      const currentPreview =
+        nextPreview &&
+        nextPreview.feature_id === feature.id &&
+        Array.isArray(nextPreview.results)
+          ? nextPreview
+          : null;
+      publishPreview(currentPreview);
+      const previewError =
+        nextPreview && !currentPreview
+          ? "Readiness preview is unavailable for this Feature."
+          : null;
+      if (previewError) setError(previewError);
       setHistory(
         Array.isArray(nextHistory)
           ? nextHistory.filter((item) =>
@@ -142,10 +163,12 @@ export function ReadinessPanel({
       setInvariants(Array.isArray(nextInvariants) ? nextInvariants : []);
       setDecisions(Array.isArray(nextDecisions) ? nextDecisions : []);
       setAllDecisions(Array.isArray(nextAllDecisions) ? nextAllDecisions : []);
-      setError(null);
+      if (!previewError) setError(null);
     } catch (cause) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
+        publishPreview(null);
         setError(message(cause, "Could not evaluate readiness."));
+      }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -181,11 +204,21 @@ export function ReadinessPanel({
               controller.signal,
             );
       if (controller.signal.aborted) return;
-      publishPreview(next);
-      if (kind === "save") setHistory((current) => [next, ...current]);
+      const currentPreview =
+        next.feature_id === feature.id && Array.isArray(next.results)
+          ? next
+          : null;
+      publishPreview(currentPreview);
+      if (!currentPreview) {
+        setError("Readiness preview is unavailable for this Feature.");
+      } else if (kind === "save") {
+        setHistory((current) => [currentPreview, ...current]);
+      }
     } catch (cause) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
+        publishPreview(null);
         setError(message(cause, "Could not evaluate readiness."));
+      }
     } finally {
       if (!controller.signal.aborted) setPending(null);
     }
@@ -258,11 +291,13 @@ export function ReadinessPanel({
           <h2>Readiness</h2>
         </div>
         <span
-          className={`readiness-outcome ${preview?.outcome === "READY_TO_START" ? "ready" : "blocked"}`}
+          className={`readiness-outcome ${preview?.outcome === "READY_TO_START" ? "ready" : preview ? "blocked" : "unavailable"}`}
         >
-          {preview?.outcome === "READY_TO_START"
-            ? "READY TO START"
-            : "NOT READY"}
+          {preview
+            ? preview.outcome === "READY_TO_START"
+              ? "READY TO START"
+              : "NOT READY"
+            : "UNAVAILABLE"}
         </span>
       </div>
       <p className="planning-disclaimer">
@@ -328,6 +363,7 @@ export function ReadinessPanel({
                     <span>{blocker.message}</span>
                     <BlockerAction
                       blocker={blocker}
+                      archived={archived}
                       featureId={feature.id}
                       projectId={projectId}
                       ruleId={result.rule_id}

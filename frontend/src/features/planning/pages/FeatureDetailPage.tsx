@@ -152,6 +152,15 @@ export function FeatureDetailPage({
 
   const archived = project?.status === "archived";
 
+  const handleReadinessPreview = useCallback(
+    (evaluation: ReadinessEvaluation | null) => {
+      setReadinessPreview(
+        evaluation?.feature_id === featureId ? evaluation : null,
+      );
+    },
+    [featureId],
+  );
+
   const saveFeature = (payload: FeatureFormPayload): Promise<boolean> => {
     if (!workspace || !projectId || !featureId) return Promise.resolve(false);
     return performMutation(
@@ -295,6 +304,20 @@ export function FeatureDetailPage({
   const blocks = dependencies.filter(
     (dependency) => dependency.blocking_feature_id === featureId,
   );
+  const currentReadiness =
+    feature && readinessPreview?.feature_id === feature.id
+      ? readinessPreview
+      : null;
+  const r03Result = currentReadiness?.results.find(
+    (result) => result.rule_id === "R03",
+  );
+  const unresolvedDependencyCount = currentReadiness
+    ? r03Result
+      ? r03Result.result === "failed"
+        ? r03Result.blockers.length
+        : 0
+      : null
+    : null;
 
   return (
     <PageFrame
@@ -362,9 +385,9 @@ export function FeatureDetailPage({
               <div><dt>Epic</dt><dd>{feature.epic_id ? epics.find((epic) => epic.id === feature.epic_id)?.title ?? "Unknown epic" : "Unassigned"}</dd></div>
               <div><dt>Status</dt><dd>{feature.status}</dd></div>
               <div><dt>Priority</dt><dd>{feature.priority}</dd></div>
-              <div><dt>Readiness</dt><dd>{readinessPreview?.outcome === "READY_TO_START" ? "READY TO START" : readinessPreview ? "NOT READY" : "Loading preview"}</dd></div>
+              <div><dt>Readiness</dt><dd>{currentReadiness?.outcome === "READY_TO_START" ? "READY TO START" : currentReadiness ? "NOT READY" : "Loading preview"}</dd></div>
               <div><dt>Criteria</dt><dd>{criteria.length}</dd></div>
-              <div><dt>Blocked dependencies</dt><dd>{blockedBy.length}</dd></div>
+              <div><dt>Blocked dependencies</dt><dd>{unresolvedDependencyCount === null ? "Unavailable" : unresolvedDependencyCount}</dd></div>
             </dl>
           </section>
           {archived ? (
@@ -402,7 +425,7 @@ export function FeatureDetailPage({
             <ReadinessPanel
               archived={archived}
               feature={feature}
-              onPreviewChange={setReadinessPreview}
+              onPreviewChange={handleReadinessPreview}
               projectId={projectId}
               refreshKey={readinessRefreshKey}
               workspace={workspace}
