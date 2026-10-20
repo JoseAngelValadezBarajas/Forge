@@ -11,10 +11,10 @@ import {
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
+import { StatusChip } from "../../../../shared/ui/StatusChip";
 import { type PaletteOpener } from "../../pages/types";
 import { errorMessage } from "../../utils";
 import { ErrorBox } from "../../components/ErrorBox";
-import { StatusChip } from "../../components/StatusChip";
 
 export function RunCreatePage({
   workspace,
@@ -237,7 +237,7 @@ export function RunCreatePage({
             <li>Read chats from another app.</li>
             <li>Validate work or CI results.</li>
           </ul>
-          <StatusChip status="MANUAL REPORT" />
+          <StatusChip className="fnd05-status" status="MANUAL REPORT" />
         </aside>
       </form>
     </PageFrame>

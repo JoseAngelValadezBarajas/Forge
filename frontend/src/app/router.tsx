@@ -21,6 +21,7 @@ import {
   WorkbenchPage,
 } from "../features/workbench";
 import { ProjectOverviewWithRepositories } from "./compositions/ProjectOverviewWithRepositories";
+import { ComponentGallery } from "./component-gallery/ComponentGallery";
 
 type AppRouterProps = {
   activeWorkspace: Workspace | null;
@@ -35,6 +36,7 @@ export function AppRouter({
 }: AppRouterProps) {
   return (
     <Routes>
+      {import.meta.env.DEV && <Route element={<ComponentGallery onOpenPalette={onOpenPalette} />} path="/__component-gallery" />}
       <Route
         element={
           <WorkspaceRoutes

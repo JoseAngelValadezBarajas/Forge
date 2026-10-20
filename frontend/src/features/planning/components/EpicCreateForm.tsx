@@ -1,5 +1,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button } from "../../../shared/ui/Button";
+import { FormField } from "../../../shared/ui/FormField";
+import { IconButton } from "../../../shared/ui/IconButton";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { TextInput } from "../../../shared/ui/TextInput";
 
 export function EpicCreateForm({
   onSubmit,
@@ -29,48 +34,38 @@ export function EpicCreateForm({
     >
       <div className="section-heading">
         <h2>Create epic</h2>
-        <button
+        <IconButton
           aria-label="Close create epic"
-          className="icon-button"
           onClick={onCancel}
-          type="button"
         >
           x
-        </button>
+        </IconButton>
       </div>
-      <label>
-        Title
-        <input
+      <FormField label="Title">
+        <TextInput
           autoFocus
           maxLength={160}
           onChange={(event) => setTitle(event.target.value)}
           value={title}
         />
-      </label>
-      <label>
-        Description
-        <textarea
+      </FormField>
+      <FormField label="Description">
+        <Textarea
           onChange={(event) => setDescription(event.target.value)}
           rows={3}
           value={description}
         />
-      </label>
+      </FormField>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
       <div className="form-actions">
-        <button className="button secondary" onClick={onCancel} type="button">
+        <Button onClick={onCancel} variant="secondary">
           Cancel
-        </button>
-        <button
-          className="button primary"
-          disabled={actionPending}
-          type="submit"
-        >
-          {actionPending ? "Creating..." : "Create epic"}
-        </button>
+        </Button>
+        <Button loading={actionPending} loadingLabel="Creating..." type="submit" variant="primary">Create epic</Button>
       </div>
     </form>
   );

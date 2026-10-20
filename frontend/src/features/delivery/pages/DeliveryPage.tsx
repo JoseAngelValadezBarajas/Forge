@@ -5,10 +5,11 @@ import { forgeApi } from "../../../api";
 import type { Workspace } from "../../../api";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
+import { MetricCard } from "../../../shared/ui/MetricCard";
+import { Tabs } from "../../../shared/ui/Tabs";
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type Loaded } from "../types";
-import { Metric } from "../components/Metric";
 import { Provenance } from "../components/Provenance";
 import { EvidenceList } from "../evidence/EvidenceList";
 import { EmptyPanel } from "../components/EmptyPanel";
@@ -265,32 +266,16 @@ export function DeliveryPage({
     }
   };
   const nav = (
-    <nav aria-label="Delivery sections" className="detail-tabs fnd06-tabs">
-      <Link
-        className={`detail-tab${!isEvidence && !isVerification && !isCandidate ? " active" : ""}`}
-        to={base}
-      >
-        Overview
-      </Link>
-      <Link
-        className={`detail-tab${isEvidence ? " active" : ""}`}
-        to={`${base}/evidence`}
-      >
-        Evidence
-      </Link>
-      <Link
-        className={`detail-tab${isVerification ? " active" : ""}`}
-        to={`${base}/verifications`}
-      >
-        Verifications
-      </Link>
-      <Link
-        className={`detail-tab${isCandidate ? " active" : ""}`}
-        to={`${base}/release-candidates`}
-      >
-        Release candidates
-      </Link>
-    </nav>
+    <Tabs
+      aria-label="Delivery sections"
+      className="fnd06-tabs"
+      items={[
+        { active: !isEvidence && !isVerification && !isCandidate, label: "Overview", to: base },
+        { active: isEvidence, label: "Evidence", to: `${base}/evidence` },
+        { active: isVerification, label: "Verifications", to: `${base}/verifications` },
+        { active: isCandidate, label: "Release candidates", to: `${base}/release-candidates` },
+      ]}
+    />
   );
   const archived = data.project.status === "archived";
   const workspaceBack = (
@@ -307,22 +292,26 @@ export function DeliveryPage({
           aria-label="Delivery summary"
           className="metric-grid fnd06-metrics"
         >
-          <Metric
+          <MetricCard
+            as="article"
             value={data.evidence.length}
             label="Evidence records"
             detail="Claims and saved observations"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={data.verifications.length}
             label="Checks evaluated"
             detail="Snapshots, including stale results"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={data.candidates.length}
             label="Release candidates"
             detail="Local planning records"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={
               data.verifications.filter(
                 (item) => item.result === "BLOCKED" || item.result === "FAIL",

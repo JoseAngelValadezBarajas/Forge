@@ -6,6 +6,11 @@ import {
   type FeaturePriority,
   type FeatureStatus,
 } from "../../../api";
+import { Button } from "../../../shared/ui/Button";
+import { FormField } from "../../../shared/ui/FormField";
+import { Select } from "../../../shared/ui/Select";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { TextInput } from "../../../shared/ui/TextInput";
 import { type FeatureFormPayload } from "./FeatureCreateForm";
 import { label, priorities, statuses } from "../utils";
 
@@ -60,18 +65,16 @@ export function FeatureEditForm({
         <span className="planning-disclaimer">Manual planning state</span>
       </div>
       <div className="form-grid">
-        <label>
-          Title
-          <input
+        <FormField label="Title">
+          <TextInput
             aria-label="Feature title"
             maxLength={160}
             onChange={(event) => setTitle(event.target.value)}
             value={title}
           />
-        </label>
-        <label>
-          Priority
-          <select
+        </FormField>
+        <FormField label="Priority">
+          <Select
             aria-label="Feature priority"
             onChange={(event) =>
               setPriority(event.target.value as FeaturePriority)
@@ -83,11 +86,10 @@ export function FeatureEditForm({
                 {label(item)}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select
+          </Select>
+        </FormField>
+        <FormField label="Status">
+          <Select
             aria-label="Feature state"
             onChange={(event) => setStatus(event.target.value as FeatureStatus)}
             value={status}
@@ -97,11 +99,10 @@ export function FeatureEditForm({
                 {label(item)}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Epic
-          <select
+          </Select>
+        </FormField>
+        <FormField label="Epic">
+          <Select
             aria-label="Feature epic"
             onChange={(event) => setEpicId(event.target.value)}
             value={epicId}
@@ -112,26 +113,24 @@ export function FeatureEditForm({
                 {epic.title}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="wide-field">
-          Goal
-          <textarea
+          </Select>
+        </FormField>
+        <FormField className="wide-field" label="Goal">
+          <Textarea
             aria-label="Feature goal"
             onChange={(event) => setGoal(event.target.value)}
             rows={2}
             value={goal}
           />
-        </label>
-        <label className="wide-field">
-          Description
-          <textarea
+        </FormField>
+        <FormField className="wide-field" label="Description">
+          <Textarea
             aria-label="Feature description"
             onChange={(event) => setDescription(event.target.value)}
             rows={3}
             value={description}
           />
-        </label>
+        </FormField>
       </div>
       {error && (
         <p className="form-error" role="alert">
@@ -139,13 +138,7 @@ export function FeatureEditForm({
         </p>
       )}
       <div className="form-actions">
-        <button
-          className="button primary"
-          disabled={actionPending}
-          type="submit"
-        >
-          {actionPending ? "Saving..." : "Save feature"}
-        </button>
+        <Button loading={actionPending} loadingLabel="Saving..." type="submit" variant="primary">Save feature</Button>
       </div>
     </form>
   );

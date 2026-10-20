@@ -2,11 +2,12 @@ import { NavLink } from "react-router-dom";
 import { type Workspace } from "../../../api";
 import { ProjectCard } from "../components/ProjectCard";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
+import { MetricCard } from "../../../shared/ui/MetricCard";
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 import { useProjects } from "../hooks/useProjects";
-import { SectionHeading } from "../components/SectionHeading";
+import { SectionHeader } from "../../../shared/ui/SectionHeader";
 
 export function HomePage({
   workspace,
@@ -32,22 +33,22 @@ export function HomePage({
       title="Workspace"
     >
       <section aria-label="Workspace summary" className="metric-grid">
-        <Metric
+        <MetricCard
           detail="Available locally"
           label="Workspaces"
           value={String(workspaceCount)}
         />
-        <Metric
+        <MetricCard
           detail="Not archived"
           label="Active projects"
           value={String(active.length)}
         />
-        <Metric
+        <MetricCard
           detail="Kept for history"
           label="Archived"
           value={String(archived.length)}
         />
-        <Metric
+        <MetricCard
           detail="Most recently changed"
           label="Recent projects"
           value={String(recent.length)}
@@ -55,7 +56,7 @@ export function HomePage({
       </section>
       <div className="home-grid">
         <section className="content-column">
-          <SectionHeading
+          <SectionHeader
             count={loading ? "..." : String(active.length)}
             title="Projects"
           />
@@ -76,7 +77,7 @@ export function HomePage({
               title="Your workspace is ready"
             />
           )}
-          <SectionHeading count="Local" title="Recent" />
+          <SectionHeader count="Local" title="Recent" />
           {recent.length ? (
             <div className="recent-list">
               {recent.map((project) => (
@@ -101,7 +102,7 @@ export function HomePage({
           )}
         </section>
         <aside className="content-column attention-column">
-          <SectionHeading count="None" title="Signals" />
+          <SectionHeader count="None" title="Signals" />
           <div className="empty-side-panel">
             <span className="empty-icon" aria-hidden="true">
               o
@@ -112,7 +113,7 @@ export function HomePage({
               connected yet.
             </p>
           </div>
-          <SectionHeading count="Planning" title="Scope" />
+          <SectionHeader count="Planning" title="Scope" />
           <div className="empty-side-panel compact">
             <p>
               Planning records are available. Integrations will appear only when
@@ -122,24 +123,6 @@ export function HomePage({
         </aside>
       </div>
     </PageFrame>
-  );
-}
-
-export function Metric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="metric-card">
-      <span className="eyebrow">{label}</span>
-      <strong>{value}</strong>
-      <span>{detail}</span>
-    </div>
   );
 }
 

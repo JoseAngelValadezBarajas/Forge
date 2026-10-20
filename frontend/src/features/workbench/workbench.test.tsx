@@ -403,6 +403,14 @@ describe("FND-05 Workbench surfaces", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Move to IN PROGRESS" }));
     expect(await screen.findAllByText("IN PROGRESS")).toHaveLength(2);
+    const progressChip = screen
+      .getAllByText("IN PROGRESS")
+      .find((element) => element.classList.contains("status-chip"));
+    expect(progressChip).toHaveClass(
+      "status-chip",
+      "fnd05-status",
+      "in_progress",
+    );
     expect(transitionBodies).toEqual([
       { status: "IN_PROGRESS", expected_version: 1 },
       { status: "IN_PROGRESS", expected_version: 1 },

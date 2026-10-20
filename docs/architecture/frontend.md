@@ -9,6 +9,21 @@
 - `frontend/src/features/` owns capability pages, feature-specific components, hooks and API operations: workspaces, projects, planning, decisions, invariants, readiness, repositories/context packages, workbench/runs/handoffs and delivery.
 - `frontend/src/shared/` contains domain-independent UI, utilities and the sole shared API transport.
 
+UI-RFX-01 treats `shared/ui/` as an internal visual platform. Foundations live
+in `styles/tokens.css` and `shared/ui/styles.css`; native controls and
+domain-independent surfaces live in the shared UI primitives; repeated
+product summaries use composed components such as `MetricCard`, `StatusChip`,
+`SectionHeader` and the feedback states. Features may add class hooks for
+domain-specific meaning, but shared components do not import feature code,
+routes or capability APIs.
+
+The development-only `/__component-gallery` route is owned by
+`app/component-gallery/`. It renders the actual shared components without live
+data and is guarded by `import.meta.env.DEV`, so it is not exposed by
+production or packaged Desktop builds. The full contract/classification table
+and deferred promotions are recorded in
+[`ui-component-inventory.md`](ui-component-inventory.md).
+
 The primary dependency direction is `main.tsx → app → feature public interfaces → shared`. `shared` does not import app or features; feature modules do not import `app`; cross-feature UI consumers import only a documented feature `index.ts` interface. Runtime cycles are forbidden. `src/api.ts` remains the compatibility facade for existing DTOs and operations; it does not own another `fetch` implementation.
 
 ## CSS ownership and order

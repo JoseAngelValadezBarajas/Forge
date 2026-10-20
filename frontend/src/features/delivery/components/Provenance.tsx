@@ -1,3 +1,5 @@
+import { StatusChip } from "../../../shared/ui/StatusChip";
+
 export function Provenance({ value }: { value: string }) {
-  return <span className={`status-chip ${value.toLowerCase()}`}>{value}</span>;
+  return <StatusChip label={value} status={value} />;
 }

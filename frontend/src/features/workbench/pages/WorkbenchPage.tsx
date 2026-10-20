@@ -9,13 +9,14 @@ import {
   type Workspace,
 } from "../../../api";
 import { PageFrame } from "../../../shared/ui/PageFrame";
+import { MetricCard } from "../../../shared/ui/MetricCard";
+import { StatusChip } from "../../../shared/ui/StatusChip";
+import { Panel } from "../../../shared/ui/Panel";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 import { errorMessage } from "../utils";
 import { Loading } from "../components/Loading";
 import { ErrorBox } from "../components/ErrorBox";
-import { Metric } from "../components/Metric";
-import { StatusChip } from "../components/StatusChip";
 import { EmptyWorkbench } from "../components/EmptyWorkbench";
 import { ProvenanceBanner } from "../components/ProvenanceBanner";
 
@@ -92,29 +93,29 @@ export function WorkbenchPage({
       ) : (
         <>
           <div className="metric-grid">
-            <Metric
+            <MetricCard
               label="Recorded runs"
               value={runs.length}
               detail="Human-reported"
             />
-            <Metric
+            <MetricCard
               label="Active records"
               value={activeRuns}
               detail="Not process telemetry"
             />
-            <Metric
+            <MetricCard
               label="Handoffs ready"
               value={readyHandoffs}
               detail="Awaiting review"
             />
-            <Metric
+            <MetricCard
               label="Context snapshots"
               value={new Set(runs.map((item) => item.context_package_id)).size}
               detail="Immutable inputs"
             />
           </div>
           <div className="fnd05-grid">
-            <section className="fnd05-panel">
+            <Panel className="fnd05-panel">
               <div className="section-heading">
                 <div>
                   <span className="eyebrow">RECENT RUN ACTIVITY</span>
@@ -142,14 +143,14 @@ export function WorkbenchPage({
                           {formatDate(run.updated_at)}
                         </p>
                       </div>
-                      <StatusChip status={run.status} />
+                      <StatusChip className="fnd05-status" status={run.status} />
                     </Link>
                   ))}
                 </div>
               ) : (
                 <EmptyWorkbench />
               )}
-            </section>
+            </Panel>
             <aside className="fnd05-side-stack">
               <section className="fnd05-panel">
                 <span className="eyebrow">HANDOFFS AWAITING REVIEW</span>
@@ -165,14 +166,14 @@ export function WorkbenchPage({
               <ProvenanceBanner />
             </aside>
           </div>
-          <section className="fnd05-panel fnd05-flow">
+          <Panel className="fnd05-panel fnd05-flow">
             <span className="eyebrow accent">FEATURE RELATIONSHIP</span>
             <h2>From Feature to recorded execution</h2>
             <p>
               Feature → immutable Context Package → Run → reported events →
               Handoff → later verification.
             </p>
-          </section>
+          </Panel>
         </>
       )}
     </PageFrame>

@@ -10,13 +10,13 @@ import {
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
+import { StatusChip } from "../../../../shared/ui/StatusChip";
 import { DownloadLink } from "../../../../shared/ui/DownloadLink";
 import { formatDate } from "../../../../shared/utils/formatDate";
 import { type PaletteOpener } from "../../pages/types";
 import { errorMessage } from "../../utils";
 import { Loading } from "../../components/Loading";
 import { ErrorBox } from "../../components/ErrorBox";
-import { StatusChip } from "../../components/StatusChip";
 import { ReportField } from "../../components/ReportField";
 import { ProvenanceBanner } from "../../components/ProvenanceBanner";
 
@@ -189,7 +189,7 @@ export function HandoffDetailPage({
       title="Handoff Review & Acknowledge"
     >
       <div className="fnd05-detail-toolbar">
-        <StatusChip status={handoff.status} />
+      <StatusChip className="fnd05-status" status={handoff.status} />
         <div className="form-actions">
           <Link
             className="button secondary"
