@@ -1,5 +1,6 @@
 @import "./tokens.css";
 @import "./base.css";
+@import "../shared/ui/styles.css";
 @import "../app/shell/shell.css";
 @import "./forms.css";
 @import "../app/shell/navigation.css";
@@ -7,6 +8,7 @@
 @import "../features/projects/styles.css";
 @import "./pages.css";
 @import "../app/command-palette/styles.css";
+@import "../app/component-gallery/styles.css";
 @import "../features/planning/board.css";
 @import "./records.css";
 @import "../features/readiness/styles.css";

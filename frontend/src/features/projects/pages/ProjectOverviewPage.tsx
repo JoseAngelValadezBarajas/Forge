@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   forgeApi,
   type Project,
@@ -12,6 +12,7 @@ import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { ProjectBreadcrumbs } from "../../../shared/ui/ProjectBreadcrumbs";
+import { Tabs } from "../../../shared/ui/Tabs";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 
@@ -111,6 +112,16 @@ export function ProjectOverviewPage({
       setStatusAction(null);
     }
   };
+  const projectTabItems = project
+    ? [
+        { active: true, label: "Overview", to: `/projects/${project.id}` },
+        { label: "Board", to: `/projects/${project.id}/board` },
+        { label: "Features and Epics", to: `/projects/${project.id}/features` },
+        { label: "Decisions", to: `/projects/${project.id}/decisions` },
+        { label: "Invariants", to: `/projects/${project.id}/invariants` },
+      ]
+    : [];
+
   return (
     <PageFrame
       breadcrumbs={
@@ -132,30 +143,10 @@ export function ProjectOverviewPage({
         <ErrorPanel message={error} onRetry={() => void load()} />
       ) : project ? (
         <>
-          <div className="detail-tabs">
-            <span className="detail-tab active">Overview</span>
-            <Link className="detail-tab" to={`/projects/${project.id}/board`}>
-              Board
-            </Link>
-            <Link
-              className="detail-tab"
-              to={`/projects/${project.id}/features`}
-            >
-              Features and Epics
-            </Link>
-            <Link
-              className="detail-tab"
-              to={`/projects/${project.id}/decisions`}
-            >
-              Decisions
-            </Link>
-            <Link
-              className="detail-tab"
-              to={`/projects/${project.id}/invariants`}
-            >
-              Invariants
-            </Link>
-          </div>
+          <Tabs
+            aria-label="Project sections"
+            items={projectTabItems}
+          />
           <section className="project-overview-card">
             <div className="project-overview-header">
               <div>

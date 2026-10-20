@@ -1,5 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Button } from "../../../shared/ui/Button";
+import { FormField } from "../../../shared/ui/FormField";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { TextInput } from "../../../shared/ui/TextInput";
 
 export function ProjectForm({
   initial,
@@ -25,9 +29,9 @@ export function ProjectForm({
     finally { setSaving(false); }
   };
   return <form className="project-form" onSubmit={submit}>
-    <label>Name<input aria-label="Project name" maxLength={120} onChange={(event) => setName(event.target.value)} value={name} /></label>
-    <label>Description<span className="field-hint">Optional</span><textarea aria-label="Project description" maxLength={2000} onChange={(event) => setDescription(event.target.value)} rows={4} value={description} /></label>
+    <FormField label="Name"><TextInput aria-label="Project name" maxLength={120} onChange={(event) => setName(event.target.value)} value={name} /></FormField>
+    <FormField hint="Optional" label="Description"><Textarea aria-label="Project description" maxLength={2000} onChange={(event) => setDescription(event.target.value)} rows={4} value={description} /></FormField>
     {error && <p className="form-error" role="alert">{error}</p>}
-    <div className="form-actions">{onCancel && <button className="button secondary" onClick={onCancel} type="button">Cancel</button>}<button className="button primary" disabled={saving} type="submit">{saving ? "Saving…" : submitLabel}</button></div>
+    <div className="form-actions">{onCancel && <Button onClick={onCancel} variant="secondary">Cancel</Button>}<Button loading={saving} loadingLabel="Saving…" type="submit" variant="primary">{submitLabel}</Button></div>
   </form>;
 }

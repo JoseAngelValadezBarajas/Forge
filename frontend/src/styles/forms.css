@@ -4,8 +4,4 @@
 .project-form textarea { min-height: 100px; resize: vertical; }
 .field-hint { color: var(--text-subtle); float: right; font-size: 10px; }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.button.primary { background: var(--accent); border: 1px solid var(--accent); color: var(--text-dark-on-accent); cursor: pointer; font-weight: 600; }
-.button.primary:hover { filter: brightness(1.08); }
-.button.ghost { background: transparent; border: 1px solid transparent; color: var(--text-muted); cursor: pointer; }
-.button.ghost:hover { background: var(--surface-interactive); color: var(--text); }
 .form-error { color: var(--danger); font-size: 12px; line-height: 18px; margin: 0; }

@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { type DecisionCreatePayload } from "../../../api";
+import { Button } from "../../../shared/ui/Button";
+import { FormField } from "../../../shared/ui/FormField";
+import { IconButton } from "../../../shared/ui/IconButton";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { TextInput } from "../../../shared/ui/TextInput";
 
 const emptyDecision: DecisionCreatePayload = {
   title: "",
@@ -49,71 +54,63 @@ export function DecisionForm({
           <h2>{submitLabel}</h2>
         </div>
         {onCancel && (
-          <button
+          <IconButton
             aria-label="Close decision form"
-            className="icon-button"
             onClick={onCancel}
-            type="button"
           >
             x
-          </button>
+          </IconButton>
         )}
       </div>
       <div className="form-grid">
-        <label>
-          Title
-          <input
+        <FormField label="Title">
+          <TextInput
             autoFocus
             maxLength={160}
             onChange={(event) => change("title", event.target.value)}
             value={form.title}
           />
-        </label>
-        <label>
-          Context
-          <textarea
+        </FormField>
+        <FormField label="Context">
+          <Textarea
             aria-label="Decision context"
             onChange={(event) => change("context", event.target.value)}
             rows={3}
             value={form.context}
           />
-        </label>
-        <label>
-          Decision
-          <textarea
+        </FormField>
+        <FormField label="Decision">
+          <Textarea
             aria-label="Decision"
             onChange={(event) => change("decision", event.target.value)}
             rows={3}
             value={form.decision}
           />
-        </label>
-        <label>
-          Rationale
-          <textarea
+        </FormField>
+        <FormField label="Rationale">
+          <Textarea
             aria-label="Decision rationale"
             onChange={(event) => change("rationale", event.target.value)}
             rows={3}
             value={form.rationale}
           />
-        </label>
-        <label>
-          Alternatives considered
-          <textarea
+        </FormField>
+        <FormField label="Alternatives considered">
+          <Textarea
             onChange={(event) =>
               change("alternatives_considered", event.target.value)
             }
             rows={2}
             value={form.alternatives_considered ?? ""}
           />
-        </label>
-        <label>
-          Tradeoffs
-          <textarea
+        </FormField>
+        <FormField label="Tradeoffs">
+          <Textarea
             onChange={(event) => change("tradeoffs", event.target.value)}
             rows={2}
             value={form.tradeoffs ?? ""}
           />
-        </label>
+        </FormField>
       </div>
       {error && (
         <p className="form-error" role="alert">
@@ -122,13 +119,13 @@ export function DecisionForm({
       )}
       <div className="form-actions">
         {onCancel && (
-          <button className="button secondary" onClick={onCancel} type="button">
+          <Button onClick={onCancel} variant="secondary">
             Cancel
-          </button>
+          </Button>
         )}
-        <button className="button primary" type="submit">
+        <Button type="submit" variant="primary">
           {submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   );

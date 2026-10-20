@@ -1,3 +1,5 @@
+import { Checkbox } from "../../../shared/ui/Checkbox";
+
 export function MultiSelect({
   label,
   items,
@@ -22,7 +24,7 @@ export function MultiSelect({
           const value = id(item);
           return (
             <label className="fnd06-option" key={value}>
-              <input
+              <Checkbox
                 checked={selected.includes(value)}
                 onChange={(event) =>
                   onChange(

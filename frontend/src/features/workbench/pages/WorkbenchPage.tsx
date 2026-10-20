@@ -11,6 +11,7 @@ import {
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { MetricCard } from "../../../shared/ui/MetricCard";
 import { StatusChip } from "../../../shared/ui/StatusChip";
+import { Panel } from "../../../shared/ui/Panel";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 import { errorMessage } from "../utils";
@@ -114,7 +115,7 @@ export function WorkbenchPage({
             />
           </div>
           <div className="fnd05-grid">
-            <section className="fnd05-panel">
+            <Panel className="fnd05-panel">
               <div className="section-heading">
                 <div>
                   <span className="eyebrow">RECENT RUN ACTIVITY</span>
@@ -149,7 +150,7 @@ export function WorkbenchPage({
               ) : (
                 <EmptyWorkbench />
               )}
-            </section>
+            </Panel>
             <aside className="fnd05-side-stack">
               <section className="fnd05-panel">
                 <span className="eyebrow">HANDOFFS AWAITING REVIEW</span>
@@ -165,14 +166,14 @@ export function WorkbenchPage({
               <ProvenanceBanner />
             </aside>
           </div>
-          <section className="fnd05-panel fnd05-flow">
+          <Panel className="fnd05-panel fnd05-flow">
             <span className="eyebrow accent">FEATURE RELATIONSHIP</span>
             <h2>From Feature to recorded execution</h2>
             <p>
               Feature → immutable Context Package → Run → reported events →
               Handoff → later verification.
             </p>
-          </section>
+          </Panel>
         </>
       )}
     </PageFrame>

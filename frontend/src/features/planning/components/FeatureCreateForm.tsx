@@ -5,6 +5,12 @@ import {
   type FeaturePriority,
   type FeatureStatus,
 } from "../../../api";
+import { Button } from "../../../shared/ui/Button";
+import { FormField } from "../../../shared/ui/FormField";
+import { IconButton } from "../../../shared/ui/IconButton";
+import { Select } from "../../../shared/ui/Select";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { TextInput } from "../../../shared/ui/TextInput";
 import { label, priorities, statuses } from "../utils";
 
 export type FeatureFormPayload = {
@@ -59,28 +65,24 @@ export function FeatureCreateForm({
     <form className="planning-form" onSubmit={(event) => void submit(event)}>
       <div className="section-heading">
         <h2>Create feature</h2>
-        <button
+        <IconButton
           aria-label="Close create feature"
-          className="icon-button"
           onClick={onCancel}
-          type="button"
         >
           x
-        </button>
+        </IconButton>
       </div>
       <div className="form-grid">
-        <label>
-          Title
-          <input
+        <FormField label="Title">
+          <TextInput
             autoFocus
             maxLength={160}
             onChange={(event) => setTitle(event.target.value)}
             value={title}
           />
-        </label>
-        <label>
-          Priority
-          <select
+        </FormField>
+        <FormField label="Priority">
+          <Select
             onChange={(event) =>
               setPriority(event.target.value as FeaturePriority)
             }
@@ -91,11 +93,10 @@ export function FeatureCreateForm({
                 {label(item)}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Initial state
-          <select
+          </Select>
+        </FormField>
+        <FormField label="Initial state">
+          <Select
             onChange={(event) => setStatus(event.target.value as FeatureStatus)}
             value={status}
           >
@@ -104,11 +105,10 @@ export function FeatureCreateForm({
                 {label(item)}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Epic
-          <select
+          </Select>
+        </FormField>
+        <FormField label="Epic">
+          <Select
             onChange={(event) => setEpicId(event.target.value)}
             value={epicId}
           >
@@ -118,24 +118,22 @@ export function FeatureCreateForm({
                 {epic.title}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="wide-field">
-          Goal
-          <textarea
+          </Select>
+        </FormField>
+        <FormField className="wide-field" label="Goal">
+          <Textarea
             onChange={(event) => setGoal(event.target.value)}
             rows={2}
             value={goal}
           />
-        </label>
-        <label className="wide-field">
-          Description
-          <textarea
+        </FormField>
+        <FormField className="wide-field" label="Description">
+          <Textarea
             onChange={(event) => setDescription(event.target.value)}
             rows={3}
             value={description}
           />
-        </label>
+        </FormField>
       </div>
       {error && (
         <p className="form-error" role="alert">
@@ -143,16 +141,10 @@ export function FeatureCreateForm({
         </p>
       )}
       <div className="form-actions">
-        <button className="button secondary" onClick={onCancel} type="button">
+        <Button onClick={onCancel} variant="secondary">
           Cancel
-        </button>
-        <button
-          className="button primary"
-          disabled={actionPending}
-          type="submit"
-        >
-          {actionPending ? "Creating..." : "Create feature"}
-        </button>
+        </Button>
+        <Button loading={actionPending} loadingLabel="Creating..." type="submit" variant="primary">Create feature</Button>
       </div>
     </form>
   );
