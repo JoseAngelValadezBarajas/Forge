@@ -5,10 +5,10 @@ import { forgeApi } from "../../../api";
 import type { Workspace } from "../../../api";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
+import { MetricCard } from "../../../shared/ui/MetricCard";
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type Loaded } from "../types";
-import { Metric } from "../components/Metric";
 import { Provenance } from "../components/Provenance";
 import { EvidenceList } from "../evidence/EvidenceList";
 import { EmptyPanel } from "../components/EmptyPanel";
@@ -307,22 +307,26 @@ export function DeliveryPage({
           aria-label="Delivery summary"
           className="metric-grid fnd06-metrics"
         >
-          <Metric
+          <MetricCard
+            as="article"
             value={data.evidence.length}
             label="Evidence records"
             detail="Claims and saved observations"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={data.verifications.length}
             label="Checks evaluated"
             detail="Snapshots, including stale results"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={data.candidates.length}
             label="Release candidates"
             detail="Local planning records"
           />
-          <Metric
+          <MetricCard
+            as="article"
             value={
               data.verifications.filter(
                 (item) => item.result === "BLOCKED" || item.result === "FAIL",

@@ -13,12 +13,12 @@ import {
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
+import { StatusChip } from "../../../../shared/ui/StatusChip";
 import { formatDate } from "../../../../shared/utils/formatDate";
 import { type PaletteOpener } from "../../pages/types";
 import { errorMessage } from "../../utils";
 import { Loading } from "../../components/Loading";
 import { ErrorBox } from "../../components/ErrorBox";
-import { StatusChip } from "../../components/StatusChip";
 import { ProvenanceBanner } from "../../components/ProvenanceBanner";
 
 export function RunDetailPage({
@@ -192,7 +192,7 @@ export function RunDetailPage({
       title="Run Detail & Timeline"
     >
       <div className="fnd05-detail-toolbar">
-        <StatusChip status={run.status} />
+        <StatusChip className="fnd05-status" status={run.status} />
         <div className="form-actions">
           {nextStates.slice(0, 1).map((state) => (
             <button

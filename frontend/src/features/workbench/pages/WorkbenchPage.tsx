@@ -9,13 +9,13 @@ import {
   type Workspace,
 } from "../../../api";
 import { PageFrame } from "../../../shared/ui/PageFrame";
+import { MetricCard } from "../../../shared/ui/MetricCard";
+import { StatusChip } from "../../../shared/ui/StatusChip";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
 import { errorMessage } from "../utils";
 import { Loading } from "../components/Loading";
 import { ErrorBox } from "../components/ErrorBox";
-import { Metric } from "../components/Metric";
-import { StatusChip } from "../components/StatusChip";
 import { EmptyWorkbench } from "../components/EmptyWorkbench";
 import { ProvenanceBanner } from "../components/ProvenanceBanner";
 
@@ -92,22 +92,22 @@ export function WorkbenchPage({
       ) : (
         <>
           <div className="metric-grid">
-            <Metric
+            <MetricCard
               label="Recorded runs"
               value={runs.length}
               detail="Human-reported"
             />
-            <Metric
+            <MetricCard
               label="Active records"
               value={activeRuns}
               detail="Not process telemetry"
             />
-            <Metric
+            <MetricCard
               label="Handoffs ready"
               value={readyHandoffs}
               detail="Awaiting review"
             />
-            <Metric
+            <MetricCard
               label="Context snapshots"
               value={new Set(runs.map((item) => item.context_package_id)).size}
               detail="Immutable inputs"
@@ -142,7 +142,7 @@ export function WorkbenchPage({
                           {formatDate(run.updated_at)}
                         </p>
                       </div>
-                      <StatusChip status={run.status} />
+                      <StatusChip className="fnd05-status" status={run.status} />
                     </Link>
                   ))}
                 </div>

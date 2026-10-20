@@ -9,11 +9,11 @@ import {
   type Workspace,
 } from "../../../../api";
 import { PageFrame } from "../../../../shared/ui/PageFrame";
+import { StatusChip } from "../../../../shared/ui/StatusChip";
 import { type PaletteOpener } from "../../pages/types";
 import { errorMessage } from "../../utils";
 import { Loading } from "../../components/Loading";
 import { ErrorBox } from "../../components/ErrorBox";
-import { StatusChip } from "../../components/StatusChip";
 
 export function RunInventoryPage({
   workspace,
@@ -141,7 +141,7 @@ export function RunInventoryPage({
                       {run.feature_id.slice(0, 8)}
                     </p>
                   </div>
-                  <StatusChip status={run.status} />
+                  <StatusChip className="fnd05-status" status={run.status} />
                 </Link>
               ))}
             </div>

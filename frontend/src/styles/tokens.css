@@ -1,6 +1,8 @@
 :root {
   color-scheme: dark;
-  font-family: Geist, "Inter", "Segoe UI", sans-serif;
+  --font-ui: Geist, "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+  font-family: var(--font-ui);
   font-synthesis: none;
   --bg: #111315;
   --surface-sidebar: #121416;

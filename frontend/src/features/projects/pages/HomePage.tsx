@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { type Workspace } from "../../../api";
 import { ProjectCard } from "../components/ProjectCard";
 import { ErrorPanel } from "../../../shared/ui/ErrorPanel";
+import { MetricCard } from "../../../shared/ui/MetricCard";
 import { PageFrame } from "../../../shared/ui/PageFrame";
 import { formatDate } from "../../../shared/utils/formatDate";
 import { type PaletteOpener } from "./types";
@@ -32,22 +33,22 @@ export function HomePage({
       title="Workspace"
     >
       <section aria-label="Workspace summary" className="metric-grid">
-        <Metric
+        <MetricCard
           detail="Available locally"
           label="Workspaces"
           value={String(workspaceCount)}
         />
-        <Metric
+        <MetricCard
           detail="Not archived"
           label="Active projects"
           value={String(active.length)}
         />
-        <Metric
+        <MetricCard
           detail="Kept for history"
           label="Archived"
           value={String(archived.length)}
         />
-        <Metric
+        <MetricCard
           detail="Most recently changed"
           label="Recent projects"
           value={String(recent.length)}
@@ -122,24 +123,6 @@ export function HomePage({
         </aside>
       </div>
     </PageFrame>
-  );
-}
-
-export function Metric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="metric-card">
-      <span className="eyebrow">{label}</span>
-      <strong>{value}</strong>
-      <span>{detail}</span>
-    </div>
   );
 }
 
