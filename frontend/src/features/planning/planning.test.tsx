@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -498,5 +499,205 @@ describe("FND-02 planning views", () => {
     expect(
       screen.getAllByText(/Downstream feature/).at(-1),
     ).toBeInTheDocument();
+  });
+
+  it("presents an actionable feature summary and keeps archived detail read-only", async () => {
+    const task = {
+      id: "task-1",
+      feature_id: feature.id,
+      title: "Persist the plan",
+      description: null,
+      status: "todo",
+      position: 0,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    const criterion = {
+      id: "criterion-1",
+      feature_id: feature.id,
+      description: "The plan is visible",
+      satisfied: false,
+      position: 0,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    const readiness = {
+      evaluation_id: null,
+      feature_id: feature.id,
+      evaluated_at: "2026-01-01T00:00:00Z",
+      rule_set_version: "rfx03-v1",
+      input_fingerprint: "b".repeat(64),
+      outcome: "NOT_READY",
+      passed_checks: ["R02", "R04", "R06"],
+      failed_checks: ["R01", "R03", "R05"],
+      blockers: [],
+      results: [
+        { rule_id: "R01", rule_version: "1", result: "failed", explanation: "Define the feature.", blockers: [], references: [] },
+        { rule_id: "R02", rule_version: "1", result: "passed", explanation: "Criteria exist.", blockers: [], references: [] },
+        { rule_id: "R03", rule_version: "1", result: "failed", explanation: "Resolve dependencies.", blockers: [], references: [] },
+        { rule_id: "R04", rule_version: "1", result: "passed", explanation: "No linked decisions are blocking readiness.", blockers: [], references: [] },
+        { rule_id: "R05", rule_version: "1", result: "failed", explanation: "Review invariants.", blockers: [], references: [] },
+        { rule_id: "R06", rule_version: "1", result: "passed", explanation: "The project is active.", blockers: [], references: [] },
+      ],
+      stale: false,
+    };
+    let currentProject = {
+      ...project,
+      status: project.status as string,
+      archived_at: project.archived_at as string | null,
+    };
+    vi.mocked(globalThis.fetch).mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1") && !url.includes("/features/")) return response(currentProject);
+      if (url.endsWith("/features/feature-1")) return response(feature);
+      if (url.endsWith("/epics")) return response([]);
+      if (url.endsWith("/tasks")) return response([task]);
+      if (url.endsWith("/acceptance-criteria")) return response([criterion]);
+      if (url.endsWith("/dependencies")) return response([]);
+      if (url.includes("/features") && !url.includes("/readiness/")) return response([feature]);
+      if (url.endsWith("/readiness/preview")) return response(readiness);
+      if (url.endsWith("/readiness/evaluations")) return response([]);
+      if (url.includes("/invariants")) return response([]);
+      if (url.includes("/decisions")) return response([]);
+      return response([]);
+    });
+
+    const renderDetail = () =>
+      render(
+        <MemoryRouter initialEntries={["/projects/project-1/features/feature-1"]}>
+          <Routes>
+            <Route
+              element={<FeatureDetailPage onOpenPalette={() => undefined} workspace={workspace} />}
+              path="/projects/:projectId/features/:featureId"
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+    renderDetail();
+    expect(await screen.findByRole("heading", { name: "Edit feature" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Feature detail sections" })).toBeInTheDocument();
+    expect(await screen.findByText("3 / 6 rules passed")).toBeInTheDocument();
+    cleanup();
+    currentProject = { ...project, status: "archived", archived_at: "2026-01-02T00:00:00Z" };
+    renderDetail();
+
+    expect(await screen.findByText(/Archived project.*read-only/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save feature" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "New task" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "New acceptance criterion" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add dependency" })).not.toBeInTheDocument();
+    expect(screen.getByText("Persist the plan")).toBeInTheDocument();
+    expect(screen.getByText("The plan is visible")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Evaluate & save" })).not.toBeInTheDocument();
+  });
+
+  it("uses the current feature evaluation for readiness and dependency counts", async () => {
+    const readyReadiness = {
+      evaluation_id: null,
+      feature_id: feature.id,
+      evaluated_at: "2026-01-01T00:00:00Z",
+      rule_set_version: "rfx03-v1",
+      input_fingerprint: "c".repeat(64),
+      outcome: "READY_TO_START",
+      passed_checks: ["R01", "R02", "R03", "R04", "R05", "R06"],
+      failed_checks: [],
+      blockers: [],
+      results: ["R01", "R02", "R03", "R04", "R05", "R06"].map((rule_id) => ({
+        rule_id,
+        rule_version: "1",
+        result: "passed",
+        explanation: "Rule passed.",
+        blockers: [],
+        references: [],
+      })),
+      stale: false,
+    };
+    const incomingDependency = {
+      id: "dependency-1",
+      project_id: project.id,
+      blocking_feature_id: "feature-2",
+      blocked_feature_id: feature.id,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    vi.mocked(globalThis.fetch).mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1") && !url.includes("/features/")) return response(project);
+      if (url.endsWith("/features/feature-1")) return response(feature);
+      if (url.endsWith("/epics")) return response([]);
+      if (url.endsWith("/tasks")) return response([]);
+      if (url.endsWith("/acceptance-criteria")) return response([]);
+      if (url.endsWith("/dependencies")) return response([incomingDependency]);
+      if (url.includes("/features") && !url.includes("/readiness/")) return response([feature]);
+      if (url.endsWith("/readiness/preview")) return response(readyReadiness);
+      if (url.endsWith("/readiness/evaluations")) return response([]);
+      if (url.includes("/invariants")) return response([]);
+      if (url.includes("/decisions")) return response([]);
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/features/feature-1"]}>
+        <Routes>
+          <Route
+            element={<FeatureDetailPage onOpenPalette={() => undefined} workspace={workspace} />}
+            path="/projects/:projectId/features/:featureId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const summary = await screen.findByRole("region", { name: "Feature planning summary" });
+    await waitFor(() => expect(summary).toHaveTextContent("READY TO START"));
+    expect(summary).toHaveTextContent("READY TO START");
+    expect(within(summary).getByText("Blocked dependencies").parentElement).toHaveTextContent("0");
+  });
+
+  it("does not show another feature's readiness in the feature summary", async () => {
+    const foreignReadiness = {
+      evaluation_id: null,
+      feature_id: "feature-2",
+      evaluated_at: "2026-01-01T00:00:00Z",
+      rule_set_version: "rfx03-v1",
+      input_fingerprint: "d".repeat(64),
+      outcome: "READY_TO_START",
+      passed_checks: ["R01", "R02", "R03", "R04", "R05", "R06"],
+      failed_checks: [],
+      blockers: [],
+      results: [],
+      stale: false,
+    };
+    vi.mocked(globalThis.fetch).mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1") && !url.includes("/features/")) return response(project);
+      if (url.endsWith("/features/feature-1")) return response(feature);
+      if (url.endsWith("/epics")) return response([]);
+      if (url.endsWith("/tasks")) return response([]);
+      if (url.endsWith("/acceptance-criteria")) return response([]);
+      if (url.endsWith("/dependencies")) return response([]);
+      if (url.includes("/features") && !url.includes("/readiness/")) return response([feature]);
+      if (url.endsWith("/readiness/preview")) return response(foreignReadiness);
+      if (url.endsWith("/readiness/evaluations")) return response([]);
+      if (url.includes("/invariants")) return response([]);
+      if (url.includes("/decisions")) return response([]);
+      return response([]);
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/projects/project-1/features/feature-1"]}>
+        <Routes>
+          <Route
+            element={<FeatureDetailPage onOpenPalette={() => undefined} workspace={workspace} />}
+            path="/projects/:projectId/features/:featureId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const summary = await screen.findByRole("region", { name: "Feature planning summary" });
+    await screen.findByText("UNAVAILABLE");
+    expect(summary).toHaveTextContent("Loading preview");
+    expect(summary).not.toHaveTextContent("READY TO START");
   });
 });

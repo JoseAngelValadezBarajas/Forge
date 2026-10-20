@@ -9,6 +9,7 @@ export function CriterionRow({
   first,
   last,
   disabled,
+  readOnly = false,
 }: {
   criterion: AcceptanceCriterion;
   onSave: (payload: {
@@ -19,6 +20,7 @@ export function CriterionRow({
   first: boolean;
   last: boolean;
   disabled: boolean;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(criterion.description);
@@ -81,7 +83,7 @@ export function CriterionRow({
         </form>
       ) : (
         <>
-          <button
+          {!readOnly && <button
             aria-label={`${criterion.satisfied ? "Mark unsatisfied" : "Mark satisfied"}: ${criterion.description}`}
             className={`criterion-check${criterion.satisfied ? " checked" : ""}`}
             disabled={saving || disabled}
@@ -89,14 +91,15 @@ export function CriterionRow({
             type="button"
           >
             {criterion.satisfied ? "✓" : ""}
-          </button>
+          </button>}
+          {readOnly && <span className="read-only-item-state">{criterion.satisfied ? "satisfied" : "not satisfied"}</span>}
           <span className="planning-item-copy">
             <strong className={criterion.satisfied ? "task-done" : ""}>
               {criterion.description}
             </strong>
             <small>Manual declaration only; not verification evidence.</small>
           </span>
-          <button
+          {!readOnly && <button
             aria-label={`Edit criterion ${criterion.description}`}
             className="button ghost"
             disabled={disabled}
@@ -104,10 +107,10 @@ export function CriterionRow({
             type="button"
           >
             Edit
-          </button>
+          </button>}
         </>
       )}
-      <div className="reorder-controls">
+      {!readOnly && <div className="reorder-controls">
         <button
           aria-label={`Move criterion ${criterion.description} up`}
           className="icon-button"
@@ -126,7 +129,7 @@ export function CriterionRow({
         >
           ↓
         </button>
-      </div>
+      </div>}
       {error && (
         <span className="form-error" role="alert">
           {error}

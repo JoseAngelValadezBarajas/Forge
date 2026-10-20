@@ -25,7 +25,9 @@ test("completes the decisions, invariants and readiness workflow in Chromium", a
   await expect(page.getByRole("heading", { name: /Planning readiness feature/, level: 1 })).toBeVisible();
   const featureUrl = page.url();
   const projectUrl = featureUrl.split("/features/")[0];
-  await expect(page.getByText("NOT READY", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("NOT READY", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/Add clear acceptance criteria/)).toBeVisible();
 
   await page.getByLabel("New acceptance criterion").fill("The readiness result explains every rule");
@@ -59,7 +61,9 @@ test("completes the decisions, invariants and readiness workflow in Chromium", a
   await page.getByLabel("Decision to link").selectOption({ label: "Use local planning rules" });
   await page.getByRole("button", { name: "Link", exact: true }).click();
   await page.getByRole("button", { name: "Acknowledge review", exact: true }).click();
-  await expect(page.getByText("READY TO START", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("READY TO START", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Evaluate & save", exact: true }).click();
   await expect(page.locator(".history-row")).toHaveCount(1);
 
@@ -70,7 +74,9 @@ test("completes the decisions, invariants and readiness workflow in Chromium", a
   await page.getByRole("button", { name: "Save invariant", exact: true }).click();
 
   await page.goto(featureUrl);
-  await expect(page.getByText("STALE", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Planning readiness", exact: true }).getByText("STALE", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Planning is not verification · rev 2", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Acknowledge review", exact: true }).click();
   await expect(page.getByText("Reviewed · not technical proof", { exact: true })).toBeVisible();

@@ -1,26 +1,81 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   forgeApi,
   ApiError,
   type ApplicableInvariant,
   type Decision,
   type Feature,
+  type ReadinessBlocker,
   type ReadinessEvaluation,
   type Workspace,
 } from "../../../api";
 import { LoadingPanel } from "../../../shared/ui/LoadingPanel";
 import { message, stamp } from "../utils";
 
+function BlockerAction({
+  blocker,
+  featureId,
+  projectId,
+  ruleId,
+  archived,
+}: {
+  blocker: ReadinessBlocker;
+  featureId: string;
+  projectId: string;
+  ruleId: string;
+  archived: boolean;
+}) {
+  const reference = blocker.references[0];
+  if (ruleId === "R01") {
+    return (
+      <a href="#feature-definition">
+        {archived ? "Review definition" : "Edit definition"}
+      </a>
+    );
+  }
+  if (ruleId === "R02") {
+    return (
+      <a href="#acceptance-criteria">
+        {archived ? "Review acceptance criteria" : "Add criteria"}
+      </a>
+    );
+  }
+  if (ruleId === "R03") {
+    return reference?.kind === "feature" && reference.id !== featureId ? (
+      <Link to={`/projects/${projectId}/features/${encodeURIComponent(reference.id)}`}>
+        Open blocking feature
+      </Link>
+    ) : (
+      <a href="#dependencies">Review dependencies</a>
+    );
+  }
+  if (ruleId === "R04") {
+    return <Link to={`/projects/${projectId}/decisions`}>Open Decisions</Link>;
+  }
+  if (ruleId === "R05") {
+    return <a href="#readiness-invariants">Review invariants</a>;
+  }
+  if (ruleId === "R06") {
+    return <Link to={`/projects/${projectId}`}>Open Project Overview</Link>;
+  }
+  return null;
+}
+
 export function ReadinessPanel({
   workspace,
   projectId,
   feature,
   refreshKey,
+  archived = false,
+  onPreviewChange,
 }: {
   workspace: Workspace;
   projectId: string;
   feature: Feature;
   refreshKey: string | number;
+  archived?: boolean;
+  onPreviewChange?: (evaluation: ReadinessEvaluation | null) => void;
 }) {
   const [preview, setPreview] = useState<ReadinessEvaluation | null>(null);
   const [history, setHistory] = useState<ReadinessEvaluation[]>([]);
@@ -35,6 +90,13 @@ export function ReadinessPanel({
   const [error, setError] = useState<string | null>(null);
   const loadController = useRef<AbortController | null>(null);
   const actionController = useRef<AbortController | null>(null);
+  const publishPreview = useCallback(
+    (next: ReadinessEvaluation | null) => {
+      setPreview(next);
+      onPreviewChange?.(next);
+    },
+    [onPreviewChange],
+  );
   const load = useCallback(async () => {
     void refreshKey;
     actionController.current?.abort();
@@ -43,6 +105,8 @@ export function ReadinessPanel({
     loadController.current?.abort();
     loadController.current = controller;
     setLoading(true);
+    publishPreview(null);
+    setError(null);
     try {
       const [
         nextPreview,
@@ -77,9 +141,18 @@ export function ReadinessPanel({
         ),
         forgeApi.listDecisions(workspace.id, projectId, controller.signal),
       ]);
-      setPreview(
-        nextPreview && Array.isArray(nextPreview.results) ? nextPreview : null,
-      );
+      const currentPreview =
+        nextPreview &&
+        nextPreview.feature_id === feature.id &&
+        Array.isArray(nextPreview.results)
+          ? nextPreview
+          : null;
+      publishPreview(currentPreview);
+      const previewError =
+        nextPreview && !currentPreview
+          ? "Readiness preview is unavailable for this Feature."
+          : null;
+      if (previewError) setError(previewError);
       setHistory(
         Array.isArray(nextHistory)
           ? nextHistory.filter((item) =>
@@ -90,14 +163,16 @@ export function ReadinessPanel({
       setInvariants(Array.isArray(nextInvariants) ? nextInvariants : []);
       setDecisions(Array.isArray(nextDecisions) ? nextDecisions : []);
       setAllDecisions(Array.isArray(nextAllDecisions) ? nextAllDecisions : []);
-      setError(null);
+      if (!previewError) setError(null);
     } catch (cause) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
+        publishPreview(null);
         setError(message(cause, "Could not evaluate readiness."));
+      }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [feature.id, projectId, refreshKey, workspace.id]);
+  }, [feature.id, projectId, publishPreview, refreshKey, workspace.id]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
@@ -107,6 +182,7 @@ export function ReadinessPanel({
     };
   }, [load]);
   const run = async (kind: "preview" | "save") => {
+    if (archived && kind === "save") return;
     setPending(kind);
     setError(null);
     actionController.current?.abort();
@@ -128,11 +204,21 @@ export function ReadinessPanel({
               controller.signal,
             );
       if (controller.signal.aborted) return;
-      setPreview(next);
-      if (kind === "save") setHistory((current) => [next, ...current]);
+      const currentPreview =
+        next.feature_id === feature.id && Array.isArray(next.results)
+          ? next
+          : null;
+      publishPreview(currentPreview);
+      if (!currentPreview) {
+        setError("Readiness preview is unavailable for this Feature.");
+      } else if (kind === "save") {
+        setHistory((current) => [currentPreview, ...current]);
+      }
     } catch (cause) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
+        publishPreview(null);
         setError(message(cause, "Could not evaluate readiness."));
+      }
     } finally {
       if (!controller.signal.aborted) setPending(null);
     }
@@ -195,6 +281,7 @@ export function ReadinessPanel({
     );
   return (
     <section
+      id="readiness"
       className="detail-section readiness-panel"
       aria-label="Planning readiness"
     >
@@ -204,17 +291,25 @@ export function ReadinessPanel({
           <h2>Readiness</h2>
         </div>
         <span
-          className={`readiness-outcome ${preview?.outcome === "READY_TO_START" ? "ready" : "blocked"}`}
+          className={`readiness-outcome ${preview?.outcome === "READY_TO_START" ? "ready" : preview ? "blocked" : "unavailable"}`}
         >
-          {preview?.outcome === "READY_TO_START"
-            ? "READY TO START"
-            : "NOT READY"}
+          {preview
+            ? preview.outcome === "READY_TO_START"
+              ? "READY TO START"
+              : "NOT READY"
+            : "UNAVAILABLE"}
         </span>
       </div>
       <p className="planning-disclaimer">
         Manual Feature Status is separate. READY TO START means planning rules
         pass; no implementation or delivery verification was performed.
       </p>
+      {archived && (
+        <p className="read-only-notice" role="status">
+          Archived project · read-only. You can review readiness and history, but
+          cannot change planning data or save a new evaluation.
+        </p>
+      )}
       {error && (
         <p className="status-error" role="alert">
           {error}
@@ -235,7 +330,9 @@ export function ReadinessPanel({
                 {preview.passed_checks.length} / {preview.results.length} rules
                 passed
               </span>
-              <span>{preview.stale ? "STALE" : preview.rule_set_version}</span>
+              <span>
+                {preview.stale ? "STALE" : preview.rule_set_version}
+              </span>
             </div>
             <div className="readiness-track">
               <span
@@ -259,12 +356,19 @@ export function ReadinessPanel({
                   <p>{result.explanation}</p>
                 </div>
                 {result.blockers.map((blocker, blockerIndex) => (
-                  <span
+                  <div
                     className="readiness-blocker"
                     key={`${result.rule_id}-${blocker.code}-${blockerIndex}`}
                   >
-                    {blocker.message}
-                  </span>
+                    <span>{blocker.message}</span>
+                    <BlockerAction
+                      blocker={blocker}
+                      archived={archived}
+                      featureId={feature.id}
+                      projectId={projectId}
+                      ruleId={result.rule_id}
+                    />
+                  </div>
                 ))}
               </article>
             ))}
@@ -278,14 +382,16 @@ export function ReadinessPanel({
             >
               {pending === "preview" ? "Evaluating..." : "Preview current"}
             </button>
-            <button
-              className="button primary"
-              disabled={pending !== null}
-              onClick={() => void run("save")}
-              type="button"
-            >
-              {pending === "save" ? "Saving..." : "Evaluate & save"}
-            </button>
+            {!archived && (
+              <button
+                className="button primary"
+                disabled={pending !== null}
+                onClick={() => void run("save")}
+                type="button"
+              >
+                {pending === "save" ? "Saving..." : "Evaluate & save"}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -307,7 +413,7 @@ export function ReadinessPanel({
                 No decisions linked. This does not fail readiness by itself.
               </p>
             )}
-            {unlinked.length > 0 && (
+            {!archived && unlinked.length > 0 && (
               <div className="inline-link-form">
                 <select
                   aria-label="Decision to link"
@@ -331,8 +437,13 @@ export function ReadinessPanel({
                 </button>
               </div>
             )}
+            {archived && (
+              <p className="read-only-subnote">
+                Decision links are review-only while this project is archived.
+              </p>
+            )}
           </div>
-          <div>
+          <div id="readiness-invariants">
             <div className="section-heading">
               <h3>Applicable invariants</h3>
               <span>{invariants.length}</span>
@@ -347,7 +458,7 @@ export function ReadinessPanel({
                     <p>{item.statement}</p>
                     <small>Why: {item.rationale}</small>
                   </div>
-                  {item.needs_acknowledgement ? (
+                  {item.needs_acknowledgement && !archived ? (
                     <button
                       className="button ghost"
                       disabled={pending !== null}
@@ -359,7 +470,11 @@ export function ReadinessPanel({
                         : "Acknowledge review"}
                     </button>
                   ) : (
-                    <small>Reviewed · not technical proof</small>
+                    <small>
+                      {item.needs_acknowledgement && archived
+                        ? "Review only · project archived"
+                        : "Reviewed · not technical proof"}
+                    </small>
                   )}
                 </div>
               ))
@@ -383,10 +498,18 @@ export function ReadinessPanel({
         {history.length ? (
           history.map((item) => (
             <div className="history-row" key={item.evaluation_id}>
-              <span>{stamp(item.evaluated_at)}</span>
+              <span>
+                <strong className="history-kind">SAVED SNAPSHOT</strong>
+                {stamp(item.evaluated_at)}
+              </span>
               <strong>{item.outcome}</strong>
               <span className={item.stale ? "history-stale" : ""}>
-                {item.stale ? "STALE" : item.input_fingerprint.slice(0, 10)}
+                {item.stale ? (
+                  <>
+                    <strong>STALE</strong>
+                    <small>context changed</small>
+                  </>
+                ) : "CURRENT INPUTS"}
               </span>
             </div>
           ))
